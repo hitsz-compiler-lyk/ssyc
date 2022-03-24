@@ -3,6 +3,13 @@
         "*.g3": "antlr4",
         "m": "shellscript"
     },
+
+    "files.exclude": {
+        "bin": true,
+        "lib": true,
+        "_trash": true,
+        "targte": true
+    },
     
     "workbench.editor.enablePreview": true,
     "explorer.compactFolders": true,
