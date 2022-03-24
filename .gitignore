@@ -1,0 +1,13 @@
+# Dependences
+bin
+lib
+
+# Build target
+target
+
+# Generated frontend codes
+src/top/origami404/ssyc/frontend/gen
+*.tokens
+
+# Dustbin
+_trash

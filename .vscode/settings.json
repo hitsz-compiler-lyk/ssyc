@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "*.g3": "antlr4",
+        "m": "shellscript"
+    },
+    
+    "workbench.editor.enablePreview": true,
+    "explorer.compactFolders": true,
+}
