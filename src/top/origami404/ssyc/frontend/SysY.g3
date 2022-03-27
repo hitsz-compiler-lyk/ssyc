@@ -1,124 +1,188 @@
 grammar SysY;
 
 options {
+    backtrack = true;
+    memoize = true;
     output = AST;
     ASTLabelType = CommonTree;
 }
 
+tokens {
+    FuncDef         = 'FuncDef';
+    FuncParamList   = 'FuncParamList';
+    FuncParam       = 'FuncParam';
+    ConstDef        = 'ConstDef';
+    VarDef          = 'VarDef';
+    InitList        = 'InitList';
+    Block           = 'Block';
+    StmtExp         = 'StmtExp';
+    StmtAssign      = 'StmtAssign';
+    StmtEmpty       = 'StmtEmpty';
+    StmtBreak       = 'StmtBreak';
+    StmtContinue    = 'StmtContinue';
+    StmtReturn      = 'StmtReturn';
+    StmtEmpty       = 'StmtEmpty';
+    StmtIf          = 'StmtIf';
+    StmtWhile       = 'StmtWhile';
+    StmtPutf        = 'StmtPutf';
+    LogOp           = 'LogOp';
+    RelOp           = 'RelOp';
+    BinOp           = 'BinOp';
+    UnoOp           = 'UnoOp';
+    FuncCall        = 'FuncCall';
+    FuncArgList     = 'FuncArgList';
+    LVal            = 'LVal';
+    Dims            = 'Dims';
+}
+
 @lexer::header {
-    package top.origami404.ssyc.frontend.gen;
+    package top.origami404.ssyc.frontend;
 }
 
 @parser::header {
-    package top.origami404.ssyc.frontend.gen;
+    package top.origami404.ssyc.frontend;
 }
-
-Ident: [a-zA-Z_] [a-zA-Z0-9_]* ;
-IntConst: [0-9]+ ;
-FloatConst: [0-9]+ '.' [0-9]* ;
-StringConst: '"' [^"\n]* '"' ;
 
 BType: ('int' | 'float' | 'void');
 
+Ident: ('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')* ;
+IntConst: ('0'..'9')+ ;
+FloatConst: ('0'..'9')+ '.' ('0'..'9')* ;
+StrConst: '"' ~('"'|'\n')* '"' ;
+
+WS: (' ' | '\t' | '\n' | '\r')+     { skip(); } ;
 
 //================== Parser ============================
 compUnit: (decl | funcDef)* ;
 
 
 //---------------- Declaration & Definition ------------
-funcDef: BType Ident '(' funcParamList ')' block;
+funcDef
+    : BType Ident '(' funcParamList ')' block   -> ^(FuncDef BType Ident funcParamList block)
+    ;
 
-funcParamList: (funcParam (',' funcParam)*)? ;
-funcParam: BType lVal ;
+funcParamList
+    : (funcParam (',' funcParam)*)?             -> ^(FuncParamList funcParam*)
+    ;
+funcParam
+    : BType lVal                                -> ^(FuncParam BType lVal)
+    ;
 
-decl: 'const'? BType def ';' ;
+decl
+    : 'const' BType (def (',' def)*) ';'    -> ^(ConstDef BType def)+
+    | BType (def (',' def)*) ';'            -> ^(VarDef BType def)+
+    ;
 
-def: (defOne (',' defOne)*)? ;
-defOne: lVal ('=' initVal)? ;
+def
+    : lVal ('=' initVal)?   -> lVal initVal?
+    ;
 
 initVal
-    : exp
-    | '{' (initVal (',' initVal)*)? '}'
+    : exp                                   -> exp
+    | '{' (initVal (',' initVal)*)? '}'     -> ^(InitList initVal*)
     ;
 
 
 //---------------------------- stmt ---------------------
 stmt
-    : block
-    | ifStmt
-    | whileStmt
-    | putfForm
-    | exp ';'
-    | lVal '=' exp ';'
-    | ';'
-    | 'break'       ';'
-    | 'continue'    ';'
-    | 'return' exp? ';'
+    : block                 -> block
+    | stmtIf                -> stmtIf
+    | stmtWhile             -> stmtWhile
+    | stmtPutf              -> stmtPutf
+    | exp ';'               -> ^(StmtExp exp)
+    | lVal '=' exp ';'      -> ^(StmtAssign lVal exp)
+    | ';'                   -> ^(StmtEmpty)
+    | 'break'       ';'     -> ^(StmtBreak)
+    | 'continue'    ';'     -> ^(StmtContinue)
+    | 'return' exp? ';'     -> ^(StmtReturn exp?)
     ;
 
-block: '{' (decl | stmt)* '}' ;
-
-ifStmt
-    : 'if' '(' cond ')' stmt
-    | 'if' '(' cond ')' stmt 'else' stmt
+blockItem: (decl | stmt);
+block
+    : '{' blockItem* '}'       -> ^(Block blockItem*)
     ;
 
-whileStmt: 'while' '(' cond ')' stmt ;
+stmtIf
+    : 'if' '(' cond ')' s1=stmt                 -> ^(StmtIf cond $s1 StmtEmpty)
+    | 'if' '(' cond ')' s1=stmt 'else' s2=stmt  -> ^(StmtIf cond $s1 $s2)
+    ;
 
-putfForm: 'putf' '(' String ',' funcArgs ')' ';' ;
+stmtWhile
+    : 'while' '(' cond ')' stmt                 -> ^(StmtWhile cond stmt)
+    ;
+
+stmtPutf
+    : 'putf' '(' StrConst ',' funcArgList ')' ';'  -> ^(StmtPutf StrConst funcArgList)
+    ;
 
 
 //----------------- expression ----------------------------
-cond: logOr;
-exp: expAdd;
+cond
+    : logOr     -> logOr
+    ;
+
+exp
+    : expAdd    -> expAdd
+    ;
 
 logOr
-    : logAnd
-    | logAnd '||' logOr
+    : logAnd '||' logOr     -> ^(LogOp '||' logAnd logOr)
+    | logAnd                -> logAnd
     ;
 
 logAnd
-    : relEq 
-    | relEq '&&' logAnd
+    : relEq '&&' logAnd     -> ^(LogOp '&&' relEq logAnd)
+    | relEq                 -> relEq       
     ;
 
 relEq
-    : relComp
-    | relComp '==' relEq
-    | relComp '!=' relEq
+    : relComp '==' relEq    -> ^(RelOp '==' relComp relEq)
+    | relComp '!=' relEq    -> ^(RelOp '!=' relComp relEq)
+    | relComp               -> relComp
     ;
 
 relComp
-    : expAdd
-    | expAdd '<' relComp
-    | expAdd '>' relComp
-    | expAdd '<=' relComp
-    | expAdd '<=' relComp
+    : expAdd '<' relComp    -> ^(RelOp '<' expAdd relComp)
+    | expAdd '>' relComp    -> ^(RelOp '>' expAdd relComp)
+    | expAdd '<=' relComp   -> ^(RelOp '<=' expAdd relComp)
+    | expAdd '>=' relComp   -> ^(RelOp '>=' expAdd relComp)
+    | expAdd                -> expAdd
     ;
 
 expAdd
-    : expMul
-    | expMul '+' expAdd
-    | expMul '-' expAdd
+    : expMul '+' expAdd -> ^(BinOp '+' expMul expAdd)
+    | expMul '-' expAdd -> ^(BinOp '-' expMul expAdd)
+    | expMul            -> expMul
+    ;
+
+expMul
+    : expUnary '*' expMul   -> ^(BinOp '*' expUnary expMul)
+    | expUnary '/' expMul   -> ^(BinOp '/' expUnary expMul)
+    | expUnary '%' expMul   -> ^(BinOp '%' expUnary expMul)
+    | expUnary              -> expUnary
     ;
 
 expUnary
-    : atom
-    | '+' unaryExp
-    | '-' unaryExp
-    | '!' unaryExp
-    | Ident '(' funcArgList ')'
+    : atom                      -> atom
+    | '+' expUnary              -> ^(UnoOp '+' expUnary)
+    | '-' expUnary              -> ^(UnoOp '-' expUnary)
+    | '!' expUnary              -> ^(UnoOp '!' expUnary)
+    | Ident '(' funcArgList ')' -> ^(FuncCall Ident funcArgList)
     ;
 
 atom
-    : '(' exp ')'
-    | lVal
-    | IntConst
-    | FloatConst
+    : '(' exp ')'   -> exp
+    | lVal          -> lVal
+    | IntConst      -> IntConst
+    | FloatConst    -> FloatConst
     ;
 
 
 //----------------- misc ----------------------------
-funcArgList: (exp (',' exp)*)?;
+funcArgList
+    : (exp (',' exp)*)?         -> ^(FuncArgList exp*)
+    ;
 
-lVal: Ident ('[' exp ']')*;
+lVal
+    : Ident ('[' exp ']')*      -> ^(LVal Ident ^(Dims exp*))
+    ;
