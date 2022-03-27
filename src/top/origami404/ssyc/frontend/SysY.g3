@@ -51,6 +51,8 @@ FloatConst: ('0'..'9')+ '.' ('0'..'9')* ;
 StrConst: '"' ~('"'|'\n')* '"' ;
 
 WS: (' ' | '\t' | '\n' | '\r')+     { skip(); } ;
+LineComments: '//' .*               { skip(); } ;
+BlockComments: '/*' (!'*/' .)* '*/' { skip(); } ;
 
 //================== Parser ============================
 compUnit: (decl | funcDef)* ;
