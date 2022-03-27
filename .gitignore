@@ -6,8 +6,9 @@ lib
 target
 
 # Generated frontend codes
-src/top/origami404/ssyc/frontend/gen
 *.tokens
+src/top/origami404/ssyc/frontend/SysYLexer.java
+src/top/origami404/ssyc/frontend/SysYParser.java
 
 # Dustbin
 _trash
