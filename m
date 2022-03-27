@@ -14,7 +14,7 @@ cleanup() {
 
 compile() {
     # Generate lexer and parser
-    java -jar bin/antlr3.jar $(find src -name '*.g3')
+    java -jar bin/antlr3.jar -make $(find src -name '*.g3')
 
     # Compile to .class
     javac -d target -cp 'lib/*' $(find src -name '*.java')
