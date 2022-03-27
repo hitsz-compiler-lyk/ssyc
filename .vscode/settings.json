@@ -1,7 +1,8 @@
 {
     "files.associations": {
         "*.g3": "antlr4",
-        "m": "shellscript"
+        "m": "shellscript",
+        "*.sy": "c",
     },
 
     "files.exclude": {

@@ -1,0 +1,9 @@
+{
+    "println": {
+        "prefix": "println",
+        "body": [
+            "System.out.println(${1:message});"
+        ],
+        "description": "Prints the given expression to the console."
+    },
+}
