@@ -27,7 +27,7 @@ make_jar() {
     mkdir META-INF
     touch META-INF/MANIFEST.MF
 
-    ehco 'Manifest-Version: 1.0' >> META-INF/MANIFEST.MF
+    echo 'Manifest-Version: 1.0' >> META-INF/MANIFEST.MF
     echo 'Main-Class: top.origami404.ssyc.Main' >> META-INF/MANIFEST.MF
     echo 'Class-Path: . ../lib/antlr-runtime-3.5.2.jar' >> META-INF/MANIFEST.MF
 
