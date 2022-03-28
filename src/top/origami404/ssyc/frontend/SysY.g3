@@ -46,13 +46,31 @@ tokens {
 BType: ('int' | 'float' | 'void');
 
 Ident: ('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')* ;
-IntConst: ('0'..'9')+ ;
-FloatConst: ('0'..'9')+ '.' ('0'..'9')* ;
+
+// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 51
+// the expoent part of hex style cannot be ignored
+// the expoent part of hex style is still a `digit-sequence`, which `digit` is `DEC`
+FloatConst: FloatDec | FloatHex ;
+fragment FloatDec:               (DEC* '.' DEC*) (('e' | 'E') ('+' | '-')? DEC+)? ;
+fragment FloatHex: ('0x' | '0X') (HEX* '.' HEX*)  ('p' | 'P') ('+' | '-')? DEC+   ;
+
+// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 54
+// `0` is considered as an octal number
+IntConst: IntDec | IntOct | IntHex ;
+fragment IntDec: ('1'..'9') DEC* ;
+fragment IntOct: '0' ('0'..'7')* ;
+fragment IntHex: ('0x' | '0X') HEX+ ;
+
+fragment DEC: '0'..'9';
+fragment HEX: 'a'..'f' | 'A'..'F' | '0'..'9';
+
 StrConst: '"' ~('"'|'\n')* '"' ;
 
+// See Ref: http://index-of.es/Programming/Pragmatic%20Programmers/The%20Definitive%20ANTLR%20Reference.pdf page 101
+// .* and .+ are defaultly not greedy
 WS: (' ' | '\t' | '\n' | '\r')+     { skip(); } ;
-LineComments: '//' .*               { skip(); } ;
-BlockComments: '/*' (!'*/' .)* '*/' { skip(); } ;
+LineComments: '//' .* '\n'          { skip(); } ;
+BlockComments: '/*' .* '*/'         { skip(); } ;
 
 //================== Parser ============================
 compUnit: (decl | funcDef)* ;
