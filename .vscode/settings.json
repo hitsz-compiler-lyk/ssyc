@@ -9,7 +9,9 @@
         "bin": true,
         "lib": true,
         "_trash": true,
-        "targte": true
+        "target": true,
+        "src/top/origami404/ssyc/frontend/SysYLexer.java": true,
+        "src/top/origami404/ssyc/frontend/SysYParser.java": true,
     },
     
     "workbench.editor.enablePreview": true,
