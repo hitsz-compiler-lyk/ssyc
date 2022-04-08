@@ -33,6 +33,11 @@ tokens {
     FuncArgList     = 'FuncArgList';
     LVal            = 'LVal';
     Dims            = 'Dims';
+
+    IntLiteral      = 'IntLiteral';
+    FloatLiteral    = 'FloatLiteral';
+    IntToFloat      = 'IntToFloat';
+    FloatToInt      = 'FloatToInt';
 }
 
 @lexer::header {
@@ -193,8 +198,8 @@ expUnary
 atom
     : '(' exp ')'   -> exp
     | lVal          -> lVal
-    | IntConst      -> IntConst
-    | FloatConst    -> FloatConst
+    | IntConst      -> ^(IntLiteral IntConst)
+    | FloatConst    -> ^(FloatLiteral FloatConst)
     ;
 
 
