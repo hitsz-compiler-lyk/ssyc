@@ -21,14 +21,12 @@ tokens {
     StmtBreak       = 'StmtBreak';
     StmtContinue    = 'StmtContinue';
     StmtReturn      = 'StmtReturn';
-    StmtEmpty       = 'StmtEmpty';
     StmtIf          = 'StmtIf';
     StmtWhile       = 'StmtWhile';
     StmtPutf        = 'StmtPutf';
     LogOp           = 'LogOp';
     RelOp           = 'RelOp';
-    BinOp           = 'BinOp';
-    UnoOp           = 'UnoOp';
+    AddOp           = 'AddOp';
     FuncCall        = 'FuncCall';
     FuncArgList     = 'FuncArgList';
     LVal            = 'LVal';
@@ -175,23 +173,23 @@ relComp
     ;
 
 expAdd
-    : expMul '+' expAdd -> ^(BinOp '+' expMul expAdd)
-    | expMul '-' expAdd -> ^(BinOp '-' expMul expAdd)
+    : expMul '+' expAdd -> ^(AddOp '+' expMul expAdd)
+    | expMul '-' expAdd -> ^(AddOp '-' expMul expAdd)
     | expMul            -> expMul
     ;
 
 expMul
-    : expUnary '*' expMul   -> ^(BinOp '*' expUnary expMul)
-    | expUnary '/' expMul   -> ^(BinOp '/' expUnary expMul)
-    | expUnary '%' expMul   -> ^(BinOp '%' expUnary expMul)
+    : expUnary '*' expMul   -> ^(AddOp '*' expUnary expMul)
+    | expUnary '/' expMul   -> ^(AddOp '/' expUnary expMul)
+    | expUnary '%' expMul   -> ^(AddOp '%' expUnary expMul)
     | expUnary              -> expUnary
     ;
 
 expUnary
     : atom                      -> atom
-    | '+' expUnary              -> ^(UnoOp '+' expUnary)
-    | '-' expUnary              -> ^(UnoOp '-' expUnary)
-    | '!' expUnary              -> ^(UnoOp '!' expUnary)
+    | '+' expUnary              -> ^(AddOp '+' expUnary)
+    | '-' expUnary              -> ^(AddOp '-' expUnary)
+    | '!' expUnary              -> ^(LogOp '!' expUnary)
     | Ident '(' funcArgList ')' -> ^(FuncCall Ident funcArgList)
     ;
 
