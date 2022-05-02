@@ -1,8 +1,9 @@
 {
     "files.associations": {
-        "*.g3": "antlr4",
+        "*.g4": "antlr",
         "m": "shellscript",
         "*.sy": "c",
+        "*.s": "arm",
     },
 
     "files.exclude": {
@@ -10,8 +11,8 @@
         "lib": true,
         "_trash": true,
         "target": true,
-        "src/top/origami404/ssyc/frontend/SysYLexer.java": true,
-        "src/top/origami404/ssyc/frontend/SysYParser.java": true,
+        "**/.antlr": true,
+        "test-data/**/*.exec": true,
     },
     
     "workbench.editor.enablePreview": true,
