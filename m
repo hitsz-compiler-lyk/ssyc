@@ -67,5 +67,5 @@ case $subcommand in
     jar-run) run_jar ;;
     build_test) build_test_image ;;
     test) run_test ;;
-    full) cleanup && compile && echo 'Build finish.' && run ;;
+    full) cleanup && compile && echo 'Build finish.' && run $@;;
 esac
