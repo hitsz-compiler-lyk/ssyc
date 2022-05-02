@@ -41,7 +41,7 @@ make_jar() {
 }
 
 run() {
-    java -cp "lib/*:target" top.origami404.ssyc.Main
+    java -cp "lib/*:target" top.origami404.ssyc.Main $@
 }
 
 run_jar() {
@@ -53,7 +53,7 @@ subcommand=${1:-'full'}
 case $subcommand in
     clean) cleanup ;;
     build) compile ;;
-    run) run ;;
+    run) run $@;;
     jar) make_jar ;;
     jar-run) run_jar ;;
     full) cleanup && compile && echo 'Build finish.' && run ;;
