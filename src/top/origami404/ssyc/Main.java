@@ -35,7 +35,7 @@ public class Main {
                 writer.append(".global main\n");
                 writer.append(".func main\n");
                 writer.append("main:\n");
-                writer.append("    mov r0, #0\n");
+                writer.append("    mov r0, #1\n");
                 writer.append("    bx lr\n");
             }
 
