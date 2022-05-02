@@ -48,6 +48,15 @@ run_jar() {
     java -jar target/ssyc.jar
 }
 
+build_test_image() {
+    docker build docker -t ssyc-test:v1
+}
+
+run_test() {
+    compile
+    docker run --rm -it -v "$PWD:/src" ssyc-test:v1
+}
+
 subcommand=${1:-'full'}
 
 case $subcommand in
@@ -56,5 +65,7 @@ case $subcommand in
     run) run $@;;
     jar) make_jar ;;
     jar-run) run_jar ;;
+    build_test) build_test_image ;;
+    test) run_test ;;
     full) cleanup && compile && echo 'Build finish.' && run ;;
 esac

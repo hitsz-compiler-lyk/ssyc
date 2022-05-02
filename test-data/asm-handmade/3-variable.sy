@@ -1,0 +1,7 @@
+int main() {
+    int a = 11;
+    int b, c = 10, d;
+    d = 1; d = d * 2 + d; // 3
+    b = a + 2 * d; // 17
+    return (a - b) % (c / d);
+}

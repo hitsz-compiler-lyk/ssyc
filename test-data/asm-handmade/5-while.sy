@@ -1,0 +1,14 @@
+int main() {
+    int a = 2, k = 6, m = 1;
+
+    while (k) {
+        if (k % 2 == 1) {
+            m = m * a;
+        }
+
+        a = a * a;
+        k = k / 2;
+    }
+
+    return m - 64;
+}
