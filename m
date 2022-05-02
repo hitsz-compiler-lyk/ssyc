@@ -7,6 +7,18 @@ popd () {
     command popd "$@" > /dev/null
 }
 
+download_dependence() {
+    [ ! -d lib ] && mkdir lib
+    [ ! -d bin ] && mkdir bin
+
+    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3-sources.jar \
+        -O lib/antlr4-runtime-4.9.3-sources.jar
+    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3.jar \
+        -O lib/antlr4-runtime-4.9.3.jar
+    wget https://repo1.maven.org/maven2/org/antlr/antlr4/4.9.3/antlr4-4.9.3-complete.jar \
+        -O bin/antlr4.jar
+}
+
 cleanup() {
     rm -r target
     mkdir target
@@ -60,6 +72,7 @@ run_test() {
 subcommand=${1:-'full'}
 
 case $subcommand in
+    install) download_dependence ;;
     clean) cleanup ;;
     build) compile ;;
     run) run $@;;
