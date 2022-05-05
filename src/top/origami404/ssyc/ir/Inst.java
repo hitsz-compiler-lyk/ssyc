@@ -32,8 +32,11 @@ public class Inst {
         }
     }
 
-    public Inst(Kind kind) {
+    public Inst(Kind kind, Argument dest, Argument arg1, Argument arg2) {
         this.kind = kind;
+        this.dest = Optional.ofNullable(dest);
+        this.arg1 = Optional.ofNullable(arg1);
+        this.arg2 = Optional.ofNullable(arg2);
     }
 
     /**
@@ -44,108 +47,87 @@ public class Inst {
         return kind;
     }
 
+    public Optional<Argument> getDest() {
+        return dest;
+    }
+
+    public Optional<Argument> getArg1() {
+        return arg1;
+    }
+
+    public Optional<Argument> getArg2() {
+        return arg2;
+    }
+
+    protected<T extends Argument> T castTo(Optional<Argument> value, Class<T> cls) {
+        return value.map(cls::cast).orElseThrow(() -> new RuntimeException("Cannot cast"));
+    }
+
     private final Kind kind;
+    private Optional<Argument> dest;
+    private Optional<Argument> arg1;
+    private Optional<Argument> arg2;
 
 
     class ArithInst extends Inst {
         /**
          * 构建只有一个参数的算术指令
          * @param opKind 算术指令类型, INeg 或 FNeg
-         * @param dest 结果
-         * @param arg1 参数
+         * @param result 结果
+         * @param left 参数
          */
-        public ArithInst(Kind opKind, VarReg dest, Value arg1) {
-            this(opKind, dest, arg1, null);
+        public ArithInst(Kind opKind, VarReg result, Value left) {
+            super(opKind, result, left, null);
         }
 
         /**
          * 构建有两个参数的算术指令
          * @param opKind 算术指令类型, 可以是非 INeg 或 FNeg
-         * @param dest 结果
-         * @param arg1 左边的参数
-         * @param arg2 右边的参数
+         * @param result 结果
+         * @param left 左边的参数
+         * @param right 右边的参数
          */
-        public ArithInst(Kind opKind, VarReg dest, Value arg1, Value arg2) {
-            super(kind);
-            this.dest = dest;
-            this.arg1 = arg1;
-            this.arg2 = Optional.ofNullable(arg2);
+        public ArithInst(Kind opKind, VarReg result, Value left, Value right) {
+            super(kind, result, left, right);
 
-            assert arg2 != null || opKind.isOneArgOp();
-            assert (opKind.isIntOp() && dest.isInt() && arg1.isInt() 
-                    && this.arg2.map(Value::isInt).orElse(false))
-                || (opKind.isFloatOp() && dest.isFloat() && arg2.isFloat() 
-                    && this.arg2.map(Value::isFloat).orElse(false));
+            assert right != null || opKind.isOneArgOp();
+            assert (opKind.isIntOp() && result.isInt() && left.isInt() && right.isInt())
+                || (opKind.isFloatOp() && result.isFloat() && left.isFloat() && right.isFloat());
         }
 
-        public VarReg getDest() {
-            return dest;
-        }
-
-        public Value getArg1() {
-            return arg1;
-        }
-
-        public Value getArg2() {
-            assert !arg2.isEmpty();
-            return arg2.get();
-        }
-
-        private final VarReg dest;
-        private final Value arg1;
-        private final Optional<Value> arg2;
+        public VarReg getResult() { return castTo(dest, VarReg.class); }
+        public Value  getLeft()   { return castTo(arg1, Value.class);  }
+        public Value  getRight()  { return castTo(arg2, Value.class);  }
     }
 
     class LoadInst extends Inst {
         /**
          * 从内存加载值到寄存器
-         * @param dest 目标寄存器
-         * @param ptr 内存地址
+         * @param dstVar 目标寄存器
+         * @param srcPtr 内存地址
          */
-        public LoadInst(VarReg dest, PtrReg ptr) {
-            super(Kind.Load);
-            this.dest = dest;
-            this.ptr = ptr;
-
-            assert dest.getKind() == ptr.getKind();
+        public LoadInst(VarReg dstVar, PtrReg srcPtr) {
+            super(Kind.Load, dstVar, srcPtr, null);
+            assert dstVar.getKind() == srcPtr.getKind();
         }
 
-        public VarReg getDest() {
-            return dest;
-        }
-
-        public PtrReg getPtr() {
-            return ptr;
-        }
-
-        private VarReg dest;
-        private PtrReg ptr;
+        public VarReg getDstVar() { return castTo(dest, VarReg.class); }
+        public PtrReg getSrcPtr() { return castTo(arg1, PtrReg.class); }
     }
 
     class StoreInst extends Inst {
         /**
          * 将值存入指针所指内存中
-         * @param ptr 目标内存地址
-         * @param val 值
+         * @param dstPtr 目标内存地址
+         * @param srcVal 值
          */
-        public StoreInst(PtrReg ptr, Value val) {
-            super(Kind.Store);
-            this.ptr = ptr;
-            this.val = val;
-
-            assert ptr.getKind() == val.getKind();
+        public StoreInst(PtrReg dstPtr, Value srcVal) {
+            super(Kind.Store, dstPtr, srcVal, null);
+            assert dstPtr.getKind() == srcVal.getKind();
         }
 
-        public PtrReg getPtr() {
-            return ptr;
-        }
-
-        public Value getVal() {
-            return val;
-        }
-
-        private PtrReg ptr;
-        private Value val;
+        public PtrReg getDstPtr() { return castTo(dest, PtrReg.class); }
+        public Value  getSrcVal() { return castTo(arg1, Value.class);  }
     }
 
     class AllocInst extends Inst {
@@ -158,42 +140,23 @@ public class Inst {
         }
 
         public AllocInst(PtrReg ptr, int size) {
-            super(Kind.Alloc);
-            this.ptr = ptr;
-            this.size = size;
-
+            super(Kind.Alloc, ptr, null, null);
             assert ptr.getKind() == Argument.Kind.Array;
         }
 
-        public PtrReg getPtr() {
-            return ptr;
-        }
+        public PtrReg getPtr() { return castTo(dest, PtrReg.class); }
 
-        public int getSize() {
-            return size;
-        }
-
-        private PtrReg ptr;
+        public int getSize() { return size; }
         private int size;
     }
 
     class CompareInst extends Inst {
         public CompareInst(Value left, Value right) {
-            super(Kind.CMP);
-            this.left = left;
-            this.right = right;
+            super(Kind.CMP, null, left, right);
         }
 
-        public Value getLeft() {
-            return left;
-        }
-
-        public Value getRight() {
-            return right;
-        }
-
-        private Value left;
-        private Value right;
+        public Value getLeft()  { return castTo(arg1, Value.class); }
+        public Value getRight() { return castTo(arg2, Value.class); }
     }
 
     class BranchInst extends Inst {
@@ -202,7 +165,7 @@ public class Inst {
          * @param to 跳转目标
          */
         public BranchInst(BBlock to) {
-            this(Kind.Br, to, null);
+            super(Kind.Br, null, to, null);
         }
 
         /**
@@ -212,47 +175,21 @@ public class Inst {
          * @param falseBlock 条件为 False 的跳转目的地
          */
         public BranchInst(Kind brKind, BBlock trueBlock, BBlock falseBlock) {
-            super(brKind);
-            this.trueBlock = trueBlock;
-            this.falseBlock = Optional.ofNullable(falseBlock);
-
-            assert falseBlock != null || brKind == Kind.Br;
+            super(brKind, null, trueBlock, falseBlock);
         }
 
-        public BBlock getTrueBlock() {
-            return trueBlock;
-        }
-
-        public BBlock getFalseBlock() {
-            assert !falseBlock.isEmpty();
-            return falseBlock.get();
-        }
-
-        public BBlock getToBlock() {
-            assert kind == Kind.Br;
-            return trueBlock;
-        }
-
-        private BBlock trueBlock;
-        private Optional<BBlock> falseBlock;
+        public BBlock getTrueBlock()  { return castTo(arg1, BBlock.class); }
+        public BBlock getFalseBlock() { return castTo(arg2, BBlock.class); }
+        public BBlock getToBlock()    { return castTo(arg1, BBlock.class); }
     }
 
     class PhiInst extends Inst {
-        public PhiInst(VarReg v1, VarReg v2) {
-            super(Kind.Phi);
-            this.v1 = v1;
-            this.v2 = v2;
+        public PhiInst(VarReg merged, VarReg v1, VarReg v2) {
+            super(Kind.Phi, merged, v1, v2);
         }
 
-        public VarReg getV1() {
-            return v1;
-        }
-
-        public VarReg getV2() {
-            return v2;
-        }
-
-        private VarReg v1;
-        private VarReg v2;
+        public VarReg getMerged() { return castTo(dest, VarReg.class); }
+        public VarReg getV1()     { return castTo(arg1, VarReg.class); }
+        public VarReg getV2()     { return castTo(arg2, VarReg.class); }
     }
 }
