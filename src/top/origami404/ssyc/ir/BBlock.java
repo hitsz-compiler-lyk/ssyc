@@ -7,9 +7,10 @@ import java.util.Optional;
 import top.origami404.ssyc.ir.Inst.BranchInst;
 import top.origami404.ssyc.ir.Inst.PhiInst;
 
-public class BBlock implements Argument {
+public class BBlock extends Argument {
 
     public BBlock(String label) {
+        super(Kind.BBlock);
         this.label = label;
         this.phis = new ArrayList<>();
         this.insts = new ArrayList<>();
