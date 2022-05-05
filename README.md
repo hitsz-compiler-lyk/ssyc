@@ -84,3 +84,12 @@ Test test-data/asm-handmade/5-while.sy        return 1
 ```
 
 此即为所有代码均编译错误, 因为在 `asm-handmade` 文件夹内的程序均期望返回 0. 自动判断与比对输出将在日后支持.
+
+## 更多文档
+
+对于代码本身的高层次说明详见 [docs](docs/) 文件夹内的文档. 对于代码细节的说明详见代码注释.
+
+- 时间规划: <docs/deadline.md>
+- 代码风格: <docs/style.md>
+- IR 设计: <docs/ir.md>
+- 
