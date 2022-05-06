@@ -1,25 +1,24 @@
-package top.origami404.ssyc.ir.type;
+package top.origami404.ssyc.misc;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class SymTab {
-    
-    public SymTab() {
+public class ChainMap<K, V> {
+    public ChainMap() {
         this(null);
     }
 
-    public SymTab(SymTab parent) {
+    public ChainMap(ChainMap<K, V> parent) {
         this.table = new HashMap<>();
         this.parent = Optional.ofNullable(parent);
     }
 
-    public void put(String name, Type type) {
+    public void put(K name, V type) {
         table.put(name, type);
     }
 
-    public Optional<Type> get(String name) {
+    public Optional<V> get(K name) {
         return Optional
             .ofNullable(table.get(name))
             .or(() -> {
@@ -27,10 +26,11 @@ public class SymTab {
             });
     }
 
-    public Optional<SymTab> getParent() {
+    public Optional<ChainMap<K, V>> getParent() {
         return parent;
     }
 
-    private Map<String, Type> table;
-    private Optional<SymTab> parent;
+    private Map<K, V> table;
+    private Optional<ChainMap<K, V>> parent;
+
 }

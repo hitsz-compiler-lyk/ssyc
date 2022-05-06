@@ -15,7 +15,7 @@ import top.origami404.ssyc.ir.type.*;
  */
 public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {
-        this.currSymTab = new SymTab();
+        this.currTypeTab = new ChainMap<>();
 
         this.currFunc = null;
         this.currBlock = null;
@@ -40,14 +40,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public Void visitFuncDef(FuncDefContext ctx) {
         inGlobal = false;
 
-        currSymTab = new SymTab(currSymTab);
+        currTypeTab = new ChainMap<>(currTypeTab);
         final var paramTypeList = visitFuncParamList(ctx.funcParamList());
         final var returnType = BType.toBType(ctx.BType().getText());
         final var type = new FuncType(paramTypeList, returnType);
 
         final var funcName = ctx.Ident().getText();
 
-        currSymTab.getParent().ifPresent(tab -> tab.put(funcName, type));
+        currTypeTab.getParent().ifPresent(tab -> tab.put(funcName, type));
         currFunc = new Function(funcName, type);
         currBlock = currFunc.getBlock("entry");
 
@@ -72,7 +72,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var lval = visitLValDecl(ctx.lValDecl());
         final var type = ArrayType.toArrayType(baseType, lval.sizes);
 
-        currSymTab.put(lval.name, type);
+        currTypeTab.put(lval.name, type);
         return type;
     }
 
@@ -178,5 +178,5 @@ public class IRGen extends SysYBaseVisitor<Object> {
     private boolean inConstExp;
     private Function currFunc;
     private BBlock currBlock;
-    private SymTab currSymTab;
+    private ChainMap<String, Type> currTypeTab;
 }
