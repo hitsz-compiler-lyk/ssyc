@@ -14,7 +14,8 @@ public class Function extends Argument {
     }
 
     public void newBlock(String name) {
-        blocks.put(name, new BBlock(name));
+        final var blockName = this.name + "_" + name;
+        blocks.put(name, new BBlock(blockName));
     }
 
     public BBlock getBlock(String name) {
