@@ -3,12 +3,17 @@ package top.origami404.ssyc.ir.arg;
 public class VarReg extends Value {
     public static VarReg newIntTemp() {
         final Integer thisCount = temporaryCounter++;
-        return new VarReg(Kind.Int, "%" + thisCount.toString());
+        return newIntNamed("%" + thisCount.toString());
     }
 
     public static VarReg newFloatTemp() {
         final Integer thisCount = temporaryCounter++;
-        return new VarReg(Kind.Float, "%" + thisCount.toString());
+        return newFloatNamed("%" + thisCount.toString());
+    }
+
+    public static VarReg newSameTemp(VarReg other) {
+        final Integer thisCount = temporaryCounter++;
+        return newSameNamed("%" + thisCount.toString(), other);
     }
 
     public static VarReg newIntNamed(String name) {
@@ -17,6 +22,10 @@ public class VarReg extends Value {
 
     public static VarReg newFloatNamed(String name) {
         return new VarReg(Kind.Float, name);
+    }
+
+    public static VarReg newSameNamed(String name, VarReg other) {
+        return new VarReg(other.getKind(), name);
     }
 
     public String getName() {
