@@ -1,7 +1,7 @@
-package top.origami404.ssyc.ir;
+package top.origami404.ssyc.ir.arg;
 
 public class Argument {
-    enum Kind {
+    public enum Kind {
         Int, Float, Array, BBlock, Function
         ;
         public boolean isValue() {

@@ -1,11 +1,12 @@
-package top.origami404.ssyc.ir;
+package top.origami404.ssyc.ir.arg;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import top.origami404.ssyc.ir.Inst.BranchInst;
-import top.origami404.ssyc.ir.Inst.PhiInst;
+import top.origami404.ssyc.ir.inst.BranchInst;
+import top.origami404.ssyc.ir.inst.Inst;
+import top.origami404.ssyc.ir.inst.PhiInst;
 
 public class BBlock extends Argument {
 
