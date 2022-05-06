@@ -49,15 +49,16 @@ funcParamList
     : (funcParam (',' funcParam)*)?
     ;
 funcParam
-    : BType lVal
+    : BType lValDecl
     ;
 
+Const: 'const' ;
 decl
-    : 'const'? BType (def (',' def)*) ';'
+    : Const? BType (def (',' def)*) ';'
     ;
 
 def
-    : lVal ('=' initVal)?
+    : lValDecl ('=' initVal)?
     ;
 
 initVal
@@ -66,7 +67,21 @@ initVal
     ;
 
 
+// 在变量声明(包括函数形参中) 出现的 LVal
+// 单独拎出来方便代码生成
+// exp 必须都是整数常量表达式
+emptyDim: '[' ']';
+lValDecl
+    : Ident emptyDim? ('[' constExp ']')*
+    ;
+
+constExp: exp;
+
 //---------------------------- stmt ---------------------
+Break: 'break' ;
+Continue: 'continue' ;
+Return: 'return' ;
+
 stmt
     : block
     | stmtIf
@@ -75,9 +90,9 @@ stmt
     | exp ';'
     | lVal '=' exp ';'
     | ';'
-    | 'break'       ';'
-    | 'continue'    ';'
-    | 'return' exp? ';'
+    | Break       ';'
+    | Continue    ';'
+    | Return exp? ';'
     ;
 
 block
@@ -116,29 +131,34 @@ logAnd
     | relEq
     ;
 
+RelEqOp: '==' | '!=' ;
 relEq
-    : relComp ('==' | '!=') relEq
+    : relComp RelEqOp relEq
     | relComp
     ;
 
+RelCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : expAdd ('<' | '>' | '<=' | '>=') relComp
+    : expAdd RelCompOp relComp
     | expAdd
     ;
 
+ExpAddOp: '+' | '-' ;
 expAdd
-    : expMul ('+' | '-') expAdd
+    : expMul ExpAddOp expAdd
     | expMul
     ;
 
+ExpMulOp: '*' | '/' | '%' ;
 expMul
-    : expUnary ('*' | '/' | '%') expMul
+    : expUnary ExpMulOp expMul
     | expUnary
     ;
 
+ExpUnaryOp: '+' | '-' | '!' ;
 expUnary
     : atom
-    | ('+' | '-' | '!') expUnary
+    | ExpUnaryOp expUnary
     | Ident '(' funcArgList ')'
     ;
 
