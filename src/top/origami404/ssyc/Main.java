@@ -31,12 +31,10 @@ public class Main {
             }
 
             case "ir" -> {
-                var walker = new ParseTreeWalker();
-                var irGen = new IRGen();
-                walker.walk(irGen, tree);
+                final var visitor = new IRGen();
+                final var module = (Module) visitor.visit(tree);
 
-                // Get result from irGen
-                throw new RuntimeException("Unsupport ir yet.");
+                writer.write(module.toTextForm());
             }
 
             case "asm" -> {

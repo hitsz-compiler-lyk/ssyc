@@ -7,22 +7,21 @@ import top.origami404.ssyc.ir.inst.*;
 /**
  * IRGenVisitor
  */
-public class IRGen extends SysYBaseListener {
+public class IRGen extends SysYBaseVisitor<Object> {
     @Override
-    public void enterCompUnit(CompUnitContext ctx) {
+    public Module visitCompUnit(CompUnitContext ctx) {
         inGlobal = true;
     }
 
     @Override
-    public void enterDecl(DeclContext ctx) {
-        // 先不做全局变量
+    public Object visitDecl(DeclContext ctx) {
         if (inGlobal) {
             throw new RuntimeException("Unimpl");
         }
     }
 
     @Override
-    public void enterFuncDef(FuncDefContext ctx) {
+    public Void visitFuncDef(FuncDefContext ctx) {
         inGlobal = false;
         currFunc = new Function(ctx.Ident().getText());
         currBlock = currFunc.getBlock("entry");
