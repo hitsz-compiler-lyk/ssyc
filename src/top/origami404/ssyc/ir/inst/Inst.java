@@ -1,5 +1,6 @@
 package top.origami404.ssyc.ir.inst;
 
+import java.text.MessageFormat;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,6 +53,17 @@ public class Inst {
 
     protected<T extends Argument> T castTo(Optional<Argument> value, Class<T> cls) {
         return value.map(cls::cast).orElseThrow(() -> new RuntimeException("Cannot cast"));
+    }
+
+    @Override
+    public String toString() {
+        return MessageFormat.format(
+            "({0} {1} {2} {3})", 
+            kind,
+            dest.map(Argument::toString).orElse("#"),
+            arg1.map(Argument::toString).orElse("#"),
+            arg2.map(Argument::toString).orElse("#")
+        );
     }
 
     protected final Kind kind;

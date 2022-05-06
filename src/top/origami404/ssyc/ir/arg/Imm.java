@@ -23,6 +23,15 @@ public class Imm extends Value {
         return floatVal;
     }
 
+    @Override
+    public String toString() {
+        return switch (getKind()) {
+            case Int    -> Integer.toString(intVal) + "i";
+            case Float  -> Double.toString(floatVal) + "f";
+            default -> throw new IllegalStateException("Unexpected value kind: " + getKind());
+        };
+    }
+
     private final double floatVal;
     private final int intVal;
 }

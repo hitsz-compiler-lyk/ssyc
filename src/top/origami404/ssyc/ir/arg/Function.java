@@ -28,6 +28,11 @@ public class Function extends Argument {
         return name;
     }
 
+    @Override
+    public String toString() {
+        return "." + name;
+    }
+
     public void newBlock(String name) {
         final var blockName = this.name + "_" + name;
         blocks.put(name, new BBlock(blockName));

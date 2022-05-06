@@ -22,6 +22,11 @@ public class BBlock extends Argument {
         return label;
     }
 
+    @Override
+    public String toString() {
+        return "." + label;
+    }
+
     public BranchInst getTerminator() {
         return terminator.orElseThrow();
     }

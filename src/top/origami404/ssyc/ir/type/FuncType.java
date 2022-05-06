@@ -1,7 +1,9 @@
 package top.origami404.ssyc.ir.type;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class FuncType implements Type {
     public FuncType(List<Type> paramTypes, BType returnType) {
@@ -11,6 +13,17 @@ public class FuncType implements Type {
 
     public FuncType(BType returnType) {
         this(new ArrayList<>(), returnType);
+    }
+    
+    @Override
+    public String toString() {
+        return MessageFormat.format(
+            "({0}) -> {1}",
+            paramTypes.stream()
+                .map(Type::toString)
+                .collect(Collectors.joining(", ")),
+            returnType
+        );
     }
 
     public void addParamType(Type type) {

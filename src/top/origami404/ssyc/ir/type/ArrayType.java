@@ -8,6 +8,11 @@ public class ArrayType implements Type {
         this.size = size;
     }
 
+    @Override
+    public String toString() {
+        return baseType.toString() + "[" + size + "]";
+    }
+
     /**
      * 根据 sizes 数组递归构建数组类型. 如果 sizes 为空，则返回基类型
      * @param baseType 基类型
