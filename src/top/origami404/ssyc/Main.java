@@ -3,6 +3,8 @@ package top.origami404.ssyc;
 import java.io.*;
 
 import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.tree.*;
+
 import top.origami404.ssyc.frontend.*;
 
 public class Main {
@@ -16,18 +18,24 @@ public class Main {
         var outputStream = openOutput(args[3]);
         var writer = new OutputStreamWriter(outputStream);
 
+        var input = CharStreams.fromStream(inputStream);
+        var lexer = new SysYLexer(input);
+        var tokens = new CommonTokenStream(lexer);
+        var parser = new SysYParser(tokens);
+        var tree = parser.compUnit();
+
         switch (target) {
             case "ast" -> {
-                var input = CharStreams.fromStream(inputStream);
-                var lexer = new SysYLexer(input);
-                var tokens = new CommonTokenStream(lexer);
-                var parser = new SysYParser(tokens);
-                var tree = parser.compUnit();
                 writer.write(tree.toStringTree());
                 writer.write("\n");
             }
 
             case "ir" -> {
+                var walker = new ParseTreeWalker();
+                var irGen = new IRGen();
+                walker.walk(irGen, tree);
+
+                // Get result from irGen
                 throw new RuntimeException("Unsupport ir yet.");
             }
 
