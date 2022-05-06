@@ -14,7 +14,17 @@
         "**/.antlr": true,
         "test-data/**/*.exec": true,
     },
+
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "SysY.g4": "SysY*",
+    },
     
     "workbench.editor.enablePreview": true,
     "explorer.compactFolders": true,
+
+    "editor.rulers": [
+        120
+    ],
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms100m"
 }
