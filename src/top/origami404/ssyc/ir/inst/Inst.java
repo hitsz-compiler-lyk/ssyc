@@ -11,7 +11,7 @@ public class Inst {
         FAdd, FSub, FMul, FDiv, FNeg,
 
         Alloc, Load, Store,
-        Call, Param, GetArg,
+        Call, Param, GetArg, Return,
 
         Phi,
         CMP, Beq, Bne, Bgt, Bge, Blt, Ble, Br,
