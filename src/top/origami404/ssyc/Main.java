@@ -3,9 +3,9 @@ package top.origami404.ssyc;
 import java.io.*;
 
 import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.*;
 
 import top.origami404.ssyc.frontend.*;
+import top.origami404.ssyc.ir.Module;
 
 public class Main {
     public static void main(String[] args) throws IOException, FileNotFoundException {
@@ -14,15 +14,15 @@ public class Main {
         }
 
         final var target = args[1];
-        var inputStream = openInput(args[2]);
-        var outputStream = openOutput(args[3]);
-        var writer = new OutputStreamWriter(outputStream);
+        final var inputStream = openInput(args[2]);
+        final var outputStream = openOutput(args[3]);
+        final var writer = new OutputStreamWriter(outputStream);
 
-        var input = CharStreams.fromStream(inputStream);
-        var lexer = new SysYLexer(input);
-        var tokens = new CommonTokenStream(lexer);
-        var parser = new SysYParser(tokens);
-        var tree = parser.compUnit();
+        final var input = CharStreams.fromStream(inputStream);
+        final var lexer = new SysYLexer(input);
+        final var tokens = new CommonTokenStream(lexer);
+        final var parser = new SysYParser(tokens);
+        final var tree = parser.compUnit();
 
         switch (target) {
             case "ast" -> {
