@@ -9,6 +9,7 @@ import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.arg.*;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.*;
+import top.origami404.ssyc.misc.ChainMap;
 
 /**
  * IRGenVisitor
@@ -16,6 +17,7 @@ import top.origami404.ssyc.ir.type.*;
 public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {
         this.currTypeTab = new ChainMap<>();
+        this.currConstTab = new ChainMap<>();
 
         this.currFunc = null;
         this.currBlock = null;
@@ -95,12 +97,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             sizes.add(0);
         }
 
-        inConstExp = true;
         final var rest = ctx.constExp().stream()
             .map(this::visitConstExp)
             .collect(Collectors.toList());
-        inConstExp = false;
-
         sizes.addAll(rest);
 
         return new LValDeclResult(name, sizes);
@@ -108,66 +107,69 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Integer visitConstExp(ConstExpContext ctx) {
-        inConstExp = true;
-        final var result = (Integer) visitExp(ctx.exp());
-        assert result != null;
-        inConstExp = false;
-
-        return result;
+        return visitConstExpAdd(ctx.constExpAdd());
     }
 
     @Override
-    public Object visitExp(ExpContext ctx) {
-        return visitExpAdd(ctx.expAdd());
+    public Integer visitConstExpAdd(ConstExpAddContext ctx) {
+        final var left = visitConstExpMul(ctx.constExpMul());
+        if (ctx.constExpAdd() == null)
+            return left;
+        
+        final var right = visitConstExpAdd(ctx.constExpAdd());
+        final var op = ctx.ExpAddOp().getText();
+
+        return switch (op) {
+            case "+" -> left + right;
+            case "-" -> left - right;
+            default -> throw new RuntimeException("Illgeal operator: " + op);
+        };
     }
 
     @Override
-    public Object visitExpAdd(ExpAddContext ctx) {
-        if (inConstExp) {
-            final var left = (Integer) visitExpMul(ctx.expMul());
-            final var right = (Integer) visitExpAdd(ctx.expAdd());
-            final var op = ctx.ExpAddOp().getText();
-            return switch (op) {
-                case "+" -> left + right;
-                case "-" -> left - right;
-                default -> throw new RuntimeException("Illgeal operator: " + op);
-            };
+    public Integer visitConstExpMul(ConstExpMulContext ctx) {
+        final var left = visitConstExpUnary(ctx.constExpUnary());
+        if (ctx.constExpMul() == null)
+            return left;
+        
+        final var right = visitConstExpMul(ctx.constExpMul());
+        final var op = ctx.ExpMulOp().getText();
+
+        return switch (op) {
+            case "*" -> left * right;
+            case "/" -> left / right;
+            case "%" -> left % right;
+            default -> throw new RuntimeException("Illgeal operator: " + op);
+        };
+    }
+
+    @Override
+    public Integer visitConstExpUnary(ConstExpUnaryContext ctx) {
+        if (ctx.ExpUnaryOp() == null) {
+            return visitConstExpAtom(ctx.constExpAtom());
         }
 
-        return null;
+        final var op = ctx.ExpUnaryOp().getText();
+        final var operand = visitConstExpUnary(ctx.constExpUnary());
+        return switch (op) {
+            case "-" -> -operand;
+            case "+" -> +operand;
+            // case ! -> throw
+            default -> throw new RuntimeException("Illgeal operator: " + op);
+        };
     }
 
     @Override
-    public Object visitExpMul(ExpMulContext ctx) {
-        if (inConstExp) {
-            final var left = (Integer) visitExpUnary(ctx.expUnary());
-            final var right = (Integer) visitExpMul(ctx.expMul());
-            final var op = ctx.ExpMulOp().getText();
-            return switch (op) {
-                case "*" -> left * right;
-                case "/" -> left / right;
-                case "%" -> left % right;
-                default -> throw new RuntimeException("Illgeal operator: " + op);
-            };
+    public Integer visitConstExpAtom(ConstExpAtomContext ctx) {
+        if (ctx.Ident() != null) {
+            final var name = ctx.Ident().getText();
+            return currConstTab.get(name)
+                .orElseThrow(() -> new RuntimeException("Undefined constant: " + name));
+        } else if (ctx.IntConst() != null) {
+            return Integer.parseInt(ctx.IntConst().getText());
+        } else {
+            return visitConstExp(ctx.constExp());
         }
-
-        return null;
-    }
-
-    @Override
-    public Object visitExpUnary(ExpUnaryContext ctx) {
-        if (inConstExp) {
-            final var op = ctx.ExpUnaryOp().getText();
-            final var operand = (Integer) visitExpUnary(ctx.expUnary());
-            return switch (op) {
-                case "-" -> -operand;
-                case "+" -> +operand;
-                // case ! -> throw
-                default -> throw new RuntimeException("Illgeal operator: " + op);
-            };
-        }
-
-        return null;
     }
 
     private void insert(Inst inst) {
@@ -175,8 +177,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private boolean inGlobal;
-    private boolean inConstExp;
     private Function currFunc;
     private BBlock currBlock;
     private ChainMap<String, Type> currTypeTab;
+    private ChainMap<String, Integer> currConstTab;
 }

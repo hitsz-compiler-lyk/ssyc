@@ -75,7 +75,28 @@ lValDecl
     : Ident emptyDim? ('[' constExp ']')*
     ;
 
-constExp: exp;
+constExp: constExpAdd;
+
+constExpAdd
+    : constExpMul ExpAddOp constExpAdd
+    | constExpMul
+    ;
+
+constExpMul
+    : constExpUnary ExpMulOp constExpMul
+    | constExpUnary
+    ;
+
+constExpUnary
+    : ExpUnaryOp constExpUnary
+    | constExpAtom
+    ;
+
+constExpAtom
+    : '(' constExp ')'
+    | Ident
+    | IntConst
+    ;
 
 //---------------------------- stmt ---------------------
 Break: 'break' ;
