@@ -1,6 +1,6 @@
 package top.origami404.ssyc.ir.arg;
 
-public class Argument {
+public abstract class Argument {
     public enum Kind {
         Int, Float, Array, BBlock, Function
         ;
