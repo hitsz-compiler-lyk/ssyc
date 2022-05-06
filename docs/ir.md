@@ -14,6 +14,7 @@ Inst
    |- AllocaInst    # 开辟内存区域
    |- BranchInst    # 跳转
    |- PhiInst       # Phi 语句
+   |- ReturnInst
 ```
 
 每一个指令可以有 
@@ -24,4 +25,10 @@ Argument
         |- VarReg (Int, Float)
         |- Imm    (Int, Float)
     |- PtrReg     (Int, Float, Array)
+    |- Function   (Function)
+    |- BBlock     (BBlock)
 ```
+
+## 函数设计
+
+每一个函数都至少有两个基本块 `entry` 跟 `exit`, 对函数体内 `return` 语句的翻译总是翻译为 `br exit`. 在 `exit` 块内统一对返回值做 Phi (如果有返回值的话). `ReturnInst` 在且只在 `exit` 块末尾出现, 且总为该块最后一条指令, 且不是 Terminaor.
