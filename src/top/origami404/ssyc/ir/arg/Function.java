@@ -3,8 +3,7 @@ package top.origami404.ssyc.ir.arg;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Function {
-    public Function(String name) {
+public class Function extends Argument {
         this.name = name;
         this.blocks = new HashMap<>();
         this.newBlock("entry");
