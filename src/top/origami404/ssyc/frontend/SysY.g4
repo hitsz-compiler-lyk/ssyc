@@ -4,41 +4,10 @@ grammar SysY;
 package top.origami404.ssyc.frontend;
 }
 
-//------------------------- Lexical ---------------------------------------
-
-BType: ('int' | 'float' | 'void');
-
-Ident: ('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')* ;
-
-// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 51
-// the expoent part of hex style cannot be ignored
-// the expoent part of hex style is still a `digit-sequence`, which `digit` is `DEC`
-FloatConst: FloatDec | FloatHex ;
-fragment FloatDec:               (DEC* '.' DEC*) (('e' | 'E') ('+' | '-')? DEC+)? ;
-fragment FloatHex: ('0x' | '0X') (HEX* '.' HEX*)  ('p' | 'P') ('+' | '-')? DEC+   ;
-
-// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 54
-// `0` is considered as an octal number
-IntConst: IntDec | IntOct | IntHex ;
-fragment IntDec: ('1'..'9') DEC* ;
-fragment IntOct: '0' ('0'..'7')* ;
-fragment IntHex: ('0x' | '0X') HEX+ ;
-
-fragment DEC: '0'..'9';
-fragment HEX: 'a'..'f' | 'A'..'F' | '0'..'9';
-
-StrConst: '"' ~('"'|'\n')* '"' ;
-
-NEWLINE: '\r'? '\n' ;
-WS: [ \t]+                          -> skip ;
-LineComments: '//' .*? '\n'         -> skip ;
-BlockComments: '/*' .*? '*/'        -> skip ;
-
 //------------------------- Grammar ---------------------------------------
 
 //================== Parser ============================
 compUnit: (decl | funcDef)* ;
-
 
 //---------------- Declaration & Definition ------------
 funcDef
@@ -99,10 +68,6 @@ constExpAtom
     ;
 
 //---------------------------- stmt ---------------------
-Break: 'break' ;
-Continue: 'continue' ;
-Return: 'return' ;
-
 stmt
     : block
     | stmtIf
@@ -199,3 +164,40 @@ funcArgList
 lVal
     : Ident ('[' exp ']')*
     ;
+
+//------------------------- Lexical ---------------------------------------
+
+// keywords
+// 关键字的规则必须出现在标识符的规则之前, 否则 ANTLR 会把关键字识别成标识符
+Break: 'break' ;
+Continue: 'continue' ;
+Return: 'return' ;
+
+BType: ('int' | 'float' | 'void');
+
+Ident: ('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')* ;
+
+// 数字不会跟标识符冲突(标识符不以数字打头), 所以可以放 Ident 后面
+// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 51
+// the expoent part of hex style cannot be ignored
+// the expoent part of hex style is still a `digit-sequence`, which `digit` is `DEC`
+FloatConst: FloatDec | FloatHex ;
+fragment FloatDec:               (DEC* '.' DEC*) (('e' | 'E') ('+' | '-')? DEC+)? ;
+fragment FloatHex: ('0x' | '0X') (HEX* '.' HEX*)  ('p' | 'P') ('+' | '-')? DEC+   ;
+
+// See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 54
+// `0` is considered as an octal number
+IntConst: IntDec | IntOct | IntHex ;
+fragment IntDec: ('1'..'9') DEC* ;
+fragment IntOct: '0' ('0'..'7')* ;
+fragment IntHex: ('0x' | '0X') HEX+ ;
+
+fragment DEC: '0'..'9';
+fragment HEX: 'a'..'f' | 'A'..'F' | '0'..'9';
+
+StrConst: '"' ~('"'|'\n')* '"' ;
+
+
+WS: [ \t\r\n]+                      -> skip ;
+LineComments: '//' .*? '\n'         -> skip ;
+BlockComments: '/*' .*? '*/'        -> skip ;

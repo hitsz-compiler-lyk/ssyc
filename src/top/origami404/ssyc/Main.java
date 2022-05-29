@@ -22,17 +22,17 @@ public class Main {
         final var lexer = new SysYLexer(input);
         final var tokens = new CommonTokenStream(lexer);
         final var parser = new SysYParser(tokens);
-        final var tree = parser.compUnit();
+        final var ruleContext = parser.compUnit();
 
         switch (target) {
             case "ast" -> {
-                writer.write(tree.toStringTree());
+                writer.write(DebugTools.toDebugTreeString(ruleContext).toString());
                 writer.write("\n");
             }
 
             case "ir" -> {
                 final var visitor = new IRGen();
-                final var module = (Module) visitor.visit(tree);
+                final var module = (Module) visitor.visit(ruleContext);
 
                 writer.write(module.toTextForm());
             }
