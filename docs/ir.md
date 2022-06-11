@@ -27,7 +27,7 @@ Value
             > StoreInst
             > GEPInst
     > BasicBlock
-    > Argument
+    > Parameter
     > Constant
         > IntConstant
         > FloatConstant
@@ -63,6 +63,9 @@ IR 里的被使用者(Usee)是 `Value` 类, 任何一个 `Value` 类的实例都
     a.getUserList()     //==>  获得使用这个 Value 的所有 User (即它被谁当作了参数)
 ```
 
+### `Parameter`
+
+LLVM IR 中的 `Argument` 实际上存的是函数的形参信息, 所以更名为 `Parameter`. 之所以其是一个 `Value`, 是因为这样函数内的指令便可以使用某个 `Parameter` 实例来指代函数中的某个形参了.
 
 ## 术语约定
 

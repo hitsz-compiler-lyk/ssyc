@@ -2,7 +2,8 @@ package top.origami404.ssyc.ir.type;
 
 public enum IRTyKind {
     Void, Bool, Int, Float, 
-    Pointer, Array, Function
+    Pointer, Array, Function,
+    BBlock, Parameter
 
     ;
 
@@ -13,4 +14,6 @@ public enum IRTyKind {
     public boolean isPtr()      { return this == Pointer;   }
     public boolean isArray()    { return this == Array;     }
     public boolean isFunc()     { return this == Function;  }
+    public boolean isBBlock()   { return this == BBlock;    }
+    public boolean isParam()    { return this == Parameter; }
 }
