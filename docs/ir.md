@@ -4,9 +4,9 @@
 
 IR 采用类 LLVM IR 的 "带无限寄存器的寄存器式 IR", 要求满足 SSA form, 并且支持 Alloc, Load, Store 与 `mem2reg`. 其内存形式 (in-memory form) 为一很大的, 通过 Java 对象的引用间接实现的 DAG.
 
-## 类设计
+LLVM IR 中的 `Argument` 实际上存的是函数的形参信息, 所以更名为 `Parameter`. 之所以其是一个 `Value`, 是因为这样函数内的指令便可以使用某个 `Parameter` 实例来指代函数中的某个形参了.
 
-### 继承体系
+## 继承体系与类别总览
 
 ```
 Value
@@ -26,6 +26,7 @@ Value
             > LoadInst
             > StoreInst
             > GEPInst
+            > PhiInst
     > BasicBlock
     > Parameter
     > Constant
@@ -42,13 +43,11 @@ IRType (IRTyKind)
 
 其中每一层缩进代表一个逻辑上的 `is-a`/从属 关系, `>` 代表该关系使用 Java 中的继承来表示, `:` 代表该关系通过该类的某个类别枚举 (`xxxKind`) 来实现. 
 
-#### 枚举实现的 "子类关系"
+### 枚举实现的 "子类关系"
 
 为了减少无意义的重复代码, 很多操作上高度相同的东西会被放在一个类里实现, 通过一个特殊的枚举来标识不同的类别. 这种时候凡是细化类别的操作跟判断大抵上都会放在枚举中实现. 譬如二元运算指令 `BinaryOpInst` 就通过 `InstKind` 来区分加减乘除, 并且凡是用作 "判断这条指令是不是操作整数的" 这种细化方法, 都会放在 `InstKind` 里.
 
-### IR 中的类型
-
-### use-def 关系
+## use-def 关系
 
 > 本节内容与 LLVM IR 一致
 
@@ -63,13 +62,9 @@ IR 里的被使用者(Usee)是 `Value` 类, 任何一个 `Value` 类的实例都
     a.getUserList()     //==>  获得使用这个 Value 的所有 User (即它被谁当作了参数)
 ```
 
-### `Parameter`
+## 反向引用
 
-LLVM IR 中的 `Argument` 实际上存的是函数的形参信息, 所以更名为 `Parameter`. 之所以其是一个 `Value`, 是因为这样函数内的指令便可以使用某个 `Parameter` 实例来指代函数中的某个形参了.
-
-### 反向引用
-
-#### IList 与 INode
+### IList 与 INode
 
 `IList` 的 `I` 代表 `intrusive`, 是侵入式链表的缩写. 所谓侵入式链表, 就是在这个链表里的元素本身必须要作出修改才能成为这个链表里的元素. 在实现上, 这个修改就是得把 `INode`, 侵入式链表的节点, 作为该元素的一个成员. 
 
@@ -224,7 +219,41 @@ public class INode<E, P> {
 
 称类 `A` 为类 `B` 的所有者 (owner), 若 A 中包含一个 `B` 的实例. 称类 `P` 为类 `B` 的父对象 (parent), 若 P 中包含一个 `IList<B>` (即多个 `B` 对象). 更一般地, 所有者一般只是指有作为类成员的关系, 而父对象一般不但有实现上的包含, 还有概念上的包含.
 
-## SSA Construction
+## 笔记: Alloc, Load, Store, GEP 
+
+Alloc 是用来获得一块特定大小的内存的 (通过提供特定的类型, 分配该类型大小的一块内存, 其返回类型永远是一个指向该特定类型的指针). 
+
+Load 解引用某个指针获得其值 (可视为去掉 `*`), Store 将某个值存放到指针所指的区域 (可视为加上 `*`).
+
+GEP (get element pointer) 可以去掉嵌套的指针与数组类型, 将高维的指针偏移为某个基本类型的低维指针. 返回值就是该指针.
+
+所以, 一般而言, 对数组的访问的 ir 一般是长这样的: 
+
+```
+%arr = alloc [4 x [5 x i32]]      # %0 的类型是 [4 x [5 x i32]]*
+
+# 第一个 0 表示 "将 %arr 偏移 0 个基类型([4 x [5 x i32]]), 获得了一个 [4 x [5 x i32]]*"
+# 第二个 1 表示 "将上一步得到的指针偏移 1 个基类型([5 x i32]), 获得了一个 [5 x i32]*"
+# 第三个 3 表示 "将上一步得到的指针偏移 3 个基类型(i32), 获得了一个 i32*"
+%target = gep %arr, (0, 1, 3)  
+
+store %target 233   # 将 233 存进去
+```
+
+```c
+int a[4][5];
+a[1][3] = 233;
+```
+
+翻译为汇编的时候, 行优先情况下按字节的偏移量可以这样计算:
+
+```
+offset = 0 * sizeof([4 x [5 x i32]]) + 1 * sizeof([5 x i32]) + 3 * sizeof(i32)
+       = 0 * 80 + 1 * 20 + 3 * 4
+       = 32
+```
+
+## 笔记: SSA 构造
 
 Main ref: [Simple and Efficient Construction of Static Single Assignment Form](https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)
 
