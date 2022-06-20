@@ -15,6 +15,11 @@ public class PointerIRTy implements IRType {
     }
 
     @Override
+    public int getSize() {
+        return 4;
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (obj instanceof PointerIRTy p) {
             return baseType.equals(p.baseType);

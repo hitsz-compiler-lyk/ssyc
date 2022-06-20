@@ -13,6 +13,11 @@ public class FunctionIRTy implements IRType {
         this.paramTypes = paramTypes;
     }
 
+    @Override
+    public int getSize() {
+        throw new RuntimeException("Function type dont have size");
+    }
+
     public IRType getReturnType() {
         return returnType;
     }

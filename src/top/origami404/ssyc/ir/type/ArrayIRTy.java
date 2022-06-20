@@ -25,6 +25,11 @@ public class ArrayIRTy implements IRType {
         return elementType;
     }
 
+    @Override
+    public int getSize() {
+        return elementNum * elementType.getSize();
+    }
+
     // TODO: 也许可以考虑在任何情况下都返回 false
     // 因为实际上两个数组类型本身就不能互操作
     @Override
