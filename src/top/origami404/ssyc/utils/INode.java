@@ -78,6 +78,8 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         newNext.setNextOpt(oldNext);
         oldNext.ifPresent(n -> n.setPrev(newNext));
+
+        parent.ifPresent(l -> l.adjustSize(+1));
     }
 
     /**
@@ -88,11 +90,16 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     public void insertBeforeCO(INode<E, P> newPrev) {
         final var oldPrev = prev;
 
-        oldPrev.ifPresent(n -> n.setNext(newPrev));
+        // 如果当前节点是链表的头节点, 那么当往前插入时, 还要修改链表的头节点
+        oldPrev.ifPresentOrElse(
+            n -> n.setNext(newPrev), 
+            () -> parent.ifPresent(p -> p.setBegin(newPrev)));
         newPrev.setPrevOpt(oldPrev);
         
         newPrev.setNext(this);
         this.setPrev(newPrev);
+
+        parent.ifPresent(l -> l.adjustSize(+1));
     }
 
     /**

@@ -42,6 +42,22 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return new ElementListView();
     }
 
+    void setBegin(INode<E, P> begin) {
+        this.begin = Optional.of(begin);
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    void setSize(int newSize) {
+        this.size = newSize;
+    }
+
+    void adjustSize(int offset) {
+        this.size += offset;
+    }
+
     /**
      * @param k
      * @return 第 k 个节点 (从 0 开始编号) 
@@ -101,7 +117,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         private Optional<INode<E, P>> prevNode;     // nextNode 的前继
         private Optional<INode<E, P>> nextNode;     // 下一次调用 next() 要返回的节点
         private INode<E, P> tempNode;               // 上一次调用 previous() 或者是 next() 返回的节点
-        private int nextIndex;                      // nextNode 的索引
         private ActionKind lastModified;            // 最后一次调用修改性方法是什么方法
         private ActionKind lastMoved;               // 最后一次调用移动性方法是什么方法
         private enum ActionKind {
@@ -114,7 +129,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             this.nextNode = Optional.of(node);
             this.prevNode = nextNode.flatMap(INode::getPrev);
             this.tempNode = null;
-            this.nextIndex = index;
             this.lastModified = ActionKind.OTHER;
         }
 
@@ -131,12 +145,14 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         @Override
         public int nextIndex() {
-            return nextIndex;
+            // 在除了该迭代器之外的地方也有可能修改链表的情况下
+            // 不可能做到准确地追踪迭代器的索引
+            throw new UnsupportedOperationException();
         }
         
         @Override
         public int previousIndex() {
-            return nextIndex - 1;
+            throw new UnsupportedOperationException();
         }
 
 
@@ -191,7 +207,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
             // 更新迭代器本身的状态
             lastModified = ActionKind.REMOVE;
-            this.nextIndex -= 1;
             
             // 更新链的状态
             tempNode.markedAsDeleted();
@@ -231,6 +246,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             final boolean isHead = prevNode.isEmpty();
             if (isHead) {
                 IList.this.begin = Optional.of(newNode);
+                IList.this.size = 1;
             }
 
             // 维护新的节点的父母关系
@@ -245,20 +261,22 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
                 throw new IllegalStateException("Cannot call `add` before any movement");
             }
 
-            // 若是在链表头部插入, 则需要特殊处理
             final boolean isHead = prevNode.isEmpty();
-            if (isHead) {
-                // 先链好链表, 再更新链表的头节点
-                nextNode.get().insertBeforeCO(newNode);
+            final boolean isTail = nextNode.isEmpty();
+            if (isHead && isTail) {
                 IList.this.begin = Optional.of(newNode);
-            } else {
-                // 否则, 正常情况下只要往 prevNode 跟 nextNode 之间插入即可.
+                IList.this.size = 1;
+            } else if (isHead) {
+                nextNode.get().insertBeforeCO(newNode);
+            } else if (isTail) {
                 prevNode.get().insertAfterCO(newNode);
-            } 
+            } else {
+                // 与 nextNode.get().insertBeforeCO(newNode) 等价
+                prevNode.get().insertAfterCO(newNode);
+            }
 
             // 插入后需要更新 prevNode
             prevNode = Optional.of(newNode);
-            nextIndex += 1;
 
             // 维护新的节点的父母关系
             newNode.setParent(IList.this);
