@@ -5,7 +5,7 @@ import java.util.List;
 import top.origami404.ssyc.ir.type.IRType;
 
 public abstract class Value {
-    Value(IRType type) {
+    public Value(IRType type) {
         this.type = type;
     }
 
