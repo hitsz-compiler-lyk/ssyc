@@ -12,9 +12,9 @@ public class BrCondInst extends Instruction {
         this.trueBB = trueBB;
         this.falseBB = falseBB;
         
-        super.addOperand(cond);
-        super.addOperand(trueBB);
-        super.addOperand(falseBB);
+        super.addOperandCO(cond);
+        super.addOperandCO(trueBB);
+        super.addOperandCO(falseBB);
 
         assert cond.getType().getKind().isBool()
             : "BrCond expect a cond with Bool IRType";

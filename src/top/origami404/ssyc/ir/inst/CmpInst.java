@@ -7,8 +7,8 @@ public class CmpInst extends Instruction {
         super(cmpKind, lhs.getType());
         this.lhs = lhs;
         this.rhs = rhs;
-        super.addOperand(lhs);
-        super.addOperand(rhs);
+        super.addOperandCO(lhs);
+        super.addOperandCO(rhs);
 
 
         final var resultTyKind = lhs.getType().getKind();

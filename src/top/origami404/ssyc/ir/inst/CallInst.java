@@ -12,8 +12,8 @@ public class CallInst extends Instruction {
         this.callee = callee;
         this.argList = args;
 
-        super.addOperand(callee);
-        super.addAllOperands(args);
+        super.addOperandCO(callee);
+        super.addAllOperandsCO(args);
     }
 
     public Function getCallee() {

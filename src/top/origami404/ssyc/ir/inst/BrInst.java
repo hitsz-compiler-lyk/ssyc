@@ -7,7 +7,7 @@ public class BrInst extends Instruction {
     BrInst(BasicBlock nextBB) {
         super(InstKind.Br, IRType.BBlockTy);
         this.nextBB = nextBB;
-        super.addOperand(nextBB);
+        super.addOperandCO(nextBB);
     }
 
     public BasicBlock getNextBB() {

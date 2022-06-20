@@ -6,7 +6,7 @@ public class UnaryOpInst extends Instruction {
     public UnaryOpInst(InstKind opKind, Value arg) {
         super(opKind, arg.getType());
         this.arg = arg;
-        super.addOperand(arg);
+        super.addOperandCO(arg);
 
         
         final var resultTyKind = arg.getType().getKind();

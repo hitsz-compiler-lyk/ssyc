@@ -156,6 +156,56 @@ for (final var inst : bb.asElementView()) {
 }
 ```
 
+### `CO` 方法 (一致性方法)
+
+正如上面提到的, IR 中大量存在相互引用与反向引用. 这意味着对于绝大部分修改性方法而言, 它们都需要特别注意一个问题: "我修改自己的时候, 需不需要维护对面的反向引用?".
+
+为了便于区分 "会同时维护反向引用的一致性" 的方法与 "我只改自己别人的我不管" 的方法, 我们约定在前者的名称后面加上后缀 `CO`. 凡是标记了 `CO` 的修改性方法都 **决不能使得 IR 变得无效**. 为了确保这一点, 推荐标注 `CO` 的方法里多使用其他 `CO` 方法, 并且审慎地使用不带 `CO` 的方法.
+
+`CO` 意为 `Consistent`, 表明该方法是 "一致" 的.
+
+举个例子, 考虑双向链表节点 `INode` (删去了大量无关代码以专注于该问题, 并非真实实现):
+
+```java
+public class INode<E, P> {
+    // 这是非 CO 方法, 简单, 直接, 只干基本的事
+    public void setNext(INode<E, P> next) {
+        this.next = Optional.ofNullable(next);
+    }
+
+    public void setPrev(INode<E, P> prev) {
+        this.prev = Optional.ofNullable(prev);
+    }
+
+    // 这是带 CO 的方法, 要前前后后维护一堆关系, 小心谨慎地确保修改前后一切状态都正常
+    /**
+     * 在 this 的前面插入新节点
+     * prev <-> (newPrev) <-> this <-> next
+     * @param newPrev
+     */
+    public void insertBeforeCO(INode<E, P> newPrev) {
+        final var oldPrev = prev;
+
+        // 如果当前节点是链表的头节点, 那么当往前插入时, 还要修改链表的头节点
+        oldPrev.ifPresentOrElse(
+            n -> n.setNext(newPrev), 
+            () -> parent.ifPresent(p -> p.setBegin(newPrev)));
+        newPrev.setPrev(oldPrev.orElse(null));
+        
+        newPrev.setNext(this);
+        this.setPrev(newPrev);
+
+        // 更新链表的大小
+        parent.ifPresent(l -> l.adjustSize(+1));
+    }
+
+    private Optional<INode<E, P>> prev;     // 前一个节点
+    private Optional<INode<E, P>> next;     // 下一个节点
+    private Optional<IList<E, P>> parent;   // 包含该节点的链表
+}
+
+```
+
 ## 术语约定
 
 ### 名字 (name) 与表示 (representation)
