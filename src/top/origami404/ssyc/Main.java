@@ -5,7 +5,6 @@ import java.io.*;
 import org.antlr.v4.runtime.*;
 
 import top.origami404.ssyc.frontend.*;
-import top.origami404.ssyc.ir.Module;
 
 public class Main {
     public static void main(String[] args) throws IOException, FileNotFoundException {
@@ -31,10 +30,7 @@ public class Main {
             }
 
             case "ir" -> {
-                final var visitor = new IRGen();
-                final var module = (Module) visitor.visit(ruleContext);
-
-                writer.write(module.toTextForm());
+                throw new RuntimeException("Unimplment");
             }
 
             case "asm" -> {

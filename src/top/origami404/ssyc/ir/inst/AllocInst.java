@@ -1,24 +1,17 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.arg.Argument;
-import top.origami404.ssyc.ir.arg.PtrReg;
+import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 
-public class AllocInst extends Inst {
-    public AllocInst(PtrReg ptr) {
-        this(ptr, switch (ptr.getKind()) {
-            case Int    -> 4;
-            case Float  -> 8;
-            default -> throw new RuntimeException("Cannot ignore alloc size of an array ptr");
-        });
+public class AllocInst extends Instruction {
+    public AllocInst(IRType allocBaseType) {
+        super(InstKind.Alloc, IRType.createPtrTy(allocBaseType));
     }
 
-    public AllocInst(PtrReg ptr, int size) {
-        super(Kind.Alloc, ptr, null, null);
-        assert ptr.getKind() == Argument.Kind.Array;
+    public int getAllocSize() {
+        PointerIRTy ptrTy = (PointerIRTy) getType();
+        assert ptrTy != null : "AllocInst must have a pointer type";
+
+        return ptrTy.getBaseType().getSize();
     }
-
-    public PtrReg getPtr() { return castTo(dest, PtrReg.class); }
-
-    public int getSize() { return size; }
-    private int size;
 }

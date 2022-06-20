@@ -2,23 +2,22 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.Optional;
 
-import top.origami404.ssyc.ir.arg.VarReg;
+import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.type.IRType;
 
-public class ReturnInst extends Inst {
-    public ReturnInst() {
-        super(Kind.Return, null, null, null);
+public class ReturnInst extends Instruction {
+    ReturnInst() {
+        this(null);
     }
 
-    public ReturnInst(VarReg val) {
-        super(Kind.Return, null, val, null);
+    ReturnInst(Value returnVal) {
+        super(InstKind.Ret, IRType.VoidTy);
+        this.returnVal = Optional.ofNullable(returnVal);
     }
 
-    public Optional<VarReg> getVal() {
-        if (arg1 == null) {
-            return Optional.empty();
-        } else {
-            return Optional
-                .of(castTo(arg1, VarReg.class));
-        }
-    }   
+    public Optional<Value> getReturnValue() {
+        return returnVal;
+    }
+
+    private Optional<Value> returnVal;
 }

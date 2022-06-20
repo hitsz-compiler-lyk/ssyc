@@ -1,14 +1,27 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.arg.PtrReg;
-import top.origami404.ssyc.ir.arg.VarReg;
+import java.util.Optional;
 
-public class LoadInst extends Inst {
-    public LoadInst(VarReg dstVar, PtrReg srcPtr) {
-        super(Kind.Load, dstVar, srcPtr, null);
-        assert dstVar.getKind() == srcPtr.getKind();
+import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.type.PointerIRTy;
+
+public class LoadInst extends Instruction {
+    public LoadInst(Value ptr) {
+        super(
+            InstKind.Load, 
+            Optional.ofNullable((PointerIRTy) ptr.getType())
+                .map(PointerIRTy::getBaseType)
+                .orElseThrow(() -> new RuntimeException("Argument of load instrution must be a pointer"))
+        );
+
+        this.ptr = ptr;
+        super.addOperandCO(ptr);
     }
 
-    public VarReg getDstVar() { return castTo(dest, VarReg.class); }
-    public PtrReg getSrcPtr() { return castTo(arg1, PtrReg.class); }
+    public Value getPtr() {
+        return ptr;
+    }
+
+    // TODO: 只有 AllocInst 才能是 PointerType, 所以要不要改成细化类型?
+    private Value ptr;
 }

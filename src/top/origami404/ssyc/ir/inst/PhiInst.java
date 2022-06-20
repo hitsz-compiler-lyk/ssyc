@@ -1,13 +1,29 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.arg.VarReg;
+import java.util.LinkedList;
+import java.util.List;
 
-public class PhiInst extends Inst {
-    public PhiInst(VarReg merged, VarReg v1, VarReg v2) {
-        super(Kind.Phi, merged, v1, v2);
+import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.type.IRType;
+
+public class PhiInst extends Instruction {
+    public PhiInst(IRType type) {
+        super(InstKind.Phi, type);
+        this.arguments = new LinkedList<>();
     }
 
-    public VarReg getMerged() { return castTo(dest, VarReg.class); }
-    public VarReg getV1()     { return castTo(arg1, VarReg.class); }
-    public VarReg getV2()     { return castTo(arg2, VarReg.class); }
+    public void addArgumentCO(Value value) {
+        arguments.add(value);
+        addOperandCO(value);
+    }
+
+    public List<Value> getArguments() {
+        return arguments;
+    }
+
+    public Value getArgument(int index) {
+        return arguments.get(index);
+    }
+
+    private List<Value> arguments;
 }
