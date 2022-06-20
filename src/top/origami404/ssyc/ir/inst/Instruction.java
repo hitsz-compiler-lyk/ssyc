@@ -1,12 +1,18 @@
 package top.origami404.ssyc.ir.inst;
 
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.User;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.INode;
+import top.origami404.ssyc.utils.INodeOwner;
 
-public abstract class Instruction extends User {
+public abstract class Instruction extends User 
+    implements INodeOwner<Instruction, BasicBlock> 
+{        
     Instruction(InstKind kind, IRType type) {
         super(type);
         this.kind = kind;
+        this.bbNode = new INode<>(this);
     }
 
     /**
@@ -16,5 +22,11 @@ public abstract class Instruction extends User {
         return kind;
     }
 
+    @Override
+    public INode<Instruction, BasicBlock> getINode() {
+        return bbNode;
+    }
+
     private InstKind kind;
+    private INode<Instruction, BasicBlock> bbNode;
 }
