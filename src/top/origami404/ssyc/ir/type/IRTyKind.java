@@ -1,7 +1,7 @@
 package top.origami404.ssyc.ir.type;
 
 public enum IRTyKind {
-    Void, Bool, Int, Float, 
+    Void, Bool, Int, Float,
     Pointer, Array, Function,
     BBlock, Parameter
 

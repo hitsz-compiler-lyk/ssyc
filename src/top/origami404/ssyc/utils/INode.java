@@ -13,9 +13,9 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     public INode(
-        Optional<IList<E, P>> parent, 
-        Optional<INode<E, P>> prev, 
-        Optional<INode<E, P>> next, 
+        Optional<IList<E, P>> parent,
+        Optional<INode<E, P>> prev,
+        Optional<INode<E, P>> next,
         E value
     ) {
         this.parent = parent;
@@ -23,7 +23,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         this.next = next;
         this.value = value;
         this.deleted = false;
-    } 
+    }
 
     public Optional<INode<E, P>> getPrev() {
         return prev;
@@ -92,10 +92,10 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         // 如果当前节点是链表的头节点, 那么当往前插入时, 还要修改链表的头节点
         oldPrev.ifPresentOrElse(
-            n -> n.setNext(newPrev), 
+            n -> n.setNext(newPrev),
             () -> parent.ifPresent(p -> p.setBegin(newPrev)));
         newPrev.setPrevOpt(oldPrev);
-        
+
         newPrev.setNext(this);
         this.setPrev(newPrev);
 

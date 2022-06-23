@@ -8,7 +8,7 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 public class LoadInst extends Instruction {
     public LoadInst(Value ptr) {
         super(
-            InstKind.Load, 
+            InstKind.Load,
             Optional.ofNullable((PointerIRTy) ptr.getType())
                 .map(PointerIRTy::getBaseType)
                 .orElseThrow(() -> new RuntimeException("Argument of load instrution must be a pointer"))

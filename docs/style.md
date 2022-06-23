@@ -12,7 +12,7 @@
 - 使用 `switch` 表达式
 - 在 interface 中使用 default 方法
 - 使用 `record` 关键字
-- 
+-
 
 若需要新特性一览, 可参考 [Java Guide](https://github.com/forax/java-guide).
 

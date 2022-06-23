@@ -12,7 +12,7 @@ public class DebugTools {
 
         for (final var child : rc.children) {
             if (child instanceof TerminalNode tn) {
-                return tn.getText();       
+                return tn.getText();
             }
         }
 
@@ -22,7 +22,7 @@ public class DebugTools {
     public static StringBuffer toDebugTreeString(ParserRuleContext rc) {
         final var sb = new StringBuffer();
         sb.append('(');
-        
+
         sb.append(SysYParser.ruleNames[rc.getRuleIndex()]);
         sb.append('['); sb.append(findFirstToken(rc)); sb.append(']');
 
@@ -30,7 +30,7 @@ public class DebugTools {
             sb.append(' ');
             sb.append(toDebugTreeString(child));
         }
-        
+
         sb.append(')');
         return sb;
     }

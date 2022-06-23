@@ -75,12 +75,12 @@
 
 ```
 $ ./m test
-Test test-data/asm-handmade/0-number.sy       return 1 
-Test test-data/asm-handmade/1-add-sub.sy      return 1 
-Test test-data/asm-handmade/2-mul-div-mod.sy  return 1 
-Test test-data/asm-handmade/3-variable.sy     return 1 
-Test test-data/asm-handmade/4-if.sy           return 1 
-Test test-data/asm-handmade/5-while.sy        return 1 
+Test test-data/asm-handmade/0-number.sy       return 1
+Test test-data/asm-handmade/1-add-sub.sy      return 1
+Test test-data/asm-handmade/2-mul-div-mod.sy  return 1
+Test test-data/asm-handmade/3-variable.sy     return 1
+Test test-data/asm-handmade/4-if.sy           return 1
+Test test-data/asm-handmade/5-while.sy        return 1
 ```
 
 此即为所有代码均编译错误, 因为在 `asm-handmade` 文件夹内的程序均期望返回 0. 自动判断与比对输出将在日后支持.
@@ -92,4 +92,4 @@ Test test-data/asm-handmade/5-while.sy        return 1
 - 时间规划: <docs/deadline.md>
 - 代码风格: <docs/style.md>
 - IR 设计: <docs/ir.md>
-- 
+-

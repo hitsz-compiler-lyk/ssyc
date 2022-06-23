@@ -13,7 +13,7 @@ Value
     > User
         > Instruction (InstKind)
             > BinaryOpInst
-                : IAdd, ISub, IMul, IDiv, IMod, FAdd, FSub, FMul, FDiv, 
+                : IAdd, ISub, IMul, IDiv, IMod, FAdd, FSub, FMul, FDiv,
             > UnaryOpInst
                 : INeg, FNeg,
             > CmpInst
@@ -35,13 +35,13 @@ Value
 
 IRType (IRTyKind)
     > SimpleIRTy
-        : Void, Bool, Int, Float, 
+        : Void, Bool, Int, Float,
     > ArrayIRTy
     > PointerIRTy
     > FunctionIRTy
 ```
 
-其中每一层缩进代表一个逻辑上的 `is-a`/从属 关系, `>` 代表该关系使用 Java 中的继承来表示, `:` 代表该关系通过该类的某个类别枚举 (`xxxKind`) 来实现. 
+其中每一层缩进代表一个逻辑上的 `is-a`/从属 关系, `>` 代表该关系使用 Java 中的继承来表示, `:` 代表该关系通过该类的某个类别枚举 (`xxxKind`) 来实现.
 
 ### 枚举实现的 "子类关系"
 
@@ -66,7 +66,7 @@ IR 里的被使用者(Usee)是 `Value` 类, 任何一个 `Value` 类的实例都
 
 ### IList 与 INode
 
-`IList` 的 `I` 代表 `intrusive`, 是侵入式链表的缩写. 所谓侵入式链表, 就是在这个链表里的元素本身必须要作出修改才能成为这个链表里的元素. 在实现上, 这个修改就是得把 `INode`, 侵入式链表的节点, 作为该元素的一个成员. 
+`IList` 的 `I` 代表 `intrusive`, 是侵入式链表的缩写. 所谓侵入式链表, 就是在这个链表里的元素本身必须要作出修改才能成为这个链表里的元素. 在实现上, 这个修改就是得把 `INode`, 侵入式链表的节点, 作为该元素的一个成员.
 
 实现该侵入式链表的原因有二:
 
@@ -183,10 +183,10 @@ public class INode<E, P> {
 
         // 如果当前节点是链表的头节点, 那么当往前插入时, 还要修改链表的头节点
         oldPrev.ifPresentOrElse(
-            n -> n.setNext(newPrev), 
+            n -> n.setNext(newPrev),
             () -> parent.ifPresent(p -> p.setBegin(newPrev)));
         newPrev.setPrev(oldPrev.orElse(null));
-        
+
         newPrev.setNext(this);
         this.setPrev(newPrev);
 
@@ -211,7 +211,7 @@ public class INode<E, P> {
 
 ### 类型 (type) 与类别 (kind)
 
-凡是与源语言语义有关的, 比如表示一段二进制串的可用操作, 或者是 IR 里的值的种类的, 称之为类型 (Type). 凡是用于代码实现里用来做 RTTI, 或者标志同一个类的实例的种类的, 称之为类别 (kind). 
+凡是与源语言语义有关的, 比如表示一段二进制串的可用操作, 或者是 IR 里的值的种类的, 称之为类型 (Type). 凡是用于代码实现里用来做 RTTI, 或者标志同一个类的实例的种类的, 称之为类别 (kind).
 
 比如一条 IR 指令有类型也有类别. 其类型 (`inst.getType()`) 就是指其 IR 里返回值的类型, 比如 `INT`, `FLOAT`, `BOOL`, `[4 * INT]`. 其类别 (`Inst.getKind()`) 就是它具体是哪一种 IR, 比如 `IAdd`, `ISub`, `FCmpGt`.
 
@@ -219,15 +219,15 @@ public class INode<E, P> {
 
 称类 `A` 为类 `B` 的所有者 (owner), 若 A 中包含一个 `B` 的实例. 称类 `P` 为类 `B` 的父对象 (parent), 若 P 中包含一个 `IList<B>` (即多个 `B` 对象). 更一般地, 所有者一般只是指有作为类成员的关系, 而父对象一般不但有实现上的包含, 还有概念上的包含.
 
-## 笔记: Alloc, Load, Store, GEP 
+## 笔记: Alloc, Load, Store, GEP
 
-Alloc 是用来获得一块特定大小的内存的 (通过提供特定的类型, 分配该类型大小的一块内存, 其返回类型永远是一个指向该特定类型的指针). 
+Alloc 是用来获得一块特定大小的内存的 (通过提供特定的类型, 分配该类型大小的一块内存, 其返回类型永远是一个指向该特定类型的指针).
 
 Load 解引用某个指针获得其值 (可视为去掉 `*`), Store 将某个值存放到指针所指的区域 (可视为加上 `*`).
 
 GEP (get element pointer) 可以去掉嵌套的指针与数组类型, 将高维的指针偏移为某个基本类型的低维指针. 返回值就是该指针.
 
-所以, 一般而言, 对数组的访问的 ir 一般是长这样的: 
+所以, 一般而言, 对数组的访问的 ir 一般是长这样的:
 
 ```
 %arr = alloc [4 x [5 x i32]]      # %0 的类型是 [4 x [5 x i32]]*
@@ -235,7 +235,7 @@ GEP (get element pointer) 可以去掉嵌套的指针与数组类型, 将高维�
 # 第一个 0 表示 "将 %arr 偏移 0 个基类型([4 x [5 x i32]]), 获得了一个 [4 x [5 x i32]]*"
 # 第二个 1 表示 "将上一步得到的指针偏移 1 个基类型([5 x i32]), 获得了一个 [5 x i32]*"
 # 第三个 3 表示 "将上一步得到的指针偏移 3 个基类型(i32), 获得了一个 i32*"
-%target = gep %arr, (0, 1, 3)  
+%target = gep %arr, (0, 1, 3)
 
 store %target 233   # 将 233 存进去
 ```

@@ -11,7 +11,7 @@ public class BinaryOpInst extends Instruction {
         super.addOperandCO(lhs);
         super.addOperandCO(rhs);
 
-        
+
         final var resultTyKind = lhs.getType().getKind();
         assert lhs.getType() == rhs.getType()
             : "lhs should have the same type as rhs";

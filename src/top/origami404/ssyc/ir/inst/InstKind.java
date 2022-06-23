@@ -3,8 +3,8 @@ package top.origami404.ssyc.ir.inst;
 import java.util.Set;
 
 public enum InstKind {
-    IAdd, ISub, IMul, IDiv, IMod, 
-    FAdd, FSub, FMul, FDiv, 
+    IAdd, ISub, IMul, IDiv, IMod,
+    FAdd, FSub, FMul, FDiv,
 
     INeg, FNeg,
 
@@ -23,14 +23,14 @@ public enum InstKind {
     public boolean isUnary()    { return unarySet.contains(this);   }
     public boolean isCmp()      { return cmpSet.contains(this);     }
     public boolean isBr()       { return brSet.contains(this);      }
-    
+
     public boolean isInt()      { return intSet.contains(this);     }
     public boolean isFloat()    { return floatSet.contains(this);   }
 
 
     private static final Set<InstKind> unarySet = Set.of(INeg, FNeg);
     private static final Set<InstKind> binarySet = Set.of(
-        IAdd, ISub, IMul, IDiv, IMod, 
+        IAdd, ISub, IMul, IDiv, IMod,
         FAdd, FSub, FMul, FDiv);
     private static final Set<InstKind> cmpSet = Set.of(
         ICmpEq, ICmpNe, ICmpGt, ICmpGe, ICmpLt, ICmpLe,

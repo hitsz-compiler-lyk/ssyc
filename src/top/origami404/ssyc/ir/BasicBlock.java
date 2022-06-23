@@ -7,7 +7,7 @@ import top.origami404.ssyc.utils.IListOwner;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
 
-public class BasicBlock extends Value 
+public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function> 
 {
     public BasicBlock() {

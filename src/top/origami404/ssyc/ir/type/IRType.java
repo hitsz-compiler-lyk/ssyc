@@ -10,10 +10,10 @@ public interface IRType {
      */
     public int getSize();
 
-    public static final SimpleIRTy IntTy    = new SimpleIRTy(IRTyKind.Int, 4);  
+    public static final SimpleIRTy IntTy    = new SimpleIRTy(IRTyKind.Int, 4);
     public static final SimpleIRTy FloatTy  = new SimpleIRTy(IRTyKind.Float, 4);
-    public static final SimpleIRTy VoidTy   = new SimpleIRTy(IRTyKind.Void); 
-    public static final SimpleIRTy BoolTy   = new SimpleIRTy(IRTyKind.Bool, 1); 
+    public static final SimpleIRTy VoidTy   = new SimpleIRTy(IRTyKind.Void);
+    public static final SimpleIRTy BoolTy   = new SimpleIRTy(IRTyKind.Bool, 1);
     public static final SimpleIRTy BBlockTy = new SimpleIRTy(IRTyKind.BBlock);
     public static final SimpleIRTy ArgTy    = new SimpleIRTy(IRTyKind.Parameter);
 

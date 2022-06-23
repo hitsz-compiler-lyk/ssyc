@@ -15,7 +15,7 @@ do
     sy_file="${PWD}/${input}"
     arm_file="${PWD}/${input/sy/s}"
     exec_file="${PWD}/${input/sy/exec}"
-  
+
     ./m run asm ${sy_file} ${arm_file}
     if [ $? -ne 0 ]; then
         print_info ${input} ${RED} "ssyc FAIL"

@@ -11,9 +11,9 @@ public class GEPInst extends Instruction {
     // indices: index 的复数形式
     public GEPInst(Value ptr, List<Value> indices) {
         super(InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
-        
+
         this.ptr = ptr;
-        this.indices = indices; 
+        this.indices = indices;
 
         super.addOperandCO(ptr);
         super.addAllOperandsCO(indices);

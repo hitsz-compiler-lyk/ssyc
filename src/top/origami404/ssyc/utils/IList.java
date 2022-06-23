@@ -60,7 +60,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
     /**
      * @param k
-     * @return 第 k 个节点 (从 0 开始编号) 
+     * @return 第 k 个节点 (从 0 开始编号)
      */
     private INode<E, P> getKthNode(final int k) {
         var curr = begin;
@@ -100,7 +100,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             public ElmItr(int index) {
                 this.iter = new IListIterator(index);
             }
-    
+
             @Override public boolean hasNext()      { return iter.hasNext();        }
             @Override public boolean hasPrevious()  { return iter.hasPrevious();    }
             @Override public int nextIndex()        { return iter.nextIndex();      }
@@ -137,7 +137,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         public boolean hasNext() {
             return nextNode.isPresent();
         }
-        
+
         @Override
         public boolean hasPrevious() {
             return prevNode.isPresent();
@@ -149,7 +149,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             // 不可能做到准确地追踪迭代器的索引
             throw new UnsupportedOperationException();
         }
-        
+
         @Override
         public int previousIndex() {
             throw new UnsupportedOperationException();
@@ -163,10 +163,10 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
                 .orElseThrow(() -> new NoSuchElementException());
             lastMoved = ActionKind.NEXT;
             lastModified = ActionKind.OTHER;
-            
+
             prevNode = nextNode;
             nextNode = nextNode.get().getNext();
-            
+
             return tempNode;
         }
 
@@ -176,14 +176,14 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
                 .orElseThrow(() -> new NoSuchElementException());
             lastMoved = ActionKind.PREV;
             lastModified = ActionKind.OTHER;
-            
+
             nextNode = prevNode;
             prevNode = prevNode.get().getNext();
-            
+
             return tempNode;
         }
 
-        
+
         //====================== Modification ====================//
         @Override
         public void remove() {
@@ -195,19 +195,19 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             // remove 要求删除前一个被 previous() 或是 next() 返回的节点, 即 tempNode
             final var prevTemp = tempNode.getPrev();
             final var nextTemp = tempNode.getNext();
-            
+
             // 判断之前是往哪移动, 借之判断我们删去了哪个节点, 随后替换对应的下一个节点
             switch (lastMoved) {
                 case NEXT -> { prevNode = prevTemp; }
                 case PREV -> { nextNode = nextTemp; }
-                default -> { 
-                    throw new IllegalStateException("Cannot call `remove` before any movement"); 
+                default -> {
+                    throw new IllegalStateException("Cannot call `remove` before any movement");
                 }
             }
 
             // 更新迭代器本身的状态
             lastModified = ActionKind.REMOVE;
-            
+
             // 更新链的状态
             tempNode.markedAsDeleted();
             prevTemp.ifPresent(n -> n.setNextOpt(nextTemp));
@@ -227,12 +227,12 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
             final var prevTemp = tempNode.getPrev();
             final var nextTemp = tempNode.getNext();
-            
+
             // 修改链表
-            
+
             // 将原来的节点标记为删除
             // TODO: what if newNode == tempNode ???
-            tempNode.markedAsDeleted();            
+            tempNode.markedAsDeleted();
 
             // 依次链接 prevTemp <-> newNode <-> nextTemp
             prevTemp.ifPresent(n -> n.setNext(newNode));

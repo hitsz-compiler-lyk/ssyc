@@ -52,7 +52,7 @@ public class Main {
     private static InputStream openInput(String filename) throws FileNotFoundException {
         if (filename.equals("-")) {
             return System.in;
-        } 
+        }
 
         return new FileInputStream(filename);
     }

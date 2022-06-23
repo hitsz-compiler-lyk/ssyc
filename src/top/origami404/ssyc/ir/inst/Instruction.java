@@ -6,9 +6,9 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
 
-public abstract class Instruction extends User 
-    implements INodeOwner<Instruction, BasicBlock> 
-{        
+public abstract class Instruction extends User
+    implements INodeOwner<Instruction, BasicBlock>
+{
     Instruction(InstKind kind, IRType type) {
         super(type);
         this.kind = kind;

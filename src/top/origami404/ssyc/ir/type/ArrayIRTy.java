@@ -5,7 +5,7 @@ public class ArrayIRTy implements IRType {
     public IRTyKind getKind() {
         return IRTyKind.Array;
     }
-    
+
     ArrayIRTy(int elementNum, IRType elementType) {
         this.elementNum = elementNum;
         this.elementType = elementType;

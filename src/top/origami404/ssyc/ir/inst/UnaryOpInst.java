@@ -8,7 +8,7 @@ public class UnaryOpInst extends Instruction {
         this.arg = arg;
         super.addOperandCO(arg);
 
-        
+
         final var resultTyKind = arg.getType().getKind();
         assert resultTyKind.isInt() && resultTyKind.isFloat()
             : "BinOpInst require type INT or FLOAT";

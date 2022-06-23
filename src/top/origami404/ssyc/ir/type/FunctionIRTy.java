@@ -29,7 +29,7 @@ public class FunctionIRTy implements IRType {
     public IRType getParamType(int idx) {
         return paramTypes.get(idx);
     }
-    
+
     private IRType returnType;
     private List<IRType> paramTypes;
 }
