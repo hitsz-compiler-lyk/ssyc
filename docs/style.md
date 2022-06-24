@@ -9,12 +9,41 @@
 - 使用 `var` 以在变量声明中省略类型
 - 使用 `Stream` 与 `Optional`
 - 使用 lambda 与 `::`
+- 使用 `switch` 表达式
+- 在 interface 中使用 default 方法
+- 使用 `record` 关键字
+-
 
 若需要新特性一览, 可参考 [Java Guide](https://github.com/forax/java-guide).
 
+Use package visibility instead of protected.
+
 ### 可空变量一律使用 `Optional<T>`
 
+> 尽管传统上认为将 Optional 作为成员储存是不合适的, 但实际应用中这样做很方便, 所以本项目允许 (并鼓励) 对可空成员使用 Optional.
+
 如果一个变量不使用 Optional, 则总认为其是非空的并忽略 **任何** 形式的空指针检查 (包括 assert).
+
+例外: 在有注释说明的情况下, 构造函数参数为了方便可以直接接收空引用, 但对应的成员的存储与获取必须使用 Optional.
+
+如果真的需要检查一个变量是否为空, 可以使用 `Objects.requireNonNull(obj)`, 或者直接 `assert obj != null`.
+
+```java
+// Usage of Objects.requireNonNull
+public UserInfo(String name, int age, String login, char[] password) {
+  this.name = Objects.requireNonNull(name);
+  this.age = age;
+  this.login = Objects.requireNonNull(login);
+  this.password = password.clone();
+}
+
+record User(String name, int age) {
+  public User {
+    Objects.requireNonNull(name);
+  }
+  // the compiler automatically adds equals/hashCode/toString !
+}
+```
 
 ### 鼓励使用 assert 判断
 
@@ -25,6 +54,17 @@
 新创立的异常建议完全从 `RuntimeException` 派生, 除非有非常充分的理由.
 
 对于 "代码的错误使用方式" (比如 get 一个成员但是它目前为 null), 使用断言而非异常. 只有对于 "输入数据中的错误" 才使用异常.
+
+### 异常的使用方法
+
+TODO
+
+// Exceptions commonly used in Java
+// - NullPointerException if a reference is null
+// - IllegalArgumentException if an argument of a method is not valid
+// - IllegalStateException if the object state doesn't allow to proceed,
+//   by example if a file is closed, you can not read it
+// - AssertionError if a code that should not be reached has been reached
 
 ## 文档风格约定
 

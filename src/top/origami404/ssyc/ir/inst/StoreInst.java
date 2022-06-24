@@ -1,14 +1,27 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.arg.PtrReg;
-import top.origami404.ssyc.ir.arg.Value;
+import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.type.IRType;
 
-public class StoreInst extends Inst {
-    public StoreInst(PtrReg dstPtr, Value srcVal) {
-        super(Kind.Store, dstPtr, srcVal, null);
-        assert dstPtr.getKind() == srcVal.getKind();
+public class StoreInst extends Instruction {
+    public StoreInst(Value ptr, Value val) {
+        super(InstKind.Store, IRType.VoidTy);
+
+        this.ptr = ptr;
+        this.val = val;
+
+        super.addOperandCO(ptr);
+        super.addOperandCO(val);
     }
 
-    public PtrReg getDstPtr() { return castTo(dest, PtrReg.class); }
-    public Value  getSrcVal() { return castTo(arg1, Value.class);  }
+    public Value getPtr() {
+        return ptr;
+    }
+
+    public Value getVal() {
+        return val;
+    }
+
+    private Value ptr;
+    private Value val;
 }
