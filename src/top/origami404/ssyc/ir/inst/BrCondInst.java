@@ -5,9 +5,10 @@ import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BrCondInst extends Instruction {
-    BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+    public BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
         super(InstKind.BrCond, IRType.VoidTy);
 
+        // TODO: 维护基本块前后继关系
         this.cond = cond;
         this.trueBB = trueBB;
         this.falseBB = falseBB;
