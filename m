@@ -32,7 +32,7 @@ compile() {
     test -d "$ANTLR_EXT_CACHE" && rm -r "$ANTLR_EXT_CACHE"
 
     # Compile to .class
-    javac -d target -cp 'lib/*' $(find src -name '*.java')
+    javac -encoding "UTF-8" -d target -cp 'lib/*' $(find src -name '*.java')
 }
 
 make_jar() {
