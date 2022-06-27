@@ -12,4 +12,7 @@ public class Constant extends Value {
 
     public static IntConst createIntConstant(int value) { return new IntConst(value); }
     public static FloatConst createFloatConstant(float value) { return new FloatConst(value); }
+    public static BoolConst getBoolConstant(boolean bool) {
+        return bool ? BoolConst.trueBoolConst : BoolConst.falseBoolConst;
+    }
 }
