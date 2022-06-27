@@ -3,7 +3,7 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.ir.Value;
 
 public class CmpInst extends Instruction {
-    CmpInst(InstKind cmpKind, Value lhs, Value rhs) {
+    public CmpInst(InstKind cmpKind, Value lhs, Value rhs) {
         super(cmpKind, lhs.getType());
         this.lhs = lhs;
         this.rhs = rhs;
