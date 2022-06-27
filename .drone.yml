@@ -28,7 +28,7 @@ steps:
       password:
         from_secret: ssh_password
       target: /projects/test
-      source: asm.tar
+      source: build.tar
 
   - name: test
     image: appleboy/drone-ssh
