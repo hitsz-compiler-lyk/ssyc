@@ -13,7 +13,7 @@ trigger:
 
 steps:
   - name: build
-    image: sorashu/build-ssyc:v1
+    image: sorashu/build-ssyc:v2
     depends_on: [clone]
 
   - name: send
