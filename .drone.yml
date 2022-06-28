@@ -43,4 +43,4 @@ steps:
         from_secret: ssh_password
       script:
         - cd /projects/test
-        - bash ./test.sh
+        - bash ./test.sh 2> /dev/null
