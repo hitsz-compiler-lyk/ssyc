@@ -13,6 +13,7 @@ public abstract class Instruction extends User
         super(type);
         this.kind = kind;
         this.bbNode = new INode<>(this);
+        this.name = "%" + instNo++;
     }
 
     /**
@@ -27,6 +28,17 @@ public abstract class Instruction extends User
         return bbNode;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    private static int instNo = 0;
+
     private InstKind kind;
     private INode<Instruction, BasicBlock> bbNode;
+    private String name;
 }
