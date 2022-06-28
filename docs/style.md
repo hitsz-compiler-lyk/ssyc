@@ -59,12 +59,25 @@ record User(String name, int age) {
 
 TODO
 
+```
 // Exceptions commonly used in Java
 // - NullPointerException if a reference is null
 // - IllegalArgumentException if an argument of a method is not valid
 // - IllegalStateException if the object state doesn't allow to proceed,
 //   by example if a file is closed, you can not read it
 // - AssertionError if a code that should not be reached has been reached
+```
+
+如果把不定主意, 则优先选择 `RuntimeException`. 宁可不做选择, 也不做错误的选择.
+
+## 命名约定
+
+对于英文中的同近意词, 若在代码中含义不同, 请于每个模块的文档中指明. 通用的情况可以于本文档说明.
+
+### `setXXX`
+
+推荐只将简单的 setter 类修改方法命名为 `setXXX`, 如果该修改方法比较复杂 (包含维护反向引用之类的情况), 可以使用其他表示修改的英文动词 (譬如 `change`, `switch`), 并且注意视情况添加 [`CO` 后缀](./ir.md#co-方法-一致性方法).
+
 
 ## 文档风格约定
 
