@@ -257,10 +257,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         public void add(INode<E, P> newNode) {
             lastModified = ActionKind.ADD;
 
-            if (lastMoved == ActionKind.OTHER) {
-                throw new IllegalStateException("Cannot call `add` before any movement");
-            }
-
             final boolean isHead = prevNode.isEmpty();
             final boolean isTail = nextNode.isEmpty();
             if (isHead && isTail) {
