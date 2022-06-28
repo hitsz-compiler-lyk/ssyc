@@ -13,7 +13,7 @@ trigger:
 
 steps:
   - name: build
-    image: sorashu/build-ssyc:v2
+    image: sorashu/build-ssyc:v3.1
     depends_on: [clone]
 
   - name: send
@@ -28,7 +28,7 @@ steps:
       password:
         from_secret: ssh_password
       target: /projects/test
-      source: asm.tar
+      source: build.tar
 
   - name: test
     image: appleboy/drone-ssh
@@ -43,4 +43,4 @@ steps:
         from_secret: ssh_password
       script:
         - cd /projects/test
-        - bash ./test.sh
+        - bash ./test.sh 2> /dev/null
