@@ -8,7 +8,8 @@ public class Operand implements Comparable<Operand> {
         IPhy,
         FVirtual,
         FPhy,
-        Imm,
+        IImm,
+        FImm,
     }
 
     int imm;
@@ -25,11 +26,6 @@ public class Operand implements Comparable<Operand> {
 
     public Operand(opType s) {
         this.s = s;
-    }
-
-    public Operand(int imm) {
-        this.s = opType.Imm;
-        this.imm = imm;
     }
 
     public boolean IsIVirtual() {
