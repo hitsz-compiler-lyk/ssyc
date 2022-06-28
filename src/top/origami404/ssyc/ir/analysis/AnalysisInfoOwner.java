@@ -1,10 +1,15 @@
 package top.origami404.ssyc.ir.analysis;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 public interface AnalysisInfoOwner {
-    default AnalysisInfo getAnalysisInfo(String name) {
-        final var info = getInfoMap().get(name);
+    default <T extends AnalysisInfo> T getAnalysisInfo(Class<T> cls) {
+        final var name = cls.getSimpleName();
+
+        @SuppressWarnings("unchecked")
+        final var info = (T) getInfoMap().get(name);
+
         if (info == null) {
             throw new RuntimeException("Analysis info " + name + " does not exist");
         }
@@ -21,6 +26,17 @@ public interface AnalysisInfoOwner {
         }
 
         map.put(name, info);
+    }
+
+    default <T extends AnalysisInfo> boolean containsAnalysisInfo(Class<T> cls) {
+        final var name = cls.getSimpleName();
+        return getInfoMap().containsKey(name);
+    }
+
+    default <T extends AnalysisInfo> void addIfAbsent(Class<T> cls, Supplier<T> supplier) {
+        if (!containsAnalysisInfo(cls)) {
+            addAnalysisInfo(supplier.get());
+        }
     }
 
     public Map<String, AnalysisInfo> getInfoMap();

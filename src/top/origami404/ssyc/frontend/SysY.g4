@@ -41,30 +41,7 @@ initVal
 // exp 必须都是整数常量表达式
 emptyDim: '[' ']';
 lValDecl
-    : Ident emptyDim? ('[' constExp ']')*
-    ;
-
-constExp: constExpAdd;
-
-constExpAdd
-    : constExpMul ExpAddOp constExpAdd
-    | constExpMul
-    ;
-
-constExpMul
-    : constExpUnary ExpMulOp constExpMul
-    | constExpUnary
-    ;
-
-constExpUnary
-    : ExpUnaryOp constExpUnary
-    | constExpAtom
-    ;
-
-constExpAtom
-    : '(' constExp ')'
-    | Ident
-    | IntConst
+    : Ident emptyDim? ('[' exp ']')*
     ;
 
 //---------------------------- stmt ---------------------
@@ -117,34 +94,34 @@ logAnd
     | relEq
     ;
 
-RelEqOp: '==' | '!=' ;
+relEqOp: '==' | '!=' ;
 relEq
-    : relComp RelEqOp relEq
+    : relComp relEqOp relEq
     | relComp
     ;
 
-RelCompOp: '<' | '>' | '<=' | '>=' ;
+relCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : expAdd RelCompOp relComp
+    : expAdd relCompOp relComp
     | expAdd
     ;
 
-ExpAddOp: '+' | '-' ;
+expAddOp: '+' | '-' ;
 expAdd
-    : expMul ExpAddOp expAdd
+    : expMul expAddOp expAdd
     | expMul
     ;
 
-ExpMulOp: '*' | '/' | '%' ;
+expMulOp: '*' | '/' | '%' ;
 expMul
-    : expUnary ExpMulOp expMul
+    : expUnary expMulOp expMul
     | expUnary
     ;
 
-ExpUnaryOp: '+' | '-' | '!' ;
+expUnaryOp: '+' | '-' | '!' ;
 expUnary
     : atom
-    | ExpUnaryOp expUnary
+    | expUnaryOp expUnary
     | Ident '(' funcArgList ')'
     ;
 

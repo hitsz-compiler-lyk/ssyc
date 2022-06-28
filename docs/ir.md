@@ -201,6 +201,8 @@ public class INode<E, P> {
 
 ```
 
+任何类的构造函数必须是一致的.
+
 ## 术语约定
 
 ### 名字 (name) 与表示 (representation)

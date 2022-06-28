@@ -4,7 +4,8 @@ import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BrInst extends Instruction {
-    BrInst(BasicBlock nextBB) {
+    public BrInst(BasicBlock nextBB) {
+        // TODO: 维护基本块前后继关系
         super(InstKind.Br, IRType.BBlockTy);
         this.nextBB = nextBB;
         super.addOperandCO(nextBB);

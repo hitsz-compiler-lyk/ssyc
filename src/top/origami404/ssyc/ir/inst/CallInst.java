@@ -6,7 +6,7 @@ import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
 
 public class CallInst extends Instruction {
-    CallInst(Function callee, List<Value> args) {
+    public CallInst(Function callee, List<Value> args) {
         super(InstKind.Call, callee.getType().getReturnType());
 
         this.callee = callee;

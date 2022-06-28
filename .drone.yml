@@ -1,0 +1,46 @@
+kind: pipeline
+type: docker
+name: build-send-test
+
+trigger:
+  branch:
+    - main
+    - test/*
+
+  event:
+    include:
+      - push
+
+steps:
+  - name: build
+    image: sorashu/build-ssyc:v3.1
+    depends_on: [clone]
+
+  - name: send
+    image: appleboy/drone-scp
+    depends_on: [build]
+    settings:
+      host:
+        from_secret: pi_host
+      username:
+        from_secret: pi_user
+      port: 22
+      password:
+        from_secret: ssh_password
+      target: /projects/test
+      source: build.tar
+
+  - name: test
+    image: appleboy/drone-ssh
+    depends_on: [send]
+    settings:
+      host:
+        from_secret: pi_host
+      username:
+        from_secret: pi_user
+      port: 22
+      password:
+        from_secret: ssh_password
+      script:
+        - cd /projects/test
+        - bash ./test.sh 2> /dev/null
