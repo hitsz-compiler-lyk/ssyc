@@ -2,11 +2,11 @@
 ct=$(date +%m-%d_%H-%M-%S)
 file_path="${PWD}/${ct}"
 
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-CYAN=$(tput setaf 6)
-WHITE=$(tput setaf 7)
-NORMAL=$(tput sgr0)
+ED="\033[31;49m"
+GREEN="\033[32;49m"
+CYAN="\033[36;49m"
+WHITE="\033[37;49m"
+NORMAL="\033[0m"
 
 print_info () {
     printf "Test ${WHITE}%-40s $2%s ${NORMAL}\n" "$1" "$3"
