@@ -1,10 +1,16 @@
 package top.origami404.ssyc.ir;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
+import top.origami404.ssyc.ir.inst.BrCondInst;
+import top.origami404.ssyc.ir.inst.BrInst;
 import top.origami404.ssyc.ir.inst.Instruction;
 import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.type.IRType;
@@ -33,6 +39,7 @@ public class BasicBlock extends Value
 
         this.phiEnd = instructions.asINodeView().listIterator();
         this.name = name;
+        this.predecessors = new ArrayList<>();
     }
 
     public IList<Instruction, BasicBlock> getIList() {
@@ -64,6 +71,55 @@ public class BasicBlock extends Value
         this.name = name;
     }
 
+    public Iterator<PhiInst> iterPhis() {
+        return new Iterator<PhiInst>() {
+            @Override
+            public boolean hasNext() {
+                return iter.hasNext() && iter != phiEnd;
+            }
+
+            @Override
+            public PhiInst next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                final var inst = this.iter.next().getOwner();
+                if (inst instanceof PhiInst phi) {
+                    return phi;
+                } else {
+                    throw new RuntimeException("Non-phi instruction appearances before phi");
+                }
+            }
+
+            ListIterator<INode<Instruction, BasicBlock>> iter
+                = instructions.asINodeView().listIterator();
+        };
+    }
+
+    public List<BasicBlock> getSuccessors() {
+        // 使用 List 以方便有可能需要使用索引标记的情况
+        // 比如说用 List 就可以直接开 boolean visited[N]
+        // 而不用开 Map<BasicBlock, Boolean> visited
+
+        final var lastInst = instructions.asElementView().get(instructions.getSize());
+        if (lastInst instanceof BrInst br) {
+            return List.of(br.getNextBB());
+        } else if (lastInst instanceof BrCondInst brc) {
+            return List.of(brc.getTrueBB(), brc.getFalseBB());
+        } else {
+            return List.of();
+        }
+    }
+
+    public List<BasicBlock> getPredecessors() {
+        return predecessors;
+    }
+
+    public void addPredecessor(BasicBlock predecessor) {
+        predecessors.add(predecessor);
+    }
+
     private static int bblockNo = 0;
 
     private String name;
@@ -71,4 +127,5 @@ public class BasicBlock extends Value
     private ListIterator<INode<Instruction, BasicBlock>> phiEnd;
     private INode<BasicBlock, Function> inode;
     private Map<String, AnalysisInfo> analysisInfos;
+    private List<BasicBlock> predecessors;
 }
