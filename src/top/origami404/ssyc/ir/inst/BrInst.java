@@ -9,6 +9,8 @@ public class BrInst extends Instruction {
         super(InstKind.Br, IRType.BBlockTy);
         this.nextBB = nextBB;
         super.addOperandCO(nextBB);
+
+        nextBB.addPredecessor(this.getParent().get());
     }
 
     public BasicBlock getNextBB() {

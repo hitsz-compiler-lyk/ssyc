@@ -17,6 +17,9 @@ public class BrCondInst extends Instruction {
         super.addOperandCO(trueBB);
         super.addOperandCO(falseBB);
 
+        trueBB.addPredecessor(this.getParent().get());
+        falseBB.addPredecessor(this.getParent().get());
+
         assert cond.getType().getKind().isBool()
             : "BrCond expect a cond with Bool IRType";
     }
