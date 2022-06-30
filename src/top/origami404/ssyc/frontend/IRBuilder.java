@@ -11,6 +11,7 @@ import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.BoolConst;
+import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.inst.AllocInst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
 import top.origami404.ssyc.ir.inst.BrCondInst;
@@ -21,6 +22,7 @@ import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.Instruction;
 import top.origami404.ssyc.ir.inst.LoadInst;
+import top.origami404.ssyc.ir.inst.MemInitInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
@@ -96,7 +98,14 @@ public class IRBuilder {
     public StoreInst insertStore(Value ptr, Value val) { return direct(new StoreInst(ptr, val)); }
 
     // GEP 指令是需要被加进 Cache 里的, 因为底层的指针偏移运算肯定是可复用并且越少越好的
-    public GEPInst insertGEP(Value ptr, List<Value> indices) { return cache(new GEPInst(ptr, indices)); }
+    public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return cache(new GEPInst(ptr, indices)); }
+
+    public GEPInst insertGEPByInts(Value ptr, List<Integer> indices) {
+        final var valueIndices = indices.stream().map(Constant::createIntConstant).toList();
+        return insertGEP(ptr, valueIndices);
+    }
+
+    public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
     // TODO: 考虑是否增加更多的数组索引 IR  辅助工具
 
@@ -121,6 +130,14 @@ public class IRBuilder {
     //         return phi;
     //     });
     // }
+
+    public Function getFunction() {
+        return currFunc;
+    }
+
+    public BasicBlock getBasicBlock() {
+        return currBB;
+    }
 
     public BasicBlock createBasicBlock() {
         return new BasicBlock(currFunc);
