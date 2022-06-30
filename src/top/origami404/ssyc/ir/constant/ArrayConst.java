@@ -2,22 +2,31 @@ package top.origami404.ssyc.ir.constant;
 
 import java.util.List;
 
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 
 /**
- * <p>  数组常量, 一般用于表示数组的初始化器
+ * <p>数组常量, 一般用于表示数组的初始化器
  *
- * <p>  其构成为:
- * <pre> [ (IntConst | FloatConst)... (ZeroArrayConst)? ] | [ (ArrayConst)... ] </pre>
+ * <p>其构成为:
+ * <pre> [ (IntConst | FloatConst)... ] | [ (ArrayConst)... ] | ZeroArrayConst </pre>
  *
- * <p>  保证其 {@code elements} 内的所有常量都是相同类型 (比如均为 IntConst,
- *      或者是均为 IntTy 的 ArrayConst). 当 {@code elements} 均为 ArrayConst 时,
- *      确保其逻辑意义上的 "长度" 相同
+ * <p>保证其 {@code elements} 内的所有常量都是相同类型 (比如均为 IntConst,
+ * 或者是均为 IntTy 的 ArrayConst).
  *
- * <p>  例子: (ArrayConst ==> 对应的 C 语言中的数组初始化器)
- * <pre> (AC == ArrayConst, ZA == ZeroArrayConst)
- *      AC([1, 2, 3]) ==> {1, 2, 3}
- *      AC([AC([1, ZA(2)]), AC([1, 2, 3])]) ==> {{1}, {1, 2, 3}}
+ * <p>例子: (ArrayConst ==> 对应的 C 语言中的数组初始化器, AC == ArrayConst, ZA == ZeroArrayConst)
+ * <pre>
+ * AC([1, 2, 3]) ==> {1, 2, 3}
+ * AC([AC([1, 0, 0]), AC([1, 2, 3]), ZA]) ==> {{1}, {1, 2, 3}, {}}
+ * AC([1, 0, 0, ...... 0]) ==> {1}
+ * </pre>
+ *
+ * <p>考虑一个 <pre> int a[100] = {1} </pre>, 如例三. 这种情况下, 对于我们的实现,
+ * 只能往 ArrayConst 里塞一个长度为 100 的大 List. 对 LLVM 而言, 它会
+ * 将数组改写为聚合类型 <{ i32, [99 x i32] }>, 随后使用
+ * <{ i32 0, [99 x i32] zeroinitializer }> 来初始化. 鉴于我们没有实现
+ * 聚合类型, 而且像上面这种情况在测试代码里非常少见, 我们最终还是选择了
+ * 简单的实现.
  */
 public class ArrayConst extends Constant {
     ArrayConst(List<Constant> elements) {
@@ -33,7 +42,7 @@ public class ArrayConst extends Constant {
         assert type.equals(IRType.IntTy) || type.equals(IRType.FloatTy);
         assert elms.stream().allMatch(e -> e.getType().equals(type));
 
-        return type;
+        return IRType.createArrayTy(elms.size(), type);
     }
 
     private List<Constant> elements;
@@ -42,42 +51,12 @@ public class ArrayConst extends Constant {
         return elements;
     }
 
-    /**
-     * @return 该数组常量逻辑上的长度
-     */
-    public int getElementNum() {
-        final var size = elements.size();
-        final var last = elements.get(size);
+    public void addZeroTo(int targetSize) {
+        final var elmTy = ((ArrayIRTy) getType()).getElementType();
+        final var zero = Constant.getZeroByType(elmTy);
 
-        if (last instanceof ZeroArrayConst zac) {
-            // -1 是为了去掉 ZeroArrayConst 占的那一个
-            return size - 1 + zac.getElementNum();
-        } else {
-            return size;
-        }
-    }
-
-    /**
-     * @param idx 索引
-     * @return 该数组常量在逻辑意义上的, 位于该索引处的元素值
-     */
-    public Constant getElement(int idx) {
-        final var size = elements.size();
-        final var last = elements.get(size);
-
-        if (last instanceof ZeroArrayConst zac) {
-            final var nonZeroEnd = size - 1;
-            final var zeroEnd = nonZeroEnd + zac.getElementNum();
-
-            if (0 <= idx && idx < nonZeroEnd) {
-                return elements.get(idx);
-            } else if (nonZeroEnd <= idx && idx < zeroEnd) {
-                return Constant.getZeroByType(zac.getType());
-            } else {
-                throw new IndexOutOfBoundsException(idx);
-            }
-        } else {
-            return elements.get(idx);
+        while (elements.size() < targetSize) {
+            elements.add(zero);
         }
     }
 
@@ -85,26 +64,9 @@ public class ArrayConst extends Constant {
      * 纯零数组常量
      */
     public static class ZeroArrayConst extends ArrayConst {
-        private ZeroArrayConst(IRType type, int length) {
+        public ZeroArrayConst(IRType type) {
             super(type);
-            this.length = length;
         }
-
-        @Override
-        public int getElementNum() {
-            return length;
-        }
-
-        @Override
-        public Constant getElement(int idx) {
-            return Constant.getZeroByType(getType());
-        }
-
-        private int length;
-    }
-
-    public static ZeroArrayConst createZeroArrayConst(IRType type, int length) {
-        return new ZeroArrayConst(type, length);
     }
 
     // Only for subclass
