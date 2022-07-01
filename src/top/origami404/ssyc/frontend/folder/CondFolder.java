@@ -6,9 +6,15 @@ import top.origami404.ssyc.ir.inst.CmpInst;
 
 public class CondFolder {
     public static boolean canFold(CmpInst cond) {
-        return cond.getKind().isInt()
+        final var canFoldInt = cond.getKind().isInt()
             && IntConstantFolder.canFold(cond.getLHS())
             && IntConstantFolder.canFold(cond.getRHS());
+
+        final var canFoldFloat = cond.getKind().isFloat()
+            && FloatConstantFolder.canFold(cond.getLHS())
+            && FloatConstantFolder.canFold(cond.getRHS());
+
+        return canFoldInt || canFoldFloat;
     }
 
     public static BoolConst foldConst(CmpInst cond) {
@@ -16,21 +22,34 @@ public class CondFolder {
     }
 
     public static boolean foldBool(CmpInst cond) {
-        final var lhs = IntConstantFolder.foldInt(cond.getLHS());
-        final var rhs = IntConstantFolder.foldInt(cond.getRHS());
+        if (cond.getKind().isInt()) {
+            final var lhs = IntConstantFolder.foldInt(cond.getLHS());
+            final var rhs = IntConstantFolder.foldInt(cond.getRHS());
 
-        // TODO: 考虑 FloatConstantFolder ?
-        // 也许还需要考虑 32 位浮点运算在不同平台的表现
+            return switch (cond.getKind()) {
+                case ICmpEq -> lhs == rhs;
+                case ICmpNe -> lhs != rhs;
+                case ICmpGe -> lhs >= rhs;
+                case ICmpGt -> lhs > rhs;
+                case ICmpLe -> lhs <= rhs;
+                case ICmpLt -> lhs < rhs;
+                default ->
+                    throw new RuntimeException("Unfoldable cond");
+            };
+        } else {
+            final var lhs = FloatConstantFolder.foldFloat(cond.getLHS());
+            final var rhs = FloatConstantFolder.foldFloat(cond.getRHS());
 
-        return switch (cond.getKind()) {
-            case ICmpEq -> lhs == rhs;
-            case ICmpNe -> lhs != rhs;
-            case ICmpGe -> lhs >= rhs;
-            case ICmpGt -> lhs > rhs;
-            case ICmpLe -> lhs <= rhs;
-            case ICmpLt -> lhs < rhs;
-            default ->
-                throw new RuntimeException("Unfoldable cond");
-        };
+            return switch (cond.getKind()) {
+                case FCmpEq -> lhs == rhs;
+                case FCmpNe -> lhs != rhs;
+                case FCmpGe -> lhs >= rhs;
+                case FCmpGt -> lhs > rhs;
+                case FCmpLe -> lhs <= rhs;
+                case FCmpLt -> lhs < rhs;
+                default ->
+                    throw new RuntimeException("Unfoldable cond");
+            };
+        }
     }
 }

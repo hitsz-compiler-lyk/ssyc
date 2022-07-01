@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ListIterator;
 
 import top.origami404.ssyc.frontend.folder.CondFolder;
+import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
 import top.origami404.ssyc.frontend.folder.IntConstantFolder;
 import top.origami404.ssyc.frontend.info.InstCache;
 import top.origami404.ssyc.frontend.info.VersionInfo;
@@ -18,9 +19,11 @@ import top.origami404.ssyc.ir.inst.BrCondInst;
 import top.origami404.ssyc.ir.inst.BrInst;
 import top.origami404.ssyc.ir.inst.CallInst;
 import top.origami404.ssyc.ir.inst.CmpInst;
+import top.origami404.ssyc.ir.inst.FloatToIntInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.Instruction;
+import top.origami404.ssyc.ir.inst.IntToFloatInst;
 import top.origami404.ssyc.ir.inst.LoadInst;
 import top.origami404.ssyc.ir.inst.MemInitInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
@@ -48,11 +51,11 @@ public class IRBuilder {
     public Value insertIDiv(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IDiv, lhs, rhs)); }
     public Value insertIMod(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IMod, lhs, rhs)); }
 
-    public UnaryOpInst insertFNeg(Value arg) { return cache(new UnaryOpInst(InstKind.FNeg, arg)); }
-    public BinaryOpInst insertFAdd(Value lhs, Value rhs) { return cache(new BinaryOpInst(InstKind.FAdd, lhs, rhs)); }
-    public BinaryOpInst insertFSub(Value lhs, Value rhs) { return cache(new BinaryOpInst(InstKind.FSub, lhs, rhs)); }
-    public BinaryOpInst insertFMul(Value lhs, Value rhs) { return cache(new BinaryOpInst(InstKind.FMul, lhs, rhs)); }
-    public BinaryOpInst insertFDiv(Value lhs, Value rhs) { return cache(new BinaryOpInst(InstKind.FDiv, lhs, rhs)); }
+    public Value insertFNeg(Value arg) { return foldFloat(new UnaryOpInst(InstKind.FNeg, arg)); }
+    public Value insertFAdd(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FAdd, lhs, rhs)); }
+    public Value insertFSub(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FSub, lhs, rhs)); }
+    public Value insertFMul(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FMul, lhs, rhs)); }
+    public Value insertFDiv(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FDiv, lhs, rhs)); }
 
     public Value insertICmpEq(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpEq, lhs, rhs)); }
     public Value insertICmpNe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpNe, lhs, rhs)); }
@@ -105,31 +108,10 @@ public class IRBuilder {
         return insertGEP(ptr, valueIndices);
     }
 
+    public Value insertI2F(Value from) { return foldFloat(new IntToFloatInst(from));    }
+    public Value insertF2I(Value from) { return foldInt(new FloatToIntInst(from));      }
+
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
-
-    // TODO: 考虑是否增加更多的数组索引 IR  辅助工具
-
-    // IRBuilder 拿不到作用域信息, 版本化最好在 visitor 做
-    // public void addVariableDefine(String name, Value value) {
-    //     final var version = currBB.getAnalysisInfo(VersionInfo.class);
-    //     version.newDefine(name, value);
-    // }
-
-    // public Optional<Value> getVariableDefine(String name) {
-    //     final var version = currBB.getAnalysisInfo(VersionInfo.class);
-    //     return version.getDefine(name);
-    // }
-
-    // public Value getVariableDefineOrInsertEmptyPhi(String name, IRType type) {
-    //     final var version = currBB.getAnalysisInfo(VersionInfo.class);
-
-    //     return version.getDefine(name).orElseGet(() -> {
-    //         final var phi = new PhiInst(type);
-
-    //         currBB.addPhi(phi);
-    //         return phi;
-    //     });
-    // }
 
     public Function getFunction() {
         return currFunc;
@@ -161,6 +143,14 @@ public class IRBuilder {
     private Value foldInt(Instruction val) {
         if (IntConstantFolder.canFold(val)) {
             return IntConstantFolder.foldConst(val);
+        } else {
+            return cache(val);
+        }
+    }
+
+    private Value foldFloat(Instruction val) {
+        if (FloatConstantFolder.canFold(val)) {
+            return FloatConstantFolder.foldConst(val);
         } else {
             return cache(val);
         }
