@@ -41,6 +41,15 @@ public class Function extends Value
         return name;
     }
 
+    // 外部函数将只有 name 与 parameters
+    public boolean isExternal() {
+        return isExternal;
+    }
+
+    public void markExternal() {
+        this.isExternal = true;
+    }
+
     public List<Parameter> getParameters() {
         return parameters;
     }
@@ -58,4 +67,5 @@ public class Function extends Value
     private List<Parameter> parameters;
     private IList<BasicBlock, Function> bblocks;
     private Map<String, AnalysisInfo> analysisInfos;
+    private boolean isExternal = false;
 }
