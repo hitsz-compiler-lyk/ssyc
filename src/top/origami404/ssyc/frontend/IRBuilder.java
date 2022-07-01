@@ -87,7 +87,7 @@ public class IRBuilder {
 
     public BrInst insertBranch(BasicBlock nextBB) { return direct(new BrInst(nextBB)); }
 
-    public CallInst insertCall(Function func, List<Value> args) { return cache(new CallInst(func, args)); }
+    public CallInst insertCall(Function func, List<Value> args) { return direct(new CallInst(func, args)); }
     public ReturnInst insertReturn() { return direct(new ReturnInst()); }
     public ReturnInst insertReturn(Value returnVal) { return direct(new ReturnInst(returnVal)); }
 
