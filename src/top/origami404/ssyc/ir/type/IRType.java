@@ -37,4 +37,12 @@ public interface IRType {
     public static PointerIRTy createArrayPtrTy(int elementNum, IRType elementType) {
         return createPtrTy(createArrayPtrTy(elementNum, elementType));
     }
+
+    default boolean isInt()     { return this.equals(IRType.IntTy);     }
+    default boolean isFloat()   { return this.equals(IRType.FloatTy);   }
+    default boolean isVoid()    { return this.equals(IRType.VoidTy);    }
+    default boolean isBool()    { return this.equals(IRType.BoolTy);    }
+    default boolean isPtr()     { return this instanceof PointerIRTy;   }
+    default boolean isArray()   { return this instanceof ArrayIRTy;     }
+    default boolean isFunc()    { return this instanceof FunctionIRTy;  }
 }

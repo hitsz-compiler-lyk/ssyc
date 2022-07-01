@@ -6,7 +6,7 @@ import top.origami404.ssyc.ir.type.IRType;
 public class FloatToIntInst extends Instruction {
     public FloatToIntInst(Value from) {
         super(InstKind.F2I, IRType.IntTy);
-        assert from.getType().equals(IRType.FloatTy);
+        assert from.getType().isFloat();
 
         this.from = from;
         super.addOperandCO(from);

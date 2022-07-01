@@ -24,9 +24,9 @@ public class Constant extends Value {
     public static final FloatConst FLOAT_0 = createFloatConstant(0.0f);
 
     public static Constant getZeroByType(IRType type) {
-        if (type.equals(IRType.IntTy)) {
+        if (type.isInt()) {
             return INT_0;
-        } else if (type.equals(IRType.FloatTy)) {
+        } else if (type.isFloat()) {
             return FLOAT_0;
         } else if (type instanceof ArrayIRTy) {
             return createZeroArrayConst(type);

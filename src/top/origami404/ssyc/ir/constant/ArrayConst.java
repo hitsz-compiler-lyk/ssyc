@@ -39,7 +39,7 @@ public class ArrayConst extends Constant {
 
         final var type = elms.get(0).getType();
 
-        assert type.equals(IRType.IntTy) || type.equals(IRType.FloatTy);
+        assert type.isInt() || type.isFloat();
         assert elms.stream().allMatch(e -> e.getType().equals(type));
 
         return IRType.createArrayTy(elms.size(), type);
