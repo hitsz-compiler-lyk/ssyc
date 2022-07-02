@@ -11,7 +11,8 @@ public class DebugTools {
             return "@";
 
         for (final var child : rc.children) {
-            if (child instanceof TerminalNode tn) {
+            if (child instanceof TerminalNode) {
+                final var tn = (TerminalNode) child;
                 return tn.getText();
             }
         }

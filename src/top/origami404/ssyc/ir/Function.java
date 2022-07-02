@@ -2,6 +2,7 @@ package top.origami404.ssyc.ir;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
@@ -59,7 +60,7 @@ public class Function extends Value
     }
 
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {
-        final var paramTypes = params.stream().map(Parameter::getParamType).toList();
+        final var paramTypes = params.stream().map(Parameter::getParamType).collect(Collectors.toList());
         return IRType.createFuncTy(returnType, paramTypes);
     }
 

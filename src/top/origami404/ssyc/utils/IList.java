@@ -113,15 +113,16 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         }
     }
 
+    private enum IteratorActionKind {
+        NEXT, PREV, ADD, REMOVE, SET, OTHER
+    }
+
     public class IListIterator implements ListIterator<INode<E, P>> {
         private Optional<INode<E, P>> prevNode;     // nextNode 的前继
         private Optional<INode<E, P>> nextNode;     // 下一次调用 next() 要返回的节点
         private INode<E, P> tempNode;               // 上一次调用 previous() 或者是 next() 返回的节点
-        private ActionKind lastModified;            // 最后一次调用修改性方法是什么方法
-        private ActionKind lastMoved;               // 最后一次调用移动性方法是什么方法
-        private enum ActionKind {
-            NEXT, PREV, ADD, REMOVE, SET, OTHER
-        }
+        private IteratorActionKind lastModified;            // 最后一次调用修改性方法是什么方法
+        private IteratorActionKind lastMoved;               // 最后一次调用移动性方法是什么方法
 
         public IListIterator(int index) {
             final var node = IList.this.getKthNode(index);
@@ -129,7 +130,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             this.nextNode = Optional.of(node);
             this.prevNode = nextNode.flatMap(INode::getPrev);
             this.tempNode = null;
-            this.lastModified = ActionKind.OTHER;
+            this.lastModified = IteratorActionKind.OTHER;
         }
 
         //====================== Query ====================//
@@ -161,8 +162,8 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         public INode<E, P> next() {
             tempNode = nextNode
                 .orElseThrow(() -> new NoSuchElementException());
-            lastMoved = ActionKind.NEXT;
-            lastModified = ActionKind.OTHER;
+            lastMoved = IteratorActionKind.NEXT;
+            lastModified = IteratorActionKind.OTHER;
 
             prevNode = nextNode;
             nextNode = nextNode.get().getNext();
@@ -174,8 +175,8 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         public INode<E, P> previous() {
             tempNode = prevNode
                 .orElseThrow(() -> new NoSuchElementException());
-            lastMoved = ActionKind.PREV;
-            lastModified = ActionKind.OTHER;
+            lastMoved = IteratorActionKind.PREV;
+            lastModified = IteratorActionKind.OTHER;
 
             nextNode = prevNode;
             prevNode = prevNode.get().getNext();
@@ -187,10 +188,10 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         //====================== Modification ====================//
         @Override
         public void remove() {
-            if (lastModified == ActionKind.ADD) {
+            if (lastModified == IteratorActionKind.ADD) {
                 throw new IllegalStateException("Cannot call `remove` just after `add`");
             }
-            lastModified = ActionKind.REMOVE;
+            lastModified = IteratorActionKind.REMOVE;
 
             // remove 要求删除前一个被 previous() 或是 next() 返回的节点, 即 tempNode
             final var prevTemp = tempNode.getPrev();
@@ -206,7 +207,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             }
 
             // 更新迭代器本身的状态
-            lastModified = ActionKind.REMOVE;
+            lastModified = IteratorActionKind.REMOVE;
 
             // 更新链的状态
             tempNode.markedAsDeleted();
@@ -216,12 +217,12 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         @Override
         public void set(INode<E, P> newNode) {
-            if (lastModified == ActionKind.ADD || lastModified == ActionKind.REMOVE) {
+            if (lastModified == IteratorActionKind.ADD || lastModified == IteratorActionKind.REMOVE) {
                 throw new IllegalStateException("Cannot call `set` just after `add` or `remove`");
             }
-            lastModified = ActionKind.SET;
+            lastModified = IteratorActionKind.SET;
 
-            if (lastMoved == ActionKind.OTHER) {
+            if (lastMoved == IteratorActionKind.OTHER) {
                 throw new IllegalStateException("Cannot call `set` before any movement");
             }
 
@@ -255,7 +256,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         @Override
         public void add(INode<E, P> newNode) {
-            lastModified = ActionKind.ADD;
+            lastModified = IteratorActionKind.ADD;
 
             final boolean isHead = prevNode.isEmpty();
             final boolean isTail = nextNode.isEmpty();

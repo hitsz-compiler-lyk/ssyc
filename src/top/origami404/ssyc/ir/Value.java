@@ -21,6 +21,14 @@ public abstract class Value {
         return userList;
     }
 
+    public<T extends Value> boolean is(Class<T> cls) {
+        return cls.isInstance(this);
+    }
+
+    public<T extends Value> T as(Class<T> cls) {
+        return cls.cast(this);
+    }
+
     /**
      * 一个增加使用者的 "被动" 方法, 它只是朴素地加入一个 User, 不会 "主动" 维护 use-def 关系
      * @param user 待加入的 User
