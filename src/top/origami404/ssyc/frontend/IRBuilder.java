@@ -7,6 +7,7 @@ import top.origami404.ssyc.frontend.folder.CondFolder;
 import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
 import top.origami404.ssyc.frontend.folder.IntConstantFolder;
 import top.origami404.ssyc.frontend.info.InstCache;
+import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
@@ -26,6 +27,7 @@ import top.origami404.ssyc.ir.inst.Instruction;
 import top.origami404.ssyc.ir.inst.IntToFloatInst;
 import top.origami404.ssyc.ir.inst.LoadInst;
 import top.origami404.ssyc.ir.inst.MemInitInst;
+import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
@@ -41,7 +43,7 @@ public class IRBuilder {
         this.currBB = currentBasicBlock;
         this.pos = position;
         this.currFunc = currentBasicBlock.getParent().get();
-        addInfosToBasicBlock(currBB);
+        addInfos(currBB);
     }
 
     public Value insertINeg(Value arg) { return foldInt(new UnaryOpInst(InstKind.INeg, arg)); }
@@ -113,6 +115,12 @@ public class IRBuilder {
 
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
+    public PhiInst insertEmptyPhi(IRType type) {
+        final var phi = new PhiInst(type);
+        currBB.addPhi(phi);
+        return phi;
+    }
+
     public Function getFunction() {
         return currFunc;
     }
@@ -128,12 +136,15 @@ public class IRBuilder {
     public void changeBasicBlock(BasicBlock newBB) {
         currBB = newBB;
         pos = getLastINodeItr(newBB);
-        addInfosToBasicBlock(newBB);
+        addInfos(newBB);
     }
 
-    private static void addInfosToBasicBlock(BasicBlock bb) {
+    private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(InstCache.class, () -> new InstCache());
         bb.addIfAbsent(VersionInfo.class, () -> new VersionInfo());
+        bb.getParent().ifPresent(f -> {
+            f.addIfAbsent(FinalInfo.class, () -> new FinalInfo());
+        });
     }
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
