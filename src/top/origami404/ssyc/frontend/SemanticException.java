@@ -7,7 +7,7 @@ public class SemanticException extends RuntimeException {
         super(makeMessage(ctx, message));
     }
 
-    public class GenExpInGlobalException extends SemanticException {
+    public static class GenExpInGlobalException extends SemanticException {
         public GenExpInGlobalException(ParserRuleContext ctx) {
             super(ctx, "Trying to generate an expression in global");
         }

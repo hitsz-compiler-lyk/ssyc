@@ -36,10 +36,12 @@ public class GEPInst extends Instruction {
 
     private static IRType calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
-            if (originalType instanceof ArrayIRTy arrayType) {
+            if (originalType instanceof ArrayIRTy) {
+                final var arrayType = (ArrayIRTy) originalType;
                 originalType = arrayType.getElementType();
 
-            } else if (originalType instanceof PointerIRTy ptrTy) {
+            } else if (originalType instanceof PointerIRTy) {
+                final var ptrTy = (PointerIRTy) originalType;
                 originalType = ptrTy.getBaseType();
 
             } else {

@@ -85,8 +85,8 @@ public class BasicBlock extends Value
                 }
 
                 final var inst = this.iter.next().getOwner();
-                if (inst instanceof PhiInst phi) {
-                    return phi;
+                if (inst instanceof PhiInst) {
+                    return (PhiInst) inst;
                 } else {
                     throw new RuntimeException("Non-phi instruction appearances before phi");
                 }
@@ -103,9 +103,11 @@ public class BasicBlock extends Value
         // 而不用开 Map<BasicBlock, Boolean> visited
 
         final var lastInst = instructions.asElementView().get(instructions.getSize());
-        if (lastInst instanceof BrInst br) {
-            return List.of(br.getNextBB());
-        } else if (lastInst instanceof BrCondInst brc) {
+        if (lastInst instanceof BrInst) {
+            final var bc = (BrInst) lastInst;
+            return List.of(bc.getNextBB());
+        } else if (lastInst instanceof BrCondInst) {
+            final var brc = lastInst.as(BrCondInst.class);
             return List.of(brc.getTrueBB(), brc.getFalseBB());
         } else {
             return List.of();

@@ -2,6 +2,7 @@ package top.origami404.ssyc.frontend;
 
 import java.util.List;
 import java.util.ListIterator;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.frontend.folder.CondFolder;
 import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
@@ -106,7 +107,7 @@ public class IRBuilder {
     public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return cache(new GEPInst(ptr, indices)); }
 
     public GEPInst insertGEPByInts(Value ptr, List<Integer> indices) {
-        final var valueIndices = indices.stream().map(Constant::createIntConstant).toList();
+        final var valueIndices = indices.stream().map(Constant::createIntConstant).collect(Collectors.toList());
         return insertGEP(ptr, valueIndices);
     }
 
@@ -140,10 +141,10 @@ public class IRBuilder {
     }
 
     private static void addInfos(BasicBlock bb) {
-        bb.addIfAbsent(InstCache.class, () -> new InstCache());
-        bb.addIfAbsent(VersionInfo.class, () -> new VersionInfo());
+        bb.addIfAbsent(InstCache.class, InstCache::new);
+        bb.addIfAbsent(VersionInfo.class, VersionInfo::new);
         bb.getParent().ifPresent(f -> {
-            f.addIfAbsent(FinalInfo.class, () -> new FinalInfo());
+            f.addIfAbsent(FinalInfo.class, FinalInfo::new);
         });
     }
 
@@ -176,7 +177,8 @@ public class IRBuilder {
     }
 
     private Instruction foldBr(BrCondInst inst) {
-        if (inst.getCond() instanceof BoolConst cond) {
+        if (inst.getCond() instanceof BoolConst) {
+            final var cond = (BoolConst) inst.getCond();
             final var targetBB = cond.getValue() ? inst.getTrueBB() : inst.getFalseBB();
             return direct(new BrInst(targetBB));
         } else {

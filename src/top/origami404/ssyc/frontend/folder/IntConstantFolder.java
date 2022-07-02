@@ -21,9 +21,11 @@ public class IntConstantFolder {
     }
 
     public static int foldInt(Value value) {
-        if (value instanceof IntConst cst) {
+        if (value instanceof IntConst) {
+            final var cst = (IntConst) value;
             return cst.getValue();
-        } else if (value instanceof BinaryOpInst binop) {
+        } else if (value instanceof BinaryOpInst) {
+            final var binop = (BinaryOpInst) value;
             final var lhs = binop.getLHS();
             final var rhs = binop.getRHS();
             return switch (binop.getKind()) {
@@ -35,7 +37,8 @@ public class IntConstantFolder {
                 default ->
                     throw new RuntimeException("Unfoldable value");
             };
-        } else if (value instanceof UnaryOpInst uop) {
+        } else if (value instanceof UnaryOpInst) {
+            final var uop = (UnaryOpInst) value;
             final var arg = uop.getArg();
             return switch (uop.getKind()) {
                 case INeg -> - foldInt(arg);
@@ -43,7 +46,8 @@ public class IntConstantFolder {
                     throw new RuntimeException("Unfoldable value");
                 }
             };
-        } else if (value instanceof FloatToIntInst f2i) {
+        } else if (value instanceof FloatToIntInst) {
+            final var f2i = (FloatToIntInst) value;
             final var from = FloatConstantFolder.foldFloat(f2i);
             return (int) from; // 若超出 int 范围, SysY 行为未定义, 就直接用 Java 的行为了
         } else {
@@ -54,11 +58,14 @@ public class IntConstantFolder {
     public static boolean canFold(Value value) {
         if (value instanceof IntConst) {
             return true;
-        } else if (value instanceof BinaryOpInst inst) {
+        } else if (value instanceof BinaryOpInst) {
+            final var inst = (BinaryOpInst) value;
             return inst.getKind().isInt() && canFold(inst.getLHS()) && canFold(inst.getRHS());
-        } else if (value instanceof UnaryOpInst inst) {
+        } else if (value instanceof UnaryOpInst) {
+            final var inst = (UnaryOpInst) value;
             return inst.getKind().isInt() && canFold(inst.getArg());
-        } else if (value instanceof FloatToIntInst inst) {
+        } else if (value instanceof FloatToIntInst) {
+            final var inst = (FloatToIntInst) value;
             return FloatConstantFolder.canFold(inst.getFrom());
         } else {
             return false;

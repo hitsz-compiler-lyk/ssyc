@@ -127,11 +127,13 @@ expUnary
 
 atom
     : '(' exp ')'
-    | lVal
+    | atomLVal
     | IntConst
     | FloatConst
     ;
 
+// 方便 lVal 区分用作左值和右值的情况
+atomLVal: lVal;
 
 //----------------- misc ----------------------------
 funcArgList

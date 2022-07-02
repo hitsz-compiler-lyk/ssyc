@@ -11,8 +11,6 @@
 - 使用 lambda 与 `::`
 - 使用 `switch` 表达式
 - 在 interface 中使用 default 方法
-- 使用 `record` 关键字
--
 
 若需要新特性一览, 可参考 [Java Guide](https://github.com/forax/java-guide).
 
@@ -29,12 +27,14 @@ Use package visibility instead of protected.
 如果真的需要检查一个变量是否为空, 可以使用 `Objects.requireNonNull(obj)`, 或者直接 `assert obj != null`.
 
 ```java
-// Usage of Objects.requireNonNull
-public UserInfo(String name, int age, String login, char[] password) {
-  this.name = Objects.requireNonNull(name);
-  this.age = age;
-  this.login = Objects.requireNonNull(login);
-  this.password = password.clone();
+class UserInfo {
+    // Usage of Objects.requireNonNull
+    public UserInfo(String name, int age, String login, char[] password) {
+        this.name = Objects.requireNonNull(name);
+        this.age = age;
+        this.login = Objects.requireNonNull(login);
+        this.password = password.clone();
+    }
 }
 
 record User(String name, int age) {

@@ -5,9 +5,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.frontend.SemanticException.GenExpInGlobalException;
 import top.origami404.ssyc.frontend.SysYParser.AtomContext;
+import top.origami404.ssyc.frontend.SysYParser.AtomLValContext;
+import top.origami404.ssyc.frontend.SysYParser.BlockContext;
 import top.origami404.ssyc.frontend.SysYParser.CompUnitContext;
 import top.origami404.ssyc.frontend.SysYParser.DeclContext;
 import top.origami404.ssyc.frontend.SysYParser.DefContext;
@@ -22,6 +25,9 @@ import top.origami404.ssyc.frontend.SysYParser.FuncParamListContext;
 import top.origami404.ssyc.frontend.SysYParser.InitValContext;
 import top.origami404.ssyc.frontend.SysYParser.LValContext;
 import top.origami404.ssyc.frontend.SysYParser.LValDeclContext;
+import top.origami404.ssyc.frontend.SysYParser.StmtContext;
+import top.origami404.ssyc.frontend.SysYParser.StmtIfContext;
+import top.origami404.ssyc.frontend.SysYParser.StmtWhileContext;
 import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
@@ -29,6 +35,8 @@ import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.inst.GEPInst;
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.Function;
@@ -71,7 +79,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public List<Parameter> visitFuncParamList(FuncParamListContext ctx) {
-        return ctx.funcParam().stream().map(this::visitFuncParam).toList();
+        return ctx.funcParam().stream().map(this::visitFuncParam).collect(Collectors.toList());
     }
 
     @Override
@@ -83,7 +91,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return new Parameter(info.name, type);
     }
 
-    record LValInfo(String name, List<Integer> shape) {}
+    static class LValInfo {
+        public LValInfo(String name, List<Integer> shape) {
+            this.name = name;
+            this.shape = shape;
+        }
+
+        final String name;
+        final List<Integer> shape;
+    }
 
     @Override
     public LValInfo visitLValDecl(LValDeclContext ctx) {
@@ -95,7 +111,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         for (final var exp : ctx.exp()) {
             final var num = visitExp(exp);
-            if (num instanceof IntConst ic) {
+            if (num instanceof IntConst) {
+            final var ic = (IntConst) num;
                 shape.add(ic.getValue());
             } else {
                 throw new RuntimeException("exp in lValExp must be an integer constant");
@@ -139,7 +156,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (orignalVarOpt.isPresent()) {
             throw new SemanticException(ctx,
                 "Redefined identifier: %s, old at %d, new at %d"
-                    .formatted(name, orignalVarOpt.get().var().lineNo(), variable.lineNo()));
+                    .formatted(name, orignalVarOpt.get().var.lineNo, variable.lineNo));
         }
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
@@ -201,10 +218,32 @@ public class IRGen extends SysYBaseVisitor<Object> {
     // 本文件中提到 initVal 时指对应的语法上下文, 而提到 InitValue 时指下面的接口
     // 该接口表示 "初始化器对应的 **Value** 的树状结构"
     interface InitValue {}
-    record InitExp(Value exp) implements InitValue {}
-    record InitArray(List<? extends InitValue> elms) implements InitValue {}
+    static class InitExp implements InitValue {
+        public InitExp(Value exp) {
+            this.exp = exp;
+        }
 
-    record MakeInitValueResult(int used, InitValue value) {}
+        final Value exp;
+    }
+
+    static class InitArray implements InitValue {
+        public InitArray(List<? extends InitValue> elms) {
+            this.elms = elms;
+        }
+
+        final List<? extends InitValue> elms;
+    }
+
+    static class MakeInitValueResult {
+        public MakeInitValueResult(int used, InitValue value) {
+            this.used = used;
+            this.value = value;
+        }
+
+        final int used;
+        final InitValue value;
+    }
+
     /**
      * 递归处理数组初始化器, 将其翻译为树状的, 完整的 (补上了 0 的) Value 列表
      * @param ctx 当前处理中的语法上下文
@@ -291,10 +330,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var indices = new ArrayList<Integer>(); indices.add(0);
         final var constant = makeArrayConstAndInsertStoreForNonConstImpl(arrPtr, initValue, indices);
 
-        if (constant instanceof ArrayConst ac) {
-            return ac;
+        if (constant instanceof ArrayConst) {
+            return (ArrayConst) constant;
         } else {
-            throw new RuntimeException("Shape dont match with initVal");
+            throw new RuntimeException("Shape don't match with initVal");
         }
     }
 
@@ -306,9 +345,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
      * @return 构造出的常量
      */
     private Constant makeArrayConstAndInsertStoreForNonConstImpl(Value arrPtr, InitValue initValue, List<Integer> indices) {
-        if (initValue instanceof InitExp initExp) {
+        if (initValue instanceof InitExp) {
+            final var initExp = (InitExp) initValue;
             final var value = initExp.exp;
-            if (value instanceof Constant c) {
+            if (value instanceof Constant) {
+                final var c = (Constant) value;
                 return c;
             } else {
                 // TODO: Constant cache
@@ -318,13 +359,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 return Constant.getZeroByType(value.getType());
             }
         } else {
-            final var initElms = ((InitArray) initValue).elms();
+            final var initElms = ((InitArray) initValue).elms;
             final var elms = new ArrayList<Constant>();
 
             for (int i = 0; i < initElms.size(); i++) {
                 indices.add(i);
                 final var elm = makeArrayConstAndInsertStoreForNonConstImpl(arrPtr, initElms.get(i), indices);
-                indices.remove(indices.size());
+                indices.remove(indices.size() - 1);
 
                 elms.add(elm);
             }
@@ -468,21 +509,37 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public List<Value> visitFuncArgList(FuncArgListContext ctx) {
-        return ctx.exp().stream().map(this::visitExp).toList();
+        return ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
     }
 
     @Override
     public Value visitAtom(AtomContext ctx) {
         if (ctx.exp() != null) {
             return visitExp(ctx.exp());
-        } else if (ctx.lVal() != null) {
-            return visitLVal(ctx.lVal());
+        } else if (ctx.atomLVal() != null) {
+            return visitAtomLVal(ctx.atomLVal());
         } else if (ctx.IntConst() != null) {
             final var ic = parseInt(ctx.IntConst().getText());
             return Constant.createIntConstant(ic);
         } else {
             final var fc = parseFloat(ctx.FloatConst().getText());
             return Constant.createFloatConstant(fc);
+        }
+    }
+
+    @Override
+    public Value visitAtomLVal(AtomLValContext ctx) {
+        final var lValResult = visitLVal(ctx.lVal());
+
+        if (lValResult.isVar) {
+            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            final var variable = lValResult.var;
+
+            return versionInfo.getDef(variable)
+                .orElseThrow(() -> new SemanticException(ctx, "Not a variable: " + variable.name));
+
+        } else {
+            return builder.insertLoad(lValResult.gep);
         }
     }
 
@@ -504,18 +561,28 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return Float.parseFloat(text);
     }
 
+    static class LValResult {
+        public LValResult(boolean isVar, Variable var, GEPInst gep) {
+            this.isVar = isVar;
+            this.var = var;
+            this.gep = gep;
+        }
+
+        final boolean isVar;
+        final Variable var;
+        final GEPInst gep;
+    }
+
     @Override
-    public Value visitLVal(LValContext ctx) {
+    public LValResult visitLVal(LValContext ctx) {
         final var name = ctx.Ident().getText();
         final var entry = scope.get(name)
             .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
         final var variable = entry.var;
 
-        final var indices = ctx.exp().stream().map(this::visitExp).toList();
+        final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
         if (indices.isEmpty()) {
-            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-            return versionInfo.getDef(variable)
-                .orElseThrow(() -> new SemanticException(ctx, "Not a variable: " + name));
+            return new LValResult(true, variable, null);
 
         } else {
             // 因为数组本身就带一个指针
@@ -527,7 +594,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 .orElseThrow(() -> new SemanticException(ctx, "Not a function: " + name));
             final var gep = builder.insertGEP(arrPtr, prefixedIndices);
 
-            return builder.insertLoad(gep);
+            return new LValResult(false, null, gep);
         }
     }
 
@@ -553,7 +620,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (commonType.isInt()) {
             return intMerger.apply(newLHS, newRHS);
         } else {
-            return intMerger.apply(newLHS, newRHS);
+            return floatMerger.apply(newLHS, newRHS);
         }
     }
 
@@ -569,12 +636,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private Value insertConvertByType(IRType targeType, Value value) {
+    private Value insertConvertByType(IRType targetType, Value value) {
         final var srcType = value.getType();
-        if (targeType.equals(srcType)) {
+        if (targetType.equals(srcType)) {
             return value;
         } else {
-            if (targeType.isFloat() && srcType.isInt()) {
+            if (targetType.isFloat() && srcType.isInt()) {
                 return builder.insertI2F(value);
             } else {
                 return builder.insertF2I(value);
@@ -599,6 +666,67 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
 //====================================================================================================================//
 
+
+    @Override
+    public Void visitStmt(StmtContext ctx) {
+        if (ctx.block() != null) {
+            visitBlock(ctx.block());
+        } else if (ctx.stmtIf() != null) {
+            visitStmtIf(ctx.stmtIf());
+        } else if (ctx.stmtWhile() != null) {
+            visitStmtWhile(ctx.stmtWhile());
+        } else if (ctx.exp() != null) {
+            visitExp(ctx.exp());
+        } else if (ctx.lVal() != null) {
+            // 赋值语句
+            final var lValResult = visitLVal(ctx.lVal());
+            final var value = visitExp(ctx.exp());
+
+            if (lValResult.isVar) {
+                final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+                final var variable = lValResult.var;
+
+                versionInfo.killOrNewDef(variable, value);
+            } else {
+                builder.insertStore(lValResult.gep, value);
+            }
+        } else if (ctx.Break() != null) {
+            final var target = currWhileExit
+                .orElseThrow(() -> new SemanticException(ctx, "Break out of while"));
+            builder.insertBranch(target);
+        } else if (ctx.Continue() != null) {
+            final var target = currWhileCond
+                .orElseThrow(() -> new SemanticException(ctx, "Continue out of while"));
+            builder.insertBranch(target);
+        } else if (ctx.Return() != null) {
+            if (ctx.exp() != null) {
+                final var val = visitExp(ctx.exp());
+                builder.insertReturn(val);
+            } else {
+                builder.insertReturn();
+            }
+        } else {/* 空语句, 啥也不干 */}
+
+        return null;
+    }
+
+    @Override
+    public Void visitBlock(BlockContext ctx) {
+        ctx.children.forEach(this::visit);
+        return null;
+    }
+
+    @Override
+    public Object visitStmtIf(StmtIfContext ctx) {
+        // TODO Auto-generated method stub
+        return super.visitStmtIf(ctx);
+    }
+
+    @Override
+    public Object visitStmtWhile(StmtWhileContext ctx) {
+        // TODO Auto-generated method stub
+        return super.visitStmtWhile(ctx);
+    }
 
     //#region 辅助函数
     private static IRType toIRType(String bType) {
@@ -670,11 +798,24 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    record ScopeEntry(Variable var, IRType type) {}
+    static class ScopeEntry {
+        public ScopeEntry(Variable var, IRType type) {
+            this.var = var;
+            this.type = type;
+        }
+
+        public Variable var() { return var; }
+
+        final Variable var;
+        final IRType type;
+    }
 
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
     private ChainMap<ScopeEntry> scope; // identifier --> variable
+
+    private Optional<BasicBlock> currWhileCond;
+    private Optional<BasicBlock> currWhileExit;
 
     // flags
     private boolean inGlobal() {

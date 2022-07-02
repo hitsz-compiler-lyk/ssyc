@@ -21,8 +21,9 @@ public class PointerIRTy implements IRType {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof PointerIRTy p) {
-            return baseType.equals(p.baseType);
+        if (obj instanceof PointerIRTy) {
+            final var ptr = (PointerIRTy) obj;
+            return baseType.equals(ptr.baseType);
         }
 
         return false;

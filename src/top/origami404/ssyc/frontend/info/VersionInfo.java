@@ -13,16 +13,24 @@ import top.origami404.ssyc.ir.inst.Instruction;
  * <p>  IR 生成时与作用域的表相配合. 作用域负责将 "源语言中的标识符" 对应到 "源语言中的变量",
  *      而该类则负责维护变量的定义
  *
- * @see IRGen
+ * @see ../IRGen
  */
 public class VersionInfo implements AnalysisInfo {
     /**
      * 代表了源语言里的一个特定的变量
      */
-    public record Variable(String name, int lineNo) {
+    public static class Variable {
+        public Variable(String name, int lineNo) {
+            this.name = name;
+            this.lineNo = lineNo;
+        }
+
         public String getIRName() {
             return "%" + name + "$" + lineNo;
         }
+
+        public final String name;
+        public final int lineNo;
     }
 
     public boolean contains(Variable var) {
@@ -31,6 +39,14 @@ public class VersionInfo implements AnalysisInfo {
 
     public Optional<Value> getDef(Variable var) {
         return getInfo(var).map(VarVersionInfo::getCurrDef);
+    }
+
+    public void killOrNewDef(Variable var, Value val) {
+        if (contains(var)) {
+            kill(var, val);
+        } else {
+            newDef(var, val);
+        }
     }
 
     public void kill(Variable var, Value newDef) {
@@ -52,7 +68,7 @@ public class VersionInfo implements AnalysisInfo {
         return Optional.ofNullable(version.get(var));
     }
 
-    public class VarVersionInfo {
+    public static class VarVersionInfo {
         VarVersionInfo(Variable variable, Value initVal) {
             this.variable = variable;
             this.currDef = initVal;
@@ -67,7 +83,8 @@ public class VersionInfo implements AnalysisInfo {
             this.currDef = newDef;
             this.version += 1;
 
-            if (newDef instanceof Instruction inst) {
+            if (newDef instanceof Instruction) {
+            final var inst = (Instruction) newDef;
                 inst.setName(variable.getIRName() + "_" + version);
             }
         }
