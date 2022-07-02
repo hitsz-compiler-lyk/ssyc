@@ -161,7 +161,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         @Override
         public INode<E, P> next() {
             tempNode = nextNode
-                .orElseThrow(() -> new NoSuchElementException());
+                .orElseThrow(NoSuchElementException::new);
             lastMoved = IteratorActionKind.NEXT;
             lastModified = IteratorActionKind.OTHER;
 
@@ -174,7 +174,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         @Override
         public INode<E, P> previous() {
             tempNode = prevNode
-                .orElseThrow(() -> new NoSuchElementException());
+                .orElseThrow(NoSuchElementException::new);
             lastMoved = IteratorActionKind.PREV;
             lastModified = IteratorActionKind.OTHER;
 
