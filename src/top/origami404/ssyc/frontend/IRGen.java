@@ -52,6 +52,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return currModule;
     }
 
+
+//====================================================================================================================//
+
+
+    //#region funcDef 函数定义相关
     @Override
     public Function visitFuncDef(FuncDefContext ctx) {
         final var returnType = toIRType(ctx.BType().getText());
@@ -99,7 +104,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         return new LValInfo(ctx.Ident().getText(), shape);
     }
+    //#endregion funcDef
 
+
+//====================================================================================================================//
+
+
+    //#region decl 变量声明相关 (包括初始化器)
     @Override
     public Void visitDecl(DeclContext ctx) {
         final var isConst = ctx.Const() != null;
@@ -371,7 +382,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
             throw new SemanticException(ctx, "Except a list initializer here");
         }
     }
+    //#endregion decl + initVal
 
+
+//====================================================================================================================//
+
+
+    //#region exp 表达式相关
     @Override
     public Value visitExp(ExpContext ctx) {
         return visitExpAdd(ctx.expAdd());
@@ -577,7 +594,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return IRType.FloatTy;
         }
     }
+    //#endregion exp
 
+
+//====================================================================================================================//
+
+
+    //#region 辅助函数
     private static IRType toIRType(String bType) {
         return switch (bType) {
             case "int" -> IRType.IntTy;
@@ -657,4 +680,5 @@ public class IRGen extends SysYBaseVisitor<Object> {
     private boolean inGlobal() {
         return builder == null || builder.getFunction() == null;
     }
+    //#endregion
 }
