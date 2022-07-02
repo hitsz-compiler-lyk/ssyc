@@ -25,6 +25,10 @@ public class VersionInfo implements AnalysisInfo {
         }
     }
 
+    public boolean contains(Variable var) {
+        return version.containsKey(var);
+    }
+
     public Optional<Value> getDef(Variable var) {
         return getInfo(var).map(VarVersionInfo::getCurrDef);
     }
