@@ -4,17 +4,25 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import top.origami404.ssyc.frontend.SemanticException.GenExpInGlobalException;
+import top.origami404.ssyc.frontend.SysYParser.AtomContext;
 import top.origami404.ssyc.frontend.SysYParser.CompUnitContext;
 import top.origami404.ssyc.frontend.SysYParser.DeclContext;
 import top.origami404.ssyc.frontend.SysYParser.DefContext;
+import top.origami404.ssyc.frontend.SysYParser.ExpAddContext;
 import top.origami404.ssyc.frontend.SysYParser.ExpContext;
+import top.origami404.ssyc.frontend.SysYParser.ExpMulContext;
+import top.origami404.ssyc.frontend.SysYParser.ExpUnaryContext;
+import top.origami404.ssyc.frontend.SysYParser.FuncArgListContext;
 import top.origami404.ssyc.frontend.SysYParser.FuncDefContext;
 import top.origami404.ssyc.frontend.SysYParser.FuncParamContext;
 import top.origami404.ssyc.frontend.SysYParser.FuncParamListContext;
 import top.origami404.ssyc.frontend.SysYParser.InitValContext;
+import top.origami404.ssyc.frontend.SysYParser.LValContext;
 import top.origami404.ssyc.frontend.SysYParser.LValDeclContext;
+import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.constant.ArrayConst;
@@ -110,6 +118,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
         final var shape = info.shape;
+        final var type = createTypeByShape(baseType, shape);
 
         // 在当前作用域中注册该该名字为此变量
         final var variable = new Variable(name, ctx.getStart().getLine());
@@ -119,34 +128,32 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (orignalVarOpt.isPresent()) {
             throw new SemanticException(ctx,
                 "Redefined identifier: %s, old at %d, new at %d"
-                    .formatted(name, orignalVarOpt.get().lineNo(), variable.lineNo()));
+                    .formatted(name, orignalVarOpt.get().var().lineNo(), variable.lineNo()));
         }
         // 再放入
-        scope.put(name, variable);
+        scope.put(name, new ScopeEntry(variable, type));
 
-        // 构造并记录该变量此时对应的值
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
             final var value = Optional.ofNullable(ctx.initVal())
                 .flatMap(n -> Optional.ofNullable(n.exp()))
                 // 如果其初始化器需要运行时求值, 那么 visitExp 会将对应的求值指令插入到当前块中
                 .map(this::visitExp)
-                .orElse(Constant.getZeroByType(baseType));
+                .orElse(Constant.getZeroByType(type));
 
             if (isConst && !(value instanceof Constant)) {
                 throw new SemanticException(ctx, "Only contant can be used to initialize a constant variable");
             }
-            versionInfo.newDef(variable, value);
+
+            newDefByFinalness(isConst, variable, value);
 
         } else {
             // 对数组变量, 需要特殊处理其初始值
 
             // 分配数组空间, 并且定义数组;
             // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
-            final var type = createTypeByShape(baseType, shape);
             final var arrPtr = new AllocInst(type);
-            versionInfo.newDef(variable, arrPtr);
+            newDefByFinalness(true, variable, arrPtr);
 
             // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
             final var memInitInst = builder.insertMemInit(arrPtr);
@@ -325,6 +332,34 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
+    private void newDefByFinalness(boolean isFinal, Variable var, Value val) {
+        if (isFinal) {
+            // Final variable 可以自然地跨 BasicBlock 使用
+            // 因为其与 IR 的绑定关系不可能再变换
+            // 永远也不需要 Phi
+            final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+            finalInfo.newDef(var, val);
+        }
+
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        versionInfo.newDef(var, val);
+    }
+
+    private Optional<Constant> findConstant(String name) {
+        // TODO: 全局数组查找
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        return scope.get(name)
+            .map(ScopeEntry::var)
+            .flatMap(v -> finalInfo.getNormalVar(v));
+    }
+
+    private Optional<AllocInst> findArray(String name) {
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        return scope.get(name)
+            .map(ScopeEntry::var)
+            .flatMap(v -> finalInfo.getArrayVar(v));
+    }
+
     private void ensureInitValIsExp(InitValContext ctx) {
         if (ctx.exp() == null) {
             throw new SemanticException(ctx, "Except a normal expression here");
@@ -339,8 +374,208 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Value visitExp(ExpContext ctx) {
-        // TODO
-        throw new RuntimeException("TODO");
+        return visitExpAdd(ctx.expAdd());
+    }
+
+    @Override
+    public Value visitExpAdd(ExpAddContext ctx) {
+        final var lhs = visitExpMul(ctx.expMul());
+
+        if (ctx.expAdd() == null) {
+            return lhs; // no RHS
+        }
+
+        final var rhs = visitExpAdd(ctx.expAdd());
+
+        final var op = ctx.expAddOp().getText();
+        return switch (op) {
+            case "+" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
+            case "-" -> insertConvertForBinaryOp(lhs, rhs, builder::insertISub, builder::insertFSub);
+            default -> throw new SemanticException(ctx, "Unknown expAdd op: " + op);
+        };
+    }
+
+    @Override
+    public Value visitExpMul(ExpMulContext ctx) {
+        final var lhs = visitExpUnary(ctx.expUnary());
+
+        if (ctx.expMul() == null) {
+            return lhs; // no RHS
+        }
+
+        final var rhs = visitExpMul(ctx.expMul());
+
+        final var op = ctx.expMulOp().getText();
+        return switch (op) {
+            case "*" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
+            case "/" -> insertConvertForBinaryOp(lhs, rhs, builder::insertISub, builder::insertFSub);
+            case "%" -> {
+                final var commonType = findCommonType(lhs.getType(), rhs.getType());
+                if (commonType.isFloat()) {
+                    throw new SemanticException(ctx, "Cannot use % on float");
+                } else {
+                    yield builder.insertIMod(lhs, rhs);
+                }
+            }
+
+            default -> throw new SemanticException(ctx, "Unknown expMul op: " + op);
+        };
+    }
+
+    @Override
+    public Value visitExpUnary(ExpUnaryContext ctx) {
+        if (ctx.atom() != null) {
+            return visitAtom(ctx.atom());
+        } else if (ctx.expUnaryOp() != null) {
+            final var arg = visitExpUnary(ctx.expUnary());
+            final var op = ctx.expUnaryOp().getText();
+            return switch (op) {
+                case "+" -> arg;
+                case "-" -> insertConvertForUnaryOp(arg, builder::insertINeg, builder::insertFNeg);
+                case "!" -> throw new LogNotAsUnaryExpException(arg);
+                default -> throw new SemanticException(ctx, "Unknown expUnary op: " + op);
+            };
+        } else {
+            // function call
+            final var funcName = ctx.Ident().getText();
+            final var func = currModule.getFunctions().get(funcName);
+
+            if (func == null) {
+                throw new SemanticException(ctx, "Unknown func: " + func);
+            }
+
+            // TODO: 函数参数的语义检查
+            return builder.insertCall(func, visitFuncArgList(ctx.funcArgList()));
+        }
+    }
+
+    @Override
+    public List<Value> visitFuncArgList(FuncArgListContext ctx) {
+        return ctx.exp().stream().map(this::visitExp).toList();
+    }
+
+    @Override
+    public Value visitAtom(AtomContext ctx) {
+        if (ctx.exp() != null) {
+            return visitExp(ctx.exp());
+        } else if (ctx.lVal() != null) {
+            return visitLVal(ctx.lVal());
+        } else if (ctx.IntConst() != null) {
+            final var ic = parseInt(ctx.IntConst().getText());
+            return Constant.createIntConstant(ic);
+        } else {
+            final var fc = parseFloat(ctx.FloatConst().getText());
+            return Constant.createFloatConstant(fc);
+        }
+    }
+
+    private static int parseInt(String text) {
+        if (text.charAt(1) == 'x' || text.charAt(1) == 'X') {
+            return Integer.parseInt(text.substring(2), 16);
+        } else if (text.charAt(0) == '0') {
+            if (text == "0") {
+                return 0;
+            } else {
+                return Integer.parseInt(text.substring(1), 8);
+            }
+        } else {
+            return Integer.parseInt(text, 10);
+        }
+    }
+
+    private static float parseFloat(String text) {
+        return Float.parseFloat(text);
+    }
+
+    @Override
+    public Value visitLVal(LValContext ctx) {
+        final var name = ctx.Ident().getText();
+        final var entry = scope.get(name)
+            .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
+        final var variable = entry.var;
+
+        final var indices = ctx.exp().stream().map(this::visitExp).toList();
+        if (indices.isEmpty()) {
+            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            return versionInfo.getDef(variable)
+                .orElseThrow(() -> new SemanticException(ctx, "Not a variable: " + name));
+
+        } else {
+            // 因为数组本身就带一个指针
+            final var prefixedIndices = new ArrayList<Value>();
+            prefixedIndices.add(Constant.INT_0);
+            prefixedIndices.addAll(indices);
+
+            final var arrPtr = findArray(name)
+                .orElseThrow(() -> new SemanticException(ctx, "Not a function: " + name));
+            final var gep = builder.insertGEP(arrPtr, prefixedIndices);
+
+            return builder.insertLoad(gep);
+        }
+    }
+
+    private class LogNotAsUnaryExpException extends RuntimeException {
+        LogNotAsUnaryExpException(Value arg) {
+            super("LogNot exist in UnaryExp");
+            this.arg = arg;
+        }
+
+        Value arg;
+    }
+
+    private Value insertConvertForBinaryOp(
+        Value lhs,
+        Value rhs,
+        BiFunction<Value, Value, Value> intMerger,
+        BiFunction<Value, Value, Value> floatMerger
+    ) {
+        final var commonType = findCommonType(lhs.getType(), rhs.getType());
+        final var newLHS = insertConvertByType(commonType, lhs);
+        final var newRHS = insertConvertByType(commonType, rhs);
+
+        if (commonType.isInt()) {
+            return intMerger.apply(newLHS, newRHS);
+        } else {
+            return intMerger.apply(newLHS, newRHS);
+        }
+    }
+
+    private Value insertConvertForUnaryOp(
+        Value arg,
+        java.util.function.Function<Value, Value> intMerger,
+        java.util.function.Function<Value, Value> floatMerger
+    ) {
+        if (arg.getType().isInt()) {
+            return intMerger.apply(arg);
+        } else {
+            return floatMerger.apply(arg);
+        }
+    }
+
+    private Value insertConvertByType(IRType targeType, Value value) {
+        final var srcType = value.getType();
+        if (targeType.equals(srcType)) {
+            return value;
+        } else {
+            if (targeType.isFloat() && srcType.isInt()) {
+                return builder.insertI2F(value);
+            } else {
+                return builder.insertF2I(value);
+            }
+        }
+    }
+
+    private static IRType findCommonType(IRType ty1, IRType ty2) {
+        assert ty1.isInt() || ty1.isFloat();
+        assert ty2.isInt() || ty2.isFloat();
+
+        if (ty1.equals(ty2)) {
+            // 两个都是 Int 或者是两个都 Float 的情况
+            return ty1; // or return ty2
+        } else {
+            // 一个 Int, 一个 Float 的情况
+            return IRType.FloatTy;
+        }
     }
 
     private static IRType toIRType(String bType) {
@@ -412,9 +647,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
+    record ScopeEntry(Variable var, IRType type) {}
+
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
-    private ChainMap<Variable> scope; // identifier --> variable
+    private ChainMap<ScopeEntry> scope; // identifier --> variable
 
     // flags
     private boolean inGlobal() {
