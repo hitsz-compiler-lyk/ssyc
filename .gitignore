@@ -19,3 +19,7 @@ test-data/**/*.s
 
 # VSCode Antlr extension cache
 .antlr
+
+# Idea Projects
+.idea
+*.iml
