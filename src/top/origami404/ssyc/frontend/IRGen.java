@@ -142,7 +142,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         throw new RuntimeException("Shouldn't be called");
     }
 
-    public Void visitDef(DefContext ctx, boolean isConst, IRType baseType) {
+    public void visitDef(DefContext ctx, boolean isConst, IRType baseType) {
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
         final var shape = info.shape;
@@ -150,13 +150,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         // 在当前作用域中注册该该名字为此变量
         final var variable = new Variable(name, ctx.getStart().getLine());
-        final var orignalVarOpt = scope.getInCurr(name);
+        final var originalVarOpt = scope.getInCurr(name);
 
         // 先检测可能的同作用域同名定义语义错误
-        if (orignalVarOpt.isPresent()) {
+        if (originalVarOpt.isPresent()) {
             throw new SemanticException(ctx,
                 "Redefined identifier: %s, old at %d, new at %d"
-                    .formatted(name, orignalVarOpt.get().var.lineNo, variable.lineNo));
+                    .formatted(name, originalVarOpt.get().var.lineNo, variable.lineNo));
         }
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
@@ -170,7 +170,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 .orElse(Constant.getZeroByType(type));
 
             if (isConst && !(value instanceof Constant)) {
-                throw new SemanticException(ctx, "Only contant can be used to initialize a constant variable");
+                throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
             }
 
             newDefByFinalness(isConst, variable, value);
@@ -196,9 +196,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
             final var init = makeArrayConstAndInsertStoreForNonConst(arrPtr, initValue);
             memInitInst.setInit(init);
         }
-
-
-        return null;
     }
 
     @Override
@@ -207,6 +204,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     public InitValue visitInitVal(InitValContext ctx, boolean isConst, IRType baseType, List<Integer> shape) {
+        // TODO: 常量判断
         if (ctx == null) {
             return new InitExp(getZeroElm(baseType, shape));
         }
@@ -270,7 +268,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 说明现在尝试在给全局变量使用非常量初始化
                 // 而这是不允许的
                 throw new SemanticException(ctx,
-                    "Global value can only be initizated by constant variable, not even constant array");
+                    "Global value can only be initiated by constant variable, not even constant array");
             }
         }
 
@@ -349,8 +347,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             final var initExp = (InitExp) initValue;
             final var value = initExp.exp;
             if (value instanceof Constant) {
-                final var c = (Constant) value;
-                return c;
+                return (Constant) value;
             } else {
                 // TODO: Constant cache
                 final var ptr = builder.insertGEPByInts(arrPtr, indices);
@@ -402,14 +399,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         return scope.get(name)
             .map(ScopeEntry::var)
-            .flatMap(v -> finalInfo.getNormalVar(v));
+            .flatMap(finalInfo::getNormalVar);
     }
 
     private Optional<AllocInst> findArray(String name) {
         final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         return scope.get(name)
             .map(ScopeEntry::var)
-            .flatMap(v -> finalInfo.getArrayVar(v));
+            .flatMap(finalInfo::getArrayVar);
     }
 
     private void ensureInitValIsExp(InitValContext ctx) {
@@ -465,8 +462,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var op = ctx.expMulOp().getText();
         return switch (op) {
-            case "*" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
-            case "/" -> insertConvertForBinaryOp(lhs, rhs, builder::insertISub, builder::insertFSub);
+            case "*" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIMul, builder::insertFMul);
+            case "/" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIDiv, builder::insertFDiv);
             case "%" -> {
                 final var commonType = findCommonType(lhs.getType(), rhs.getType());
                 if (commonType.isFloat()) {
@@ -499,7 +496,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             final var func = currModule.getFunctions().get(funcName);
 
             if (func == null) {
-                throw new SemanticException(ctx, "Unknown func: " + func);
+                throw new SemanticException(ctx, "Unknown func: " + funcName);
             }
 
             // TODO: 函数参数的语义检查
@@ -544,10 +541,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static int parseInt(String text) {
-        if (text.charAt(1) == 'x' || text.charAt(1) == 'X') {
+        if (text.length() >= 2 && text.charAt(1) == 'x' || text.charAt(1) == 'X') {
             return Integer.parseInt(text.substring(2), 16);
         } else if (text.charAt(0) == '0') {
-            if (text == "0") {
+            if (text.equals("0")) {
                 return 0;
             } else {
                 return Integer.parseInt(text.substring(1), 8);
@@ -598,7 +595,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private class LogNotAsUnaryExpException extends RuntimeException {
+    private static class LogNotAsUnaryExpException extends RuntimeException {
         LogNotAsUnaryExpException(Value arg) {
             super("LogNot exist in UnaryExp");
             this.arg = arg;

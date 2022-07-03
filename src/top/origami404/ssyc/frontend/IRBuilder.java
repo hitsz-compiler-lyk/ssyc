@@ -43,7 +43,8 @@ public class IRBuilder {
     public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
         this.currBB = currentBasicBlock;
         this.pos = position;
-        this.currFunc = currentBasicBlock.getParent().get();
+        this.currFunc = currentBasicBlock.getParent()
+            .orElseThrow(() -> new RuntimeException("Cannot use free blocks as builder's argument"));
         addInfos(currBB);
     }
 
@@ -143,9 +144,7 @@ public class IRBuilder {
     private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(InstCache.class, InstCache::new);
         bb.addIfAbsent(VersionInfo.class, VersionInfo::new);
-        bb.getParent().ifPresent(f -> {
-            f.addIfAbsent(FinalInfo.class, FinalInfo::new);
-        });
+        bb.getParent().ifPresent(f -> f.addIfAbsent(FinalInfo.class, FinalInfo::new));
     }
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
@@ -187,15 +186,18 @@ public class IRBuilder {
     }
 
     private<T extends Instruction> T cache(T inst) {
-
         final var cachedInst = createWithCache(inst);
-        pos.add(cachedInst.getINode());
+        insert(inst);
         return cachedInst;
     }
 
     private<T extends Instruction> T direct(T inst) {
-        pos.add(inst.getINode());
+        insert(inst);
         return inst;
+    }
+
+    private<T extends Instruction> void insert(T inst) {
+        pos.add(inst.getINode());
     }
 
     @SuppressWarnings("unchecked")

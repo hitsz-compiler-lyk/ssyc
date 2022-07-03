@@ -1,18 +1,10 @@
 package top.origami404.ssyc.ir;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
-import top.origami404.ssyc.ir.inst.BrCondInst;
-import top.origami404.ssyc.ir.inst.BrInst;
-import top.origami404.ssyc.ir.inst.Instruction;
-import top.origami404.ssyc.ir.inst.PhiInst;
+import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IList;
 import top.origami404.ssyc.utils.IListOwner;
@@ -72,7 +64,7 @@ public class BasicBlock extends Value
     }
 
     public Iterator<PhiInst> iterPhis() {
-        return new Iterator<PhiInst>() {
+        return new Iterator<>() {
             @Override
             public boolean hasNext() {
                 return iter.hasNext() && iter != phiEnd;
@@ -102,16 +94,17 @@ public class BasicBlock extends Value
         // 比如说用 List 就可以直接开 boolean visited[N]
         // 而不用开 Map<BasicBlock, Boolean> visited
 
-        final var lastInst = instructions.asElementView().get(instructions.getSize());
-        if (lastInst instanceof BrInst) {
-            final var bc = (BrInst) lastInst;
-            return List.of(bc.getNextBB());
-        } else if (lastInst instanceof BrCondInst) {
-            final var brc = lastInst.as(BrCondInst.class);
-            return List.of(brc.getTrueBB(), brc.getFalseBB());
-        } else {
-            return List.of();
-        }
+        return getLastInstruction().map(lastInst -> {
+            if (lastInst instanceof BrInst) {
+                final var bc = (BrInst) lastInst;
+                return List.of(bc.getNextBB());
+            } else if (lastInst instanceof BrCondInst) {
+                final var brc = (BrCondInst) lastInst;
+                return List.of(brc.getTrueBB(), brc.getFalseBB());
+            } else {
+                return new ArrayList<BasicBlock>();
+            }
+        }).orElse(List.of());
     }
 
     public List<BasicBlock> getPredecessors() {
@@ -120,6 +113,18 @@ public class BasicBlock extends Value
 
     public void addPredecessor(BasicBlock predecessor) {
         predecessors.add(predecessor);
+    }
+
+    public boolean isTerminated() {
+        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
+    }
+
+    private Optional<Instruction> getLastInstruction() {
+        if (instructions.getSize() == 0) {
+            return Optional.empty();
+        } else {
+            return Optional.of(instructions.asElementView().get(instructions.getSize() - 1));
+        }
     }
 
     private static int bblockNo = 0;
