@@ -12,6 +12,10 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         );
     }
 
+    public INode(E value, IList<E, P> parent) {
+        this(Optional.of(parent), Optional.empty(), Optional.empty(), value);
+    }
+
     public INode(
         Optional<IList<E, P>> parent,
         Optional<INode<E, P>> prev,

@@ -10,7 +10,8 @@ public class BrInst extends Instruction {
         this.nextBB = nextBB;
         super.addOperandCO(nextBB);
 
-        nextBB.addPredecessor(this.getParent().get());
+        nextBB.addPredecessor(this.getParent()
+            .orElseThrow(() -> new RuntimeException("Except an instruction has a parent")));
     }
 
     public BasicBlock getNextBB() {

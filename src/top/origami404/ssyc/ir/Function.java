@@ -19,7 +19,7 @@ public class Function extends Value
         this.name = name;
         this.bblocks = new IList<>(this);
 
-        bblocks.asElementView().add(new BasicBlock(this, "entry"));
+        bblocks.asElementView().add(BasicBlock.createBBlockCO(this, "entry"));
     }
 
     @Override

@@ -131,8 +131,25 @@ public class IRBuilder {
         return currBB;
     }
 
-    public BasicBlock createBasicBlock() {
-        return new BasicBlock(currFunc);
+    public BasicBlock createFreeBBlock() {
+        return createFreeBBlock("%s_tmp_%d".formatted(currFunc.getName(), currFunc.getIList().getSize()));
+    }
+
+    public BasicBlock createFreeBBlock(String name) {
+        return BasicBlock.createFreeBBlock(currFunc, name);
+    }
+
+    public void appendBBlock(BasicBlock newBB) {
+        if (!currBB.isTerminated()) {
+            insertBranch(newBB);
+        }
+        changeBasicBlock(newBB);
+    }
+
+    public BasicBlock createAndAppendBBlock(String name) {
+        final var newBB = createFreeBBlock(name);
+        appendBBlock(newBB);
+        return newBB;
     }
 
     public void changeBasicBlock(BasicBlock newBB) {

@@ -15,11 +15,17 @@ public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public BasicBlock(Function func) {
-        this(func, "_" + bblockNo++);
+    public static BasicBlock createFreeBBlock(Function func, String name) {
+        return new BasicBlock(func, name);
     }
 
-    public BasicBlock(Function func, String name) {
+    public static BasicBlock createBBlockCO(Function func, String name) {
+        final var bb = createFreeBBlock(func, name);
+        func.getIList().asElementView().add(bb);
+        return bb;
+    }
+
+    private BasicBlock(Function func, String name) {
         // 在生成 while 或者是 if 的时候, bblock 经常会有自己的带独特前缀的名字
         // 比如 _cond_1, _if_23 之类的
         // 所以对 BasicBlock 保留带 name 的构造函数
@@ -27,7 +33,9 @@ public class BasicBlock extends Value
         super(IRType.BBlockTy);
 
         this.instructions = new IList<>(this);
-        func.getIList().asElementView().add(this);
+        this.inode = new INode<>(this, func.getIList());
+        // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
+        // func.getIList().asElementView().add(this);
 
         this.phiEnd = instructions.asINodeView().listIterator();
         this.name = name;
