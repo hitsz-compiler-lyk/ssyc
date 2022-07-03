@@ -27,11 +27,18 @@ Value
             > StoreInst
             > GEPInst
             > PhiInst
+            > FloatToIntInst
+            > IntToFloatInst
+            > MemInitInst
     > BasicBlock
     > Parameter
     > Constant
-        > IntConstant
-        > FloatConstant
+        > IntConst
+        > FloatConst
+        > BoolConst
+        > ArrayConst
+            > ZeroArrayConst
+    > Function (maybe builtin)
 
 IRType (IRTyKind)
     > SimpleIRTy
@@ -46,6 +53,110 @@ IRType (IRTyKind)
 ### 枚举实现的 "子类关系"
 
 为了减少无意义的重复代码, 很多操作上高度相同的东西会被放在一个类里实现, 通过一个特殊的枚举来标识不同的类别. 这种时候凡是细化类别的操作跟判断大抵上都会放在枚举中实现. 譬如二元运算指令 `BinaryOpInst` 就通过 `InstKind` 来区分加减乘除, 并且凡是用作 "判断这条指令是不是操作整数的" 这种细化方法, 都会放在 `InstKind` 里.
+
+### 关于 MemInitInst
+
+加入此指令主要是方便局部与全局数组的初始化. 在汇编实现上, 局部大数组的初始化一般通过调用 `memset` (零初始化) 或是 `memcpy` 实现; 而全局大数组的初始化则是通过 `.text` 实现. 考虑代码如下:
+
+```c
+// Type your code here, or load an example.
+int global_nonzero[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+int global_zero[10] = {};
+
+int main() {
+    int local_nonzero[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    int local_nonzero_small[5] = {1, 2, 3, 4};
+    int local_zero[10] = {};
+    int local_uninitited[10];
+}
+```
+
+对应的汇编输出为:
+
+```armasm
+main:
+        @ 保存现场
+        push    {r4, r5, r11, lr}
+        add     r11, sp, #8
+        sub     sp, sp, #192
+
+        @ local_nonzero (调用 memcpy)
+        ldr     r1, .LCPI0_0
+        sub     r0, r11, #88
+        mov     r2, #80
+        bl      memcpy
+
+        @ local_nonzero_small (手动 load 进去)
+        ldr     r1, .LCPI0_1
+        add     r2, sp, #92
+        ldm     r1, {r3, r4, r5, r12, lr}
+        stm     r2, {r3, r4, r5, r12, lr}
+        add     r1, sp, #52
+        mov     r2, #0
+        mov     r3, #40
+        str     r0, [sp, #8]                    @ 4-byte Spill
+
+        @ local_zero (调用 memset)
+        mov     r0, r1
+        mov     r1, r2
+        str     r2, [sp, #4]                    @ 4-byte Spill
+        mov     r2, r3
+        bl      memset
+
+        @ local_uninitited
+        @ 它运行时不需要做任何事
+        @ 只要在开栈帧的时候开大点就可以了
+
+        @ 函数返回
+        ldr     r1, [sp, #4]                    @ 4-byte Reload
+        str     r0, [sp]                        @ 4-byte Spill
+        mov     r0, r1
+        sub     sp, r11, #8
+        pop     {r4, r5, r11, lr}
+        bx      lr
+
+@ 数据区
+.LCPI0_0:
+        .long   .L__const.main.local_nonzero
+.LCPI0_1:
+        .long   .L__const.main.local_nonzero_small
+global_nonzero:
+        .long   1                               @ 0x1
+        .long   2                               @ 0x2
+        .long   3                               @ 0x3
+        .long   4                               @ 0x4
+        .long   5                               @ 0x5
+        .long   6                               @ 0x6
+        .long   7                               @ 0x7
+        .long   8                               @ 0x8
+        .long   9                               @ 0x9
+        .long   10                              @ 0xa
+
+global_zero:
+        .zero   40
+
+.L__const.main.local_nonzero:
+        .long   1                               @ 0x1
+        .long   2                               @ 0x2
+        .long   3                               @ 0x3
+        .long   4                               @ 0x4
+        .long   5                               @ 0x5
+        .long   6                               @ 0x6
+        .long   7                               @ 0x7
+        .long   8                               @ 0x8
+        .long   9                               @ 0x9
+        .long   10                              @ 0xa
+        .zero   40
+
+.L__const.main.local_nonzero_small:
+        .long   1                               @ 0x1
+        .long   2                               @ 0x2
+        .long   3                               @ 0x3
+        .long   4                               @ 0x4
+        .long   0                               @ 0x0
+```
+
+可见大部分情况下, 对数组初始化都是需要调用标准库的函数的. 按常理来讲, 这种情况下, 应该在 IR 里生成一条 `call` 指令, 调用 对应的函数 (`memset`/`memcpy`). 但问题是这些函数的签名需要 IR 能支持 C 中的 `void*` 类型 (在 LLVM IR 里, 它对应 `i8*`), 而为了这一两个函数在 IR 中加入新的类型过于麻烦, 而且直接生成 `call` 也并不能很好地表示初始化的语义, 所以往 IR 中添加了这一条特殊的指令.
 
 ## use-def 关系
 
@@ -200,6 +311,8 @@ public class INode<E, P> {
 }
 
 ```
+
+任何类的构造函数必须是一致的.
 
 ## 术语约定
 
