@@ -7,27 +7,9 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import top.origami404.ssyc.frontend.SemanticException.GenExpInGlobalException;
-import top.origami404.ssyc.frontend.SysYParser.AtomContext;
-import top.origami404.ssyc.frontend.SysYParser.AtomLValContext;
-import top.origami404.ssyc.frontend.SysYParser.BlockContext;
-import top.origami404.ssyc.frontend.SysYParser.CompUnitContext;
-import top.origami404.ssyc.frontend.SysYParser.DeclContext;
-import top.origami404.ssyc.frontend.SysYParser.DefContext;
-import top.origami404.ssyc.frontend.SysYParser.ExpAddContext;
-import top.origami404.ssyc.frontend.SysYParser.ExpContext;
-import top.origami404.ssyc.frontend.SysYParser.ExpMulContext;
-import top.origami404.ssyc.frontend.SysYParser.ExpUnaryContext;
-import top.origami404.ssyc.frontend.SysYParser.FuncArgListContext;
-import top.origami404.ssyc.frontend.SysYParser.FuncDefContext;
-import top.origami404.ssyc.frontend.SysYParser.FuncParamContext;
-import top.origami404.ssyc.frontend.SysYParser.FuncParamListContext;
-import top.origami404.ssyc.frontend.SysYParser.InitValContext;
-import top.origami404.ssyc.frontend.SysYParser.LValContext;
-import top.origami404.ssyc.frontend.SysYParser.LValDeclContext;
-import top.origami404.ssyc.frontend.SysYParser.StmtContext;
-import top.origami404.ssyc.frontend.SysYParser.StmtIfContext;
-import top.origami404.ssyc.frontend.SysYParser.StmtWhileContext;
+import top.origami404.ssyc.frontend.SysYParser.*;
 import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
@@ -444,8 +426,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var op = ctx.expAddOp().getText();
         return switch (op) {
-            case "+" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
-            case "-" -> insertConvertForBinaryOp(lhs, rhs, builder::insertISub, builder::insertFSub);
+            case "+" -> insertConvertForBinary(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
+            case "-" -> insertConvertForBinary(lhs, rhs, builder::insertISub, builder::insertFSub);
             default -> throw new SemanticException(ctx, "Unknown expAdd op: " + op);
         };
     }
@@ -462,8 +444,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var op = ctx.expMulOp().getText();
         return switch (op) {
-            case "*" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIMul, builder::insertFMul);
-            case "/" -> insertConvertForBinaryOp(lhs, rhs, builder::insertIDiv, builder::insertFDiv);
+            case "*" -> insertConvertForBinary(lhs, rhs, builder::insertIMul, builder::insertFMul);
+            case "/" -> insertConvertForBinary(lhs, rhs, builder::insertIDiv, builder::insertFDiv);
             case "%" -> {
                 final var commonType = findCommonType(lhs.getType(), rhs.getType());
                 if (commonType.isFloat()) {
@@ -604,7 +586,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         Value arg;
     }
 
-    private Value insertConvertForBinaryOp(
+    private Value insertConvertForBinary(
         Value lhs,
         Value rhs,
         BiFunction<Value, Value, Value> intMerger,
@@ -713,10 +695,103 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return null;
     }
 
+    @Override public Object visitCond(CondContext ctx) { throw new UnsupportedOperationException("Shouldn't be called"); }
+
+    public void visitCond(CondContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
+        visitLogOr(ctx.logOr(), trueBB, falseBB);
+    }
+
+    public void visitLogOr(LogOrContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
+        if (ctx.logOr() == null) {
+            visitLogAnd(ctx.logAnd(), trueBB, falseBB);
+            return;
+        }
+
+        final var nextCondBB = builder.createFreeBBlock(nameWithLineAndColumn(ctx, "or_rhs"));
+        visitLogAnd(ctx.logAnd(), trueBB, nextCondBB);
+        builder.appendBBlock(nextCondBB);
+        visitLogOr(ctx.logOr(), trueBB, falseBB);
+    }
+
+    public void visitLogAnd(LogAndContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
+        if (ctx.logAnd() == null) {
+            visitLogRel(ctx.logRel(), trueBB, falseBB);
+        }
+
+        final var nextCondBB = builder.createFreeBBlock(nameWithLineAndColumn(ctx, "and_rhs"));
+        visitLogRel(ctx.logRel(), nextCondBB, falseBB);
+        builder.appendBBlock(nextCondBB);
+        visitLogAnd(ctx.logAnd(), trueBB, falseBB);
+    }
+
+    public void visitLogRel(LogRelContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
+        final var cond = visitRelEq(ctx.relEq());
+        builder.insertBrCond(cond, trueBB, falseBB);
+    }
+
     @Override
-    public Object visitStmtIf(StmtIfContext ctx) {
-        // TODO Auto-generated method stub
-        return super.visitStmtIf(ctx);
+    public Value visitRelEq(RelEqContext ctx) {
+        if (ctx.relEq() == null) {
+            return visitRelComp(ctx.relComp());
+        }
+
+        final var lhs = visitRelComp(ctx.relComp());
+        final var rhs = visitRelEq(ctx.relEq());
+        final var op = ctx.relEqOp().getText();
+        return switch (op) {
+            case "==" -> insertConvertForBinary(lhs, rhs, builder::insertICmpEq, builder::insertFCmpEq);
+            case "!=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpNe, builder::insertFCmpNe);
+            default -> throw new SemanticException(ctx, "Unknown relEq op: " + op);
+        };
+    }
+
+    @Override
+    public Value visitRelComp(RelCompContext ctx) {
+        if (ctx.relComp() == null) {
+            return visitRelExp(ctx.relExp());
+        }
+
+        final var lhs = visitRelExp(ctx.relExp());
+        final var rhs = visitRelComp(ctx.relComp());
+        final var op = ctx.relCompOp().getText();
+        return switch (op) {
+            case "<"  -> insertConvertForBinary(lhs, rhs, builder::insertICmpLt, builder::insertFCmpLt);
+            case "<=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpLe, builder::insertFCmpLe);
+            case ">"  -> insertConvertForBinary(lhs, rhs, builder::insertICmpGt, builder::insertFCmpGt);
+            case ">=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpGe, builder::insertFCmpGe);
+            default -> throw new SemanticException(ctx, "Unknown relComp op: " + op);
+        };
+    }
+
+    @Override
+    public Value visitRelExp(RelExpContext ctx) {
+        try {
+            final var val = visitExp(ctx.exp());
+            assert val.getType().isInt();
+            return builder.insertICmpNe(val, IntConst.INT_0);
+        } catch (LogNotAsUnaryExpException e) {
+            final var val = e.arg;
+            assert val.getType().isInt();
+            return builder.insertICmpEq(val, IntConst.INT_0);
+        }
+    }
+
+    @Override
+    public Void visitStmtIf(StmtIfContext ctx) {
+        final var trueBB = builder.createFreeBBlock(nameWithLine(ctx, "if_then"));
+        final var falseBB = builder.createFreeBBlock(nameWithLine(ctx, "if_else"));
+
+        visitCond(ctx.cond(), trueBB, falseBB);
+
+        builder.appendBBlock(trueBB);
+        visitStmt(ctx.s1);
+
+        builder.appendBBlock(falseBB);
+        if (ctx.s2 != null) {
+            visitStmt(ctx.s2);
+        }
+
+        return null;
     }
 
     @Override
@@ -806,6 +881,17 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final Variable var;
         final IRType type;
     }
+
+    private String nameWithLineAndColumn(ParserRuleContext ctx, String prefix) {
+        final var lineNo = ctx.getStart().getLine();
+        final var column = ctx.getStart().getCharPositionInLine();
+        return prefix + "_" + lineNo + "_" + column;
+    }
+
+    private static String nameWithLine(ParserRuleContext ctx, String prefix) {
+        return prefix + "_" + ctx.getStart().getLine();
+    }
+
 
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的

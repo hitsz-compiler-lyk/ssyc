@@ -90,9 +90,11 @@ logOr
     ;
 
 logAnd
-    : relEq '&&' logAnd
-    | relEq
+    : logRel '&&' logAnd
+    | logRel
     ;
+
+logRel: relEq ;
 
 relEqOp: '==' | '!=' ;
 relEq
@@ -102,9 +104,11 @@ relEq
 
 relCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : expAdd relCompOp relComp
-    | expAdd
+    : relExp relCompOp relComp
+    | relExp
     ;
+
+relExp: exp;
 
 expAddOp: '+' | '-' ;
 expAdd
