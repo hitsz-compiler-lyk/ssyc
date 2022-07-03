@@ -646,6 +646,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 //====================================================================================================================//
 
 
+    //#region stmt 语句相关
     @Override
     public Void visitStmt(StmtContext ctx) {
         if (ctx.block() != null) {
@@ -654,6 +655,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             visitStmtIf(ctx.stmtIf());
         } else if (ctx.stmtWhile() != null) {
             visitStmtWhile(ctx.stmtWhile());
+        } else if (ctx.stmtPutf() != null) {
+            // TODO: 似乎不需要支持 putf ?
+            throw new SemanticException(ctx, "Unsupported putf now");
         } else if (ctx.exp() != null) {
             visitExp(ctx.exp());
         } else if (ctx.lVal() != null) {
@@ -696,6 +700,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     @Override public Object visitCond(CondContext ctx) { throw new UnsupportedOperationException("Shouldn't be called"); }
+    @Override public Object visitLogOr(LogOrContext ctx) { throw new UnsupportedOperationException("Shouldn't be called"); }
+    @Override public Object visitLogAnd(LogAndContext ctx) { throw new UnsupportedOperationException("Shouldn't be called"); }
+    @Override public Object visitLogRel(LogRelContext ctx) { throw new UnsupportedOperationException("Shouldn't be called"); }
 
     public void visitCond(CondContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
         visitLogOr(ctx.logOr(), trueBB, falseBB);
@@ -795,10 +802,25 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitStmtWhile(StmtWhileContext ctx) {
-        // TODO Auto-generated method stub
-        return super.visitStmtWhile(ctx);
+    public Void visitStmtWhile(StmtWhileContext ctx) {
+        final var bodyBB = builder.createFreeBBlock(nameWithLine(ctx, "while_body"));
+        final var exitBB = builder.createFreeBBlock(nameWithLine(ctx, "while_exit"));
+
+        visitCond(ctx.cond(), bodyBB, exitBB);
+
+        currWhileCond = Optional.of(builder.getBasicBlock());
+        currWhileExit = Optional.of(exitBB);
+
+        builder.appendBBlock(bodyBB);
+        visitStmt(ctx.stmt());
+
+        currWhileCond = Optional.empty();
+        currWhileExit = Optional.empty();
+
+        builder.appendBBlock(exitBB);
+        return null;
     }
+    //#endregion stmt
 
     //#region 辅助函数
     private static IRType toIRType(String bType) {
