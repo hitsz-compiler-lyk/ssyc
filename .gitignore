@@ -16,3 +16,7 @@ _trash
 # compile result
 test-data/**/*.exec
 test-data/**/*.s
+
+# Idea Projects
+.idea
+*.iml

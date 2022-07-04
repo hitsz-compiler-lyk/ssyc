@@ -9,7 +9,7 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class GEPInst extends Instruction {
     // indices: index 的复数形式
-    public GEPInst(Value ptr, List<Value> indices) {
+    public GEPInst(Value ptr, List<? extends Value> indices) {
         super(InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
 
         this.ptr = ptr;
@@ -23,7 +23,7 @@ public class GEPInst extends Instruction {
         return ptr;
     }
 
-    public List<Value> getIndices() {
+    public List<? extends Value> getIndices() {
         return indices;
     }
 
@@ -32,14 +32,16 @@ public class GEPInst extends Instruction {
     }
 
     private Value ptr;
-    private List<Value> indices;
+    private List<? extends Value> indices;
 
     private static IRType calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
-            if (originalType instanceof ArrayIRTy arrayType) {
+            if (originalType instanceof ArrayIRTy) {
+                final var arrayType = (ArrayIRTy) originalType;
                 originalType = arrayType.getElementType();
 
-            } else if (originalType instanceof PointerIRTy ptrTy) {
+            } else if (originalType instanceof PointerIRTy) {
+                final var ptrTy = (PointerIRTy) originalType;
                 originalType = ptrTy.getBaseType();
 
             } else {
