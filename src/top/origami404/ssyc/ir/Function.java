@@ -10,6 +10,7 @@ import top.origami404.ssyc.ir.type.FunctionIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IList;
 import top.origami404.ssyc.utils.IListOwner;
+import top.origami404.ssyc.utils.Log;
 
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner
@@ -24,7 +25,7 @@ public class Function extends Value
 
     @Override
     public FunctionIRTy getType() {
-        assert super.getType() instanceof FunctionIRTy;
+        Log.ensure(super.getType() instanceof FunctionIRTy);
         return (FunctionIRTy)super.getType();
     }
 

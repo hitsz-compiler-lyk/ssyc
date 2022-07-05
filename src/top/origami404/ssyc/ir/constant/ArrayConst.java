@@ -4,6 +4,7 @@ import java.util.List;
 
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.Log;
 
 /**
  * <p>数组常量, 一般用于表示数组的初始化器
@@ -35,12 +36,12 @@ public class ArrayConst extends Constant {
     }
 
     private static IRType getTypeFromElements(List<Constant> elms) {
-        assert elms.size() > 0;
+        Log.ensure(elms.size() > 0);
 
         final var type = elms.get(0).getType();
 
-        assert type.isInt() || type.isFloat();
-        assert elms.stream().allMatch(e -> e.getType().equals(type));
+        Log.ensure(type.equals(IRType.IntTy) || type.equals(IRType.FloatTy));
+        Log.ensure(elms.stream().allMatch(e -> e.getType().equals(type)));
 
         return IRType.createArrayTy(elms.size(), type);
     }
