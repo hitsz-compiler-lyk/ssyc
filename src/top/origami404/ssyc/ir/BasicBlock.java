@@ -97,6 +97,10 @@ public class BasicBlock extends Value
         };
     }
 
+    public Iterable<PhiInst> phis() {
+        return this::iterPhis;
+    }
+
     public List<BasicBlock> getSuccessors() {
         // 使用 List 以方便有可能需要使用索引标记的情况
         // 比如说用 List 就可以直接开 boolean visited[N]

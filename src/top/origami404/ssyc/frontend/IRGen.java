@@ -514,9 +514,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (lValResult.isVar) {
             final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
             final var variable = lValResult.var;
+            final var type = scope.get(variable.name)
+                .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + variable.name))
+                .type;
 
+            // 如果在当前块的 versionInfo 里找不到这个变量的话
+            // 就先插入一个空白的 phi 当作定义
             return versionInfo.getDef(variable)
-                .orElseThrow(() -> new SemanticException(ctx, "Not a variable: " + variable.name));
+                .orElseGet(() -> builder.insertEmptyPhi(type, variable));
 
         } else {
             return builder.insertLoad(lValResult.gep);

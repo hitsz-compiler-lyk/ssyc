@@ -10,6 +10,7 @@ import top.origami404.ssyc.frontend.folder.IntConstantFolder;
 import top.origami404.ssyc.frontend.info.InstCache;
 import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
+import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
@@ -117,8 +118,8 @@ public class IRBuilder {
 
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
-    public PhiInst insertEmptyPhi(IRType type) {
-        final var phi = new PhiInst(type);
+    public PhiInst insertEmptyPhi(IRType type, Variable variable) {
+        final var phi = new PhiInst(type, variable);
         currBB.addPhi(phi);
         return phi;
     }

@@ -1,20 +1,16 @@
 package top.origami404.ssyc.ir.inst;
 
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-
+import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class PhiInst extends Instruction {
-    public PhiInst(IRType type) {
+    public PhiInst(IRType type, Variable variable) {
         super(InstKind.Phi, type);
-    }
+        super.setName(variable.getIRName());
 
-    public PhiInst(IRType type, String name) {
-        this(type);
-        super.setName(name);
+        this.variable = variable;
+        this.incompleted = true;
     }
 
     @Override
@@ -31,4 +27,19 @@ public class PhiInst extends Instruction {
     public Value removeOperandCO(Value value) {
         return super.removeOperandCO(value);
     }
+
+    public boolean isIncompleted() {
+        return incompleted;
+    }
+
+    public void markAsCompleted() {
+        this.incompleted = false;
+    }
+
+    public Variable getVariable() {
+        return variable;
+    }
+
+    private final Variable variable;
+    private boolean incompleted;
 }
