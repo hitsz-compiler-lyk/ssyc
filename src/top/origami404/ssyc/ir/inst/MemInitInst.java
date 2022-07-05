@@ -17,25 +17,26 @@ public class MemInitInst extends Instruction {
         super(InstKind.MemInit, IRType.VoidTy);
         Log.ensure(array.getType() instanceof ArrayIRTy);
 
-        this.array = array;
-        this.init = init;
-
         super.addOperandCO(array);
+        if (init != null) {
+            super.addOperandCO(init);
+        }
     }
 
     public Value getArray() {
-        return array;
+        return getOperand(0);
     }
 
     public ArrayConst getInit() {
-        Log.ensure(init != null);
-        return init;
+        Log.ensure(getOperandSize() > 1);
+        return getOperand(1).as(ArrayConst.class);
     }
 
     public void setInit(ArrayConst init) {
-        this.init = init;
+        if (getOperandSize() > 1) {
+            replaceOperandCO(1, init);
+        } else {
+            addOperandCO(init);
+        }
     }
-
-    private Value array;
-    private ArrayConst init;
 }

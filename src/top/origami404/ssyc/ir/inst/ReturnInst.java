@@ -12,12 +12,16 @@ public class ReturnInst extends Instruction {
 
     public ReturnInst(Value returnVal) {
         super(InstKind.Ret, IRType.VoidTy);
-        this.returnVal = Optional.ofNullable(returnVal);
+        if (returnVal != null) {
+            addOperandCO(returnVal);
+        }
     }
 
     public Optional<Value> getReturnValue() {
-        return returnVal;
+        if (getOperandSize() > 0) {
+            return Optional.of(getOperand(0));
+        } else {
+            return Optional.empty();
+        }
     }
-
-    private Optional<Value> returnVal;
 }

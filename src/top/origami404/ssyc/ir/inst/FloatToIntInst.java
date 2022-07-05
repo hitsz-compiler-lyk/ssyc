@@ -9,13 +9,10 @@ public class FloatToIntInst extends Instruction {
         super(InstKind.F2I, IRType.IntTy);
         Log.ensure(from.getType().equals(IRType.FloatTy));
 
-        this.from = from;
         super.addOperandCO(from);
     }
 
     public Value getFrom() {
-        return from;
+        return getOperand(0);
     }
-
-    private Value from;
 }
