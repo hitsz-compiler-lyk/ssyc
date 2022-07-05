@@ -26,6 +26,7 @@ import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
 import top.origami404.ssyc.utils.ChainMap;
+import top.origami404.ssyc.utils.Log;
 
 public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {
@@ -298,7 +299,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             }
         }
 
-        assert elms.size() == currDim;
+        Log.ensure(elms.size() == currDim);
 
         // 稍作处理 & 包装, 返回上层需要的信息
         final var used = curr - originalCurr;
@@ -354,7 +355,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Constant getZeroElm(IRType baseType, List<Integer> shape) {
-        assert shape.size() >= 1;
+        Log.ensure(shape.size() >= 1);
 
         if (shape.size() == 1) {
             return Constant.getZeroByType(baseType);
@@ -629,8 +630,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static IRType findCommonType(IRType ty1, IRType ty2) {
-        assert ty1.isInt() || ty1.isFloat();
-        assert ty2.isInt() || ty2.isFloat();
+        Log.ensure(ty1.isInt() || ty1.isFloat());
+        Log.ensure(ty2.isInt() || ty2.isFloat());
 
         if (ty1.equals(ty2)) {
             // 两个都是 Int 或者是两个都 Float 的情况
@@ -774,11 +775,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public Value visitRelExp(RelExpContext ctx) {
         try {
             final var val = visitExp(ctx.exp());
-            assert val.getType().isInt();
+            Log.ensure(val.getType().isInt());
             return builder.insertICmpNe(val, IntConst.INT_0);
         } catch (LogNotAsUnaryExpException e) {
             final var val = e.arg;
-            assert val.getType().isInt();
+            Log.ensure(val.getType().isInt());
             return builder.insertICmpEq(val, IntConst.INT_0);
         }
     }
