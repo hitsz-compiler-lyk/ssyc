@@ -8,35 +8,24 @@ public class BrCondInst extends Instruction {
     public BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
         super(InstKind.BrCond, IRType.VoidTy);
 
-        // TODO: 维护基本块前后继关系
-        this.cond = cond;
-        this.trueBB = trueBB;
-        this.falseBB = falseBB;
-
         super.addOperandCO(cond);
         super.addOperandCO(trueBB);
         super.addOperandCO(falseBB);
 
-        trueBB.addPredecessor(this.getParent().get());
-        falseBB.addPredecessor(this.getParent().get());
+        final var currBlock = this.getParent()
+            .orElseThrow(() -> new RuntimeException("Free BrCond instruction"));
+        trueBB.addPredecessor(currBlock);
+        falseBB.addPredecessor(currBlock);
 
         assert cond.getType().getKind().isBool()
             : "BrCond expect a cond with Bool IRType";
     }
 
-    public Value getCond() {
-        return cond;
-    }
-
+    public Value getCond() { return getOperand(0); }
     public BasicBlock getTrueBB() {
-        return trueBB;
+        return getOperand(1).as(BasicBlock.class);
     }
-
     public BasicBlock getFalseBB() {
-        return falseBB;
+        return getOperand(2).as(BasicBlock.class);
     }
-
-    private Value cond;
-    private BasicBlock trueBB;
-    private BasicBlock falseBB;
 }

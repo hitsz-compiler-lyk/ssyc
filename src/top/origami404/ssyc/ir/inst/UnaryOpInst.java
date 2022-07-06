@@ -5,20 +5,16 @@ import top.origami404.ssyc.ir.Value;
 public class UnaryOpInst extends Instruction {
     public UnaryOpInst(InstKind opKind, Value arg) {
         super(opKind, arg.getType());
-        this.arg = arg;
         super.addOperandCO(arg);
 
-
         final var resultTyKind = arg.getType().getKind();
-        assert resultTyKind.isInt() && resultTyKind.isFloat()
+        assert resultTyKind.isInt() || resultTyKind.isFloat()
             : "BinOpInst require type INT or FLOAT";
         assert (resultTyKind.isInt() && opKind.isInt()) || (resultTyKind.isFloat() && opKind.isFloat())
             : "OpKind type is unmatch with operand type";
     }
 
     public Value getArg() {
-        return arg;
+        return getOperand(0);
     }
-
-    private Value arg;
 }
