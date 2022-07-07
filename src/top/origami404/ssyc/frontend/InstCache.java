@@ -22,7 +22,7 @@ public class InstCache implements AnalysisInfo {
 
     void add(Instruction newInst) {
         final var kind = newInst.getKind();
-        final var operands = newInst.getOperandList();
+        final var operands = newInst.getOperands();
 
         final var hash = calcHashCode(kind, operands);
         if (cache.containsKey(hash)) {
@@ -33,7 +33,7 @@ public class InstCache implements AnalysisInfo {
     }
 
     boolean contains(Instruction inst) {
-        return contains(inst.getKind(), inst.getOperandList());
+        return contains(inst.getKind(), inst.getOperands());
     }
 
     boolean contains(InstKind kind, List<Value> operands) {
