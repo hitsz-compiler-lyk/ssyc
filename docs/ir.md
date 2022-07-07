@@ -245,8 +245,8 @@ owner  │ ┌────────────────────┐   
 IListOwner<Instruction, BasicBlock> bb = new BasicBlock();
 for (final var inode : bb.asINodeView()) {
     // use inode
-    assert inode.getOwner() == inode.getValue();
-    assert inode.getParent() == bb.getIList();
+    Log.ensure(inode.getOwner() == inode.getValue());
+    Log.ensure(inode.getParent() == bb.getIList());
 
     // inode.insertBeforeCO(other_inode)
     // inode.insertAfterCO(other_inode)
@@ -254,8 +254,8 @@ for (final var inode : bb.asINodeView()) {
 
 for (final var inst : bb.asElementView()) {
     // use inst
-    assert inst instanceof INodeOwner;
-    assert inst.getParent() == bb;
+    Log.ensure(inst instanceof INodeOwner);
+    Log.ensure(inst.getParent() == bb);
 
     // inst.insertBeforeCO(other_inst);
     // inst.insertAfterCO(other_inst);

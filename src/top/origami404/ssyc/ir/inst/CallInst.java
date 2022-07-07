@@ -9,25 +9,17 @@ public class CallInst extends Instruction {
     public CallInst(Function callee, List<Value> args) {
         super(InstKind.Call, callee.getType().getReturnType());
 
-        this.callee = callee;
-        this.argList = args;
-
         super.addOperandCO(callee);
         super.addAllOperandsCO(args);
     }
 
     public Function getCallee() {
-        return callee;
+        return getOperand(0).as(Function.class);
     }
-
     public List<Value> getArgList() {
-        return argList;
+        return getOperands().subList(1, getOperandSize());
     }
-
     public Value getArg(int i) {
         return getArgList().get(i);
     }
-
-    private Function callee;
-    private List<Value> argList;
 }

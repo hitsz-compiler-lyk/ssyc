@@ -14,14 +14,10 @@ public class LoadInst extends Instruction {
                 .orElseThrow(() -> new RuntimeException("Argument of load instrution must be a pointer"))
         );
 
-        this.ptr = ptr;
         super.addOperandCO(ptr);
     }
 
     public Value getPtr() {
-        return ptr;
+        return getOperand(0);
     }
-
-    // TODO: 只有 AllocInst 才能是 PointerType, 所以要不要改成细化类型?
-    private Value ptr;
 }

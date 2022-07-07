@@ -12,27 +12,19 @@ public class GEPInst extends Instruction {
     public GEPInst(Value ptr, List<? extends Value> indices) {
         super(InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
 
-        this.ptr = ptr;
-        this.indices = indices;
-
         super.addOperandCO(ptr);
         super.addAllOperandsCO(indices);
     }
 
     public Value getPtr() {
-        return ptr;
+        return getOperand(0);
     }
-
     public List<? extends Value> getIndices() {
-        return indices;
+        return getOperands().subList(1, getOperandSize());
     }
-
     public Value getIndex(int idx) {
-        return indices.get(idx);
+        return getIndices().get(idx);
     }
-
-    private Value ptr;
-    private List<? extends Value> indices;
 
     private static IRType calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {

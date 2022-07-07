@@ -7,15 +7,14 @@ public class BrInst extends Instruction {
     public BrInst(BasicBlock nextBB) {
         // TODO: 维护基本块前后继关系
         super(InstKind.Br, IRType.BBlockTy);
-        this.nextBB = nextBB;
         super.addOperandCO(nextBB);
 
-        nextBB.addPredecessor(this.getParent().get());
+        final var currBlock = this.getParent()
+            .orElseThrow(() -> new RuntimeException("Free br instruction"));
+        nextBB.addPredecessor(currBlock);
     }
 
     public BasicBlock getNextBB() {
-        return nextBB;
+        return getOperand(0).as(BasicBlock.class);
     }
-
-    private BasicBlock nextBB;
 }
