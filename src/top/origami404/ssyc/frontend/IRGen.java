@@ -13,16 +13,13 @@ import top.origami404.ssyc.frontend.SysYParser.*;
 import top.origami404.ssyc.frontend.info.FinalInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.ir.*;
+import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.AllocInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Parameter;
-import top.origami404.ssyc.ir.Value;
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
@@ -59,6 +56,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         currModule.getFunctions().put(function.getName(), function);
 
         visitBlock(ctx.block());
+
+        // 翻译完所有基本块之后再填充翻译过程中遗留下来的空白 phi
+        // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
         function.getBasicBlocks().forEach(this::fillIncompletedPhi);
 
         return function;
@@ -130,11 +130,35 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     public void visitDef(DefContext ctx, boolean isConst, IRType baseType) {
+        /*
+            这里的 def 实际上有 6 种情况:
+
+                      全局        局部
+            常量    全局常量    局部常量
+            变量    全局变量    局部变量
+            数组    全局数组    局部数组
+
+            它们总是需要将 identifier 与 variable 的对应关系加入到作用域中,
+            也总是需要更新 variable 与其当前的定义的关系
+            (不过是要在不同的表中, 有的情况是 finalInfo, 有的情况是 versionInfo)
+
+            全局常量: 更新 scope, 加入 finalInfo, 加入 globalConst
+            局部常量: 更新 scope, 加入 finalInfo
+            全局变量: 更新 scope, (以指针形式) 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
+            局部变量: 更新 scope, 加入 versionInfo (绑定0/初始值)
+            全局数组: 更新 scope, 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
+                有非空初始值的情况下, 初始值加入 globalConst
+            局部数组: 更新 scope, 加入 finalInfo
+                有非空初始值的情况下, 插入 MemInit, 初始值加入 globalConst
+         */
+
+
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
         final var shape = info.shape;
         final var type = createTypeByShape(baseType, shape);
 
+        // 大家都要加入 scope
         // 在当前作用域中注册该该名字为此变量
         final var variable = new Variable(name, ctx.getStart().getLine());
         final var originalVarOpt = scope.getInCurr(name);
@@ -148,6 +172,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
 
+        final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
             final var value = Optional.ofNullable(ctx.initVal())
@@ -156,32 +183,83 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 .map(this::visitExp)
                 .orElse(Constant.getZeroByType(type));
 
-            if (isConst && !(value instanceof Constant)) {
-                throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
+            if (isConst) {
+                // 对常量
+                if (!(value instanceof Constant)) {
+                    throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
+                }
+
+                // 全局常量需要特别放到全局常量表中
+                final var constant = (Constant) value;
+                if (inGlobal()) {
+                    currModule.getConstants().put(name, constant);
+                }
+
+                // 局部跟全局常量都丢到 finalInfo 中
+                finalInfo.newDef(variable, value);
+
+            } else {
+                if (inGlobal()) {
+                    // 全局变量
+                    if (!(value instanceof Constant)) {
+                        throw new SemanticException(ctx, "Only constant can be used to initialize a global variable");
+                    }
+
+                    // 全局变量需要做一个指针, 存到 GlobalVariable 中去
+                    final var global = GlobalVar.createGlobalVariable(type, name, (Constant) value);
+                    currModule.getVariables().put(name, global);
+                    // 因为这个变量与该指针的关系是不变的, 所以丢 finalInfo
+                    finalInfo.newDef(variable, global);
+
+                } else {
+                    // 普通变量只需要加入 versionInfo 中就可以了
+                    versionInfo.newDef(variable, value);
+                }
             }
 
-            newDefByFinalness(isConst, variable, value);
-
         } else {
-            // 对数组变量, 需要特殊处理其初始值
+            if (inGlobal()) {
+                // 对全局数组, 需要加入到 globalVariable 表中, 并且绑定初始值
+                try {
+                    final var initValue = visitInitVal(ctx.initVal(), isConst, baseType, shape);
+                    final var constant = justMakeArrayConst(initValue);
 
-            // 分配数组空间, 并且定义数组;
-            // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
-            final var arrPtr = new AllocInst(type);
-            newDefByFinalness(true, variable, arrPtr);
+                    if (constant instanceof ArrayConst) {
+                        final var arrayConst = (ArrayConst) constant;
+                        final var global = GlobalVar.createGlobalArray(type, name, arrayConst);
 
-            // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
-            final var memInitInst = builder.insertMemInit(arrPtr);
+                        currModule.getVariables().put(name, global);
+                        finalInfo.newDef(variable, global);
+                    } else {
+                        throw new RuntimeException();
+                    }
 
-            // 随后处理初始化器, 同样要考虑运行时求值的部分
-            // 这里将初始化器处理为对应的 Value 的树状结构并补足末尾可能缺少的零元素
-            // 对应位置的 Value 的求值语句将会在此过程中被插入
-            final var initValue = visitInitVal(ctx.initVal(), isConst, baseType, shape);
-            // 随后我们将不是 Constant 的 Value 替换为对应的零元素以获得可以放入 .text 段的常量数组
-            // 然后插入对应的 GEP 指令与 Store 指令来将真正的值放到原本的位置
-            // 全局数组只能使用常量来初始化, 所以不用担心全局数组的指令放哪
-            final var init = makeArrayConstAndInsertStoreForNonConst(arrPtr, initValue);
-            memInitInst.setInit(init);
+                } catch (RuntimeException e) {
+                    throw new SemanticException(ctx, "Only constant array can be used to initialize a global array");
+                }
+
+            } else {
+                // 对局部数组, 需要特殊处理其初始值
+
+                // 分配数组空间, 并且定义数组;
+                // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
+                final var arrPtr = new AllocInst(type);
+                finalInfo.newDef(variable, arrPtr);
+
+                // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
+                final var memInitInst = builder.insertMemInit(arrPtr);
+
+                // 随后处理初始化器, 同样要考虑运行时求值的部分
+                // 这里将初始化器处理为对应的 Value 的树状结构并补足末尾可能缺少的零元素
+                // 对应位置的 Value 的求值语句将会在此过程中被插入
+                final var initValue = visitInitVal(ctx.initVal(), isConst, baseType, shape);
+                // 随后我们将不是 Constant 的 Value 替换为对应的零元素以获得可以放入 .text 段的常量数组
+                // 然后插入对应的 GEP 指令与 Store 指令来将真正的值放到原本的位置
+                // 全局数组只能使用常量来初始化, 所以不用担心全局数组的指令放哪
+                final var init = makeArrayConstAndInsertStoreForNonConst(arrPtr, initValue);
+                memInitInst.setInit(init);
+            }
+
         }
     }
 
@@ -255,7 +333,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 说明现在尝试在给全局变量使用非常量初始化
                 // 而这是不允许的
                 throw new SemanticException(ctx,
-                    "Global value can only be initiated by constant variable, not even constant array");
+                    "GlobalVar value can only be initiated by constant variable, not even constant array");
             }
         }
 
@@ -311,6 +389,21 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return new MakeInitValueResult(used, value);
     }
 
+    private Constant justMakeArrayConst(InitValue initValue) {
+        if (initValue instanceof InitExp) {
+            final var exp = ((InitExp) initValue).exp;
+            if (exp instanceof Constant) {
+                return (Constant) exp;
+            } else {
+                throw new RuntimeException();
+            }
+        } else {
+            final var elms = ((InitArray) initValue).elms;
+            final var vals = elms.stream().map(this::justMakeArrayConst).collect(Collectors.toList());
+            return Constant.createArrayConst(vals);
+        }
+    }
+
     private ArrayConst makeArrayConstAndInsertStoreForNonConst(Value arrPtr, InitValue initValue) {
         final var indices = new ArrayList<Integer>(); indices.add(0);
         final var constant = makeArrayConstAndInsertStoreForNonConstImpl(arrPtr, initValue, indices);
@@ -334,6 +427,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             final var initExp = (InitExp) initValue;
             final var value = initExp.exp;
             if (value instanceof Constant) {
+                // 由于常数折叠, 如果这个表达式真的能变成常量
+                // 那 value 必然是一个常量
+                // 虽然反之并不成立就是了... (所以对于非常量表达式这里也有可能变成常量的)
                 return (Constant) value;
             } else {
                 // TODO: Constant cache
@@ -368,28 +464,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private void newDefByFinalness(boolean isFinal, Variable var, Value val) {
-        if (isFinal) {
-            // Final variable 可以自然地跨 BasicBlock 使用
-            // 因为其与 IR 的绑定关系不可能再变换
-            // 永远也不需要 Phi
-            final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
-            finalInfo.newDef(var, val);
-        }
-
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-        versionInfo.newDef(var, val);
-    }
-
-    private Optional<Constant> findConstant(String name) {
-        // TODO: 全局数组查找
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
-        return scope.get(name)
-            .map(ScopeEntry::var)
-            .flatMap(finalInfo::getNormalVar);
-    }
-
-    private Optional<AllocInst> findArray(String name) {
+    private Optional<Value> findArray(String name) {
+        // 数组必然是 final, 因为数组被翻译成 IR 中数组的指针
+        // 而数组指针指向谁永远不会变
         final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         return scope.get(name)
             .map(ScopeEntry::var)
@@ -416,6 +493,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#region exp 表达式相关
     @Override
     public Value visitExp(ExpContext ctx) {
+        if (builder == null)  {
+            throw new GenExpInGlobalException(ctx);
+        }
+
         return visitExpAdd(ctx.expAdd());
     }
 
@@ -517,14 +598,17 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         if (lValResult.isVar) {
             final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
+
             final var variable = lValResult.var;
             final var type = scope.get(variable.name)
                 .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + variable.name))
                 .type;
 
-            // 如果在当前块的 versionInfo 里找不到这个变量的话
+            // 如果在全局的 finalInfo 与当前块的 versionInfo 里都找不到这个变量的话
             // 就先插入一个空白的 phi 当作定义
-            return versionInfo.getDef(variable)
+            return finalInfo.getDef(variable)
+                .or(() -> versionInfo.getDef(variable))
                 .orElseGet(() -> builder.insertEmptyPhi(type, variable));
 
         } else {
