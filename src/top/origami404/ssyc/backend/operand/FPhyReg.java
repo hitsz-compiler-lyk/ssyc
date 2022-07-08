@@ -2,8 +2,11 @@ package top.origami404.ssyc.backend.operand;
 
 import java.util.HashMap;
 
+import top.origami404.ssyc.utils.Log;
+
 public class FPhyReg extends Reg {
     private String name;
+    private int id;
 
     private static final HashMap<Integer, String> nameMap = new HashMap<Integer, String>() {
         {
@@ -21,7 +24,11 @@ public class FPhyReg extends Reg {
         super(opType.FPhy);
         this.id = n;
         this.name = nameMap.get(n);
-        assert this.name != null;
+        Log.ensure(this.name != null);
+    }
+
+    public int getId() {
+        return id;
     }
 
     @Override

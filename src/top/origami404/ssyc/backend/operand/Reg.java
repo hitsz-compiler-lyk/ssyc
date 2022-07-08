@@ -3,18 +3,20 @@ package top.origami404.ssyc.backend.operand;
 import java.util.HashSet;
 
 import top.origami404.ssyc.backend.arm.ArmInst;
+import top.origami404.ssyc.utils.Log;
 
 public class Reg extends Operand {
-    protected HashSet<ArmInst> instSet = new HashSet<>();
-    protected int id;
+    private HashSet<ArmInst> instSet = new HashSet<>();
 
     public Reg(opType s) {
         super(s);
+        instSet = new HashSet<>();
     }
 
     @Override
     public String toString() {
-        return "r" + Integer.toString(id);
+        Log.ensure(false);
+        return  "";
     }
 
     public void addInst(ArmInst inst) {

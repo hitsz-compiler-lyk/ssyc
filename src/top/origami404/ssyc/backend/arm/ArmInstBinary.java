@@ -3,6 +3,7 @@ package top.origami404.ssyc.backend.arm;
 import java.util.HashMap;
 
 import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.utils.Log;
 
 public class ArmInstBinary extends ArmInst {
     private Operand dst, lhs, rhs;
@@ -11,6 +12,7 @@ public class ArmInstBinary extends ArmInst {
         {
             put(ArmInstKind.IAdd, "add");
             put(ArmInstKind.ISub, "sub");
+            put(ArmInstKind.IRsb, "rsb");
             put(ArmInstKind.IMul, "mul");
             put(ArmInstKind.IDiv, "sdiv");
             put(ArmInstKind.FAdd, "vadd.f32");
@@ -24,10 +26,18 @@ public class ArmInstBinary extends ArmInst {
         super(inst);
     }
 
+    public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
+        super(inst);
+        this.dst = dst;
+        this.lhs = lhs;
+        this.rhs = rhs;
+        block.asElementView().add(this);
+    }
+
     @Override
     public String toString() {
         String op = binaryMap.get(getInst());
-        assert op != null;
+        Log.ensure(op != null);
         String ret = "\t" + op + "\t" + dst.toString() + ",\t" + lhs.toString() + ",\t" + rhs.toString() + "\n";
         return ret;
     }

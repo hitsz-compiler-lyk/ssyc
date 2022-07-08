@@ -1,8 +1,8 @@
 package top.origami404.ssyc.backend.operand;
 
-public class Operand implements Comparable<Operand> {
-    public static final Operand ZeroImm = new Operand(0);
+import top.origami404.ssyc.utils.Log;
 
+public class Operand {
     public enum opType {
         IVirtual,
         IPhy,
@@ -12,13 +12,9 @@ public class Operand implements Comparable<Operand> {
         FImm,
     }
 
-    int imm;
-
-    public int getImm() {
-        return imm;
-    }
-
     opType s;
+    String label;
+    boolean isGlobal;
 
     public opType getState() {
         return s;
@@ -36,7 +32,6 @@ public class Operand implements Comparable<Operand> {
         return s == opType.IPhy;
     }
 
-
     public boolean IsFVirtual() {
         return s == opType.FVirtual;
     }
@@ -45,8 +40,24 @@ public class Operand implements Comparable<Operand> {
         return s == opType.FPhy;
     }
 
+    public boolean IsIImm() {
+        return s == opType.IImm;
+    }
+
+    public boolean IsFImm() {
+        return s == opType.FImm;
+    }
+
     public boolean IsImm() {
-        return s == opType.Imm;
+        return s == opType.IImm || s == opType.FImm;
+    }
+
+    public boolean IsInt() {
+        return s == opType.IImm || s == opType.IPhy || s == opType.IVirtual;
+    }
+
+    public boolean IsFloat() {
+        return s == opType.FImm || s == opType.FPhy || s == opType.FVirtual;
     }
 
     @Override
@@ -57,23 +68,31 @@ public class Operand implements Comparable<Operand> {
         if (((Operand) obj).getState() != this.s) {
             return false;
         }
-        if (this.getState() == opType.Imm) {
-            return ((Operand) obj).getImm() == this.imm;
-        } else {
-            return true;
+        if (this.getState() == opType.IImm) {
+            return ((IImm) obj).getImm() == ((IImm) this).getImm();
         }
-
+        if (this.getState() == opType.FImm) {
+            return ((FImm) obj).getImm() == ((FImm) this).getImm();
+        }
+        return false;
     }
 
-    @Override
-    public int compareTo(Operand x) {
-        // TODO Auto-generated method stub
-        return 0;
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public void setGlobal(boolean isGlobal) {
+        this.isGlobal = isGlobal;
+    }
+
+    public String getLabel() {
+        return label;
     }
 
     @Override
     public String toString() {
-        return "#" + Integer.toString(imm);
+        Log.ensure(false);
+        return "";
     }
 
 }
