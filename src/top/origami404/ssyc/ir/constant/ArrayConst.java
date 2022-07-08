@@ -73,6 +73,9 @@ public class ArrayConst extends Constant {
     // Only for subclass
     protected ArrayConst(IRType type) {
         super(type);
+        super.setName("@ac_" + arrayConstCount++);
         this.elements = List.of();
     }
+
+    private static int arrayConstCount = 0;
 }
