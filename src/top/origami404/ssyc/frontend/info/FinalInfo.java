@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.constant.Constant;
@@ -41,14 +42,19 @@ public class FinalInfo implements AnalysisInfo {
         return opt.map(Constant.class::cast);
     }
 
-    public Optional<AllocInst> getArrayVar(Variable var) {
+    public Optional<Value> getArrayVar(Variable var) {
         final var opt = getDef(var);
         opt.ifPresent(v -> {
-            if (!(v instanceof AllocInst)) {
-                throw new RuntimeException("An array final var must bind to an AllocInst");
+            final var isAlloc = v instanceof AllocInst;
+            final var isGlobalPtr = v instanceof GlobalVar && v.getType().isPtr();
+
+            if (!isAlloc && !isGlobalPtr) {
+                throw new RuntimeException(
+                    "An array final var must bind to an AllocInst or Global variable to a pointer");
             }
         });
-        return opt.map(AllocInst.class::cast);
+
+        return opt;
     }
 
     public Optional<Value> getDef(Variable var) {
