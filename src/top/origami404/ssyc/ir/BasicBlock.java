@@ -27,18 +27,18 @@ public class BasicBlock extends Value
         this(func, "_" + bblockNo++);
     }
 
-    public BasicBlock(Function func, String name) {
+    public BasicBlock(Function func, String labelName) {
         // 在生成 while 或者是 if 的时候, bblock 经常会有自己的带独特前缀的名字
         // 比如 _cond_1, _if_23 之类的
         // 所以对 BasicBlock 保留带 name 的构造函数
 
         super(IRType.BBlockTy);
+        super.setName("%" + labelName);
 
         this.instructions = new IList<>(this);
         func.getIList().asElementView().add(this);
 
         this.phiEnd = instructions.asINodeView().listIterator();
-        this.name = name;
         this.predecessors = new ArrayList<>();
     }
 
@@ -63,16 +63,8 @@ public class BasicBlock extends Value
         phiEnd.add(phi.getINode());
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public Iterator<PhiInst> iterPhis() {
-        return new Iterator<PhiInst>() {
+        return new Iterator<>() {
             @Override
             public boolean hasNext() {
                 return iter.hasNext() && iter != phiEnd;
@@ -122,9 +114,13 @@ public class BasicBlock extends Value
         predecessors.add(predecessor);
     }
 
+    String getLabelName() {
+        // 去除最前面的 '%'
+        return getName().substring(1);
+    }
+
     private static int bblockNo = 0;
 
-    private String name;
     private IList<Instruction, BasicBlock> instructions;
     private ListIterator<INode<Instruction, BasicBlock>> phiEnd;
     private INode<BasicBlock, Function> inode;

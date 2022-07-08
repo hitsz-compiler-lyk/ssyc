@@ -17,9 +17,9 @@ public class Function extends Value
 {
     public Function(IRType returnType, List<Parameter> params, String name) {
         super(makeFunctionIRTypeFromParameters(returnType, params));
-        this.name = name;
-        this.bblocks = new IList<>(this);
+        super.setName(name);
 
+        this.bblocks = new IList<>(this);
         bblocks.asElementView().add(new BasicBlock(this, "entry"));
     }
 
@@ -37,10 +37,6 @@ public class Function extends Value
     @Override
     public Map<String, AnalysisInfo> getInfoMap() {
         return analysisInfos;
-    }
-
-    public String getName() {
-        return name;
     }
 
     // 外部函数将只有 name 与 parameters
@@ -65,7 +61,6 @@ public class Function extends Value
         return IRType.createFuncTy(returnType, paramTypes);
     }
 
-    private String name;
     private List<Parameter> parameters;
     private IList<BasicBlock, Function> bblocks;
     private Map<String, AnalysisInfo> analysisInfos;
