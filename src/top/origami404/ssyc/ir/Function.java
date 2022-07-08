@@ -60,6 +60,10 @@ public class Function extends Value
         return bblocks.asElementView().get(0);
     }
 
+    public Iterable<BasicBlock> getBasicBlocks() {
+        return this.getIList().asElementView();
+    }
+
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {
         final var paramTypes = params.stream().map(Parameter::getParamType).collect(Collectors.toList());
         return IRType.createFuncTy(returnType, paramTypes);

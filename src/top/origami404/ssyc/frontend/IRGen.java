@@ -23,6 +23,7 @@ import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
+import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
 import top.origami404.ssyc.utils.ChainMap;
@@ -56,6 +57,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         builder = new IRBuilder(function.getEntryBBlock());
         currModule.getFunctions().put(function.getName(), function);
+
+        visitBlock(ctx.block());
+        function.getBasicBlocks().forEach(this::fillIncompletedPhi);
 
         return function;
     }
@@ -827,6 +831,69 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return null;
     }
     //#endregion stmt
+
+
+//====================================================================================================================//
+
+
+    //#region 填充空白 phi
+    public void fillIncompletedPhi(BasicBlock bblock) {
+        for (final var phi : bblock.phis()) {
+            // 对于未完成的 Phi
+            if (!phi.isIncompleted()) {
+                continue;
+            }
+
+            final var variable = phi.getVariable();
+            for (final var pred : bblock.getPredecessors()) {
+                findDefinitions(pred, variable).stream()
+                    .filter(phi::equals)
+                    .filter(phi.getOperands()::contains)
+                    .forEach(phi::addOperandCO);
+            }
+
+            // 按道理来说递归找的话只需要加一次就完事了
+            phi.markAsCompleted();
+            tryRemoveTrivialPhi(phi);
+        }
+    }
+
+    private void tryRemoveTrivialPhi(PhiInst phi) {
+        final var bblock = phi.getParent().orElseThrow();
+
+        if (phi.getOperandSize() == 0) {
+            throw new RuntimeException("Phi for undefined: " + phi.getVariable().getIRName());
+        } else if (phi.getOperandSize() == 1) {
+            // 下面的 RAUW 方法会把 userList 清空, 所以必须预先保存
+            final var oldUsers = new ArrayList<>(phi.getUserList());
+
+            // replace phi with its operands
+            phi.replaceAllUseWith(phi.getOperand(0));
+            bblock.getIList().asElementView().remove(phi);
+
+            for (final var user : oldUsers) {
+                if (user instanceof PhiInst) {
+                    tryRemoveTrivialPhi((PhiInst) user);
+                }
+            }
+        }
+    }
+
+    private List<Value> findDefinitions(BasicBlock bblock, Variable variable) {
+        final var versionInfo = bblock.getAnalysisInfo(VersionInfo.class);
+        if (versionInfo.contains(variable)) {
+            return List.of(versionInfo.getDef(variable).orElseThrow());
+        }
+
+        // 没有定义的话, 就要往上递归去找
+        final var defs = new ArrayList<Value>();
+        for (final var pred : bblock.getPredecessors()) {
+            defs.addAll(findDefinitions(pred, variable));
+        }
+
+        return defs;
+    }
+    //#endregion
 
     //#region 辅助函数
     private static IRType toIRType(String bType) {
