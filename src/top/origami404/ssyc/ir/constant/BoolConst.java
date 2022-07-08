@@ -3,8 +3,8 @@ package top.origami404.ssyc.ir.constant;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BoolConst extends Constant {
-    static final BoolConst trueBoolConst = new BoolConst();
-    static final BoolConst falseBoolConst = new BoolConst();
+    static final BoolConst trueBoolConst = new BoolConst("1");
+    static final BoolConst falseBoolConst = new BoolConst("0");
 
     @Override
     public boolean equals(Object obj) {
@@ -26,7 +26,8 @@ public class BoolConst extends Constant {
         return hashCode() == 1;
     }
 
-    private BoolConst() {
+    private BoolConst(String name) {
         super(IRType.BoolTy);
+        super.setName(name);
     }
 }

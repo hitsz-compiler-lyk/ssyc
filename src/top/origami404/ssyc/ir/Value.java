@@ -12,6 +12,7 @@ public abstract class Value {
     public Value(IRType type) {
         this.type = type;
         this.userList = new ArrayList<>();
+        this.name = null;
     }
 
     /**
@@ -58,6 +59,31 @@ public abstract class Value {
     }
 
     /**
+     * <p>
+     * 获得一个在 LLVM IR 里可以作为其他指令的参数的名字,
+     * 比如说全局数组常量会是 @ 开头的字符串,
+     * 基本块, 指令, 参数的名字会是 % 开头的字符串.
+     * </p>
+     * <p>
+     * 如果需要获得其他种类的名字, 比如基本块的用作 label 的名字,
+     * 则需要强转到对应类型再调用对应的方法.
+     * </p>
+     *
+     * @return 名字
+     */
+    public String getName() {
+        if (name == null) {
+            throw new RuntimeException("This value has no name! " + this);
+        }
+
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
      * 一个增加使用者的 "被动" 方法, 它只是朴素地加入一个 User, 不会 "主动" 维护 use-def 关系
      * @param user 待加入的 User
      */
@@ -68,4 +94,5 @@ public abstract class Value {
 
     private IRType type;
     private List<User> userList;
+    private String name;
 }
