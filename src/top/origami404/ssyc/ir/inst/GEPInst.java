@@ -1,10 +1,12 @@
 package top.origami404.ssyc.ir.inst;
 
+import java.awt.*;
 import java.util.List;
 
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.IRTypeException;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class GEPInst extends Instruction {
@@ -26,6 +28,16 @@ public class GEPInst extends Instruction {
         return getIndices().get(idx);
     }
 
+    @Override
+    public PointerIRTy getType() {
+        final var type = super.getType();
+        if (type instanceof PointerIRTy) {
+            return (PointerIRTy) type;
+        } else {
+            throw new IRTypeException(this, "Type of a GEP must be a pointer type");
+        }
+    }
+
     private static IRType calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
             if (originalType instanceof ArrayIRTy) {
@@ -37,10 +49,10 @@ public class GEPInst extends Instruction {
                 originalType = ptrTy.getBaseType();
 
             } else {
-                throw new RuntimeException("Cannot preform GEP on non-array type");
+                throw new RuntimeException("Cannot preform GEP on non-array or non-pointer type");
             }
         }
 
-        return originalType;
+        return IRType.createPtrTy(originalType);
     }
 }

@@ -15,11 +15,11 @@ public class Module {
         return constants;
     }
 
-    public Map<String, AllocInst> getVariables() {
+    public Map<String, GlobalVar> getVariables() {
         return variables;
     }
 
     private Map<String, Function> functions;
-    private Map<String, AllocInst> variables;
+    private Map<String, GlobalVar> variables;
     private Map<String, Constant> constants;
 }

@@ -1,6 +1,7 @@
 package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.IRTypeException;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.utils.Log;
 
@@ -10,9 +11,16 @@ public class AllocInst extends Instruction {
     }
 
     public int getAllocSize() {
-        PointerIRTy ptrTy = (PointerIRTy) getType();
-        Log.ensure(ptrTy != null, "AllocInst must have a pointer type");
+        return getType().getBaseType().getSize();
+    }
 
-        return ptrTy.getBaseType().getSize();
+    @Override
+    public PointerIRTy getType() {
+        final var type = super.getType();
+        if (type instanceof PointerIRTy) {
+            return (PointerIRTy) type;
+        } else {
+            throw new IRTypeException(this, "Type of Alloc must be a pointer type");
+        }
     }
 }

@@ -20,7 +20,8 @@ public class Function extends Value
         super.setName(name);
 
         this.bblocks = new IList<>(this);
-        bblocks.asElementView().add(new BasicBlock(this, "entry"));
+
+        bblocks.asElementView().add(BasicBlock.createBBlockCO(this, "entry"));
     }
 
     @Override
@@ -54,6 +55,10 @@ public class Function extends Value
 
     public BasicBlock getEntryBBlock() {
         return bblocks.asElementView().get(0);
+    }
+
+    public Iterable<BasicBlock> getBasicBlocks() {
+        return this.getIList().asElementView();
     }
 
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {
