@@ -1,0 +1,21 @@
+
+int normal[2][3] = {{1, 2, 3}, {4, 5, 6}};
+
+int paritial_zero[2][3] = {{1, 2}};
+int all_zero[2][3] = {};
+
+// This one will be init to: {{{2, 3}, {4, 5}, {6, 7}}, {{8, 9}, {1, 0}, {2, 0}}, {{3, 4}, {5, 0}, {0, 0}}}
+int braceless[3][3][2] = {2, 3, 4, 5, 6, 7, {8, 9, {1}, {2}}, 3, 4, 5};
+
+// This one should fail:
+// int braceless_bad[3][3][2] = {2, 3, 4, 5, {8, 9, {1}, {2}}, 3, 4, 5};
+// because 2, 3, 4, 5 is not enough for element type int[3][2] and has predecessors.
+
+int main() {
+    int normal_variable[2][3] = {{1, 2, 3}, {4, 5 * 3, 6 + 8}};
+    int normal_runtime[2][3] = {
+        {normal_variable[0][0], normal_variable[0][1] + normal_variable[0][2], 4 % 2},
+        {2 + 3 * 5, normal[1][1]}
+    };
+    return 0;
+}

@@ -5,19 +5,16 @@ import top.origami404.ssyc.ir.type.IRType;
 public class Parameter extends Value {
     public Parameter(String paramName, IRType paramType) {
         super(paramType);
+        super.setName("%" + paramName);
 
-        this.name = paramName;
         this.paramType = paramType;
     }
 
-    public String getName() {
-        return name;
-    }
+    public String getParamName() { return getName().substring(1); }
 
     public IRType getParamType() {
         return paramType;
     }
 
-    private String name;
     private IRType paramType;
 }

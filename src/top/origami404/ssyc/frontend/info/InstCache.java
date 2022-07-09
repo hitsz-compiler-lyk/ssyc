@@ -1,4 +1,4 @@
-package top.origami404.ssyc.frontend;
+package top.origami404.ssyc.frontend.info;
 
 import java.util.HashMap;
 import java.util.List;
@@ -10,14 +10,14 @@ import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.Instruction;
 
 public class InstCache implements AnalysisInfo {
-    Optional<Instruction> get(InstKind kind, List<Value> operands) {
+    public Optional<Instruction> get(InstKind kind, List<Value> operands) {
         final var hash = calcHashCode(kind, operands);
         return Optional.ofNullable(cache.get(hash));
     }
 
-    @Override
-    public String getInfoName() {
-        return "InstCache";
+    public Instruction getOrElse(Instruction inst) {
+        return this.get(inst.getKind(), inst.getOperands())
+            .orElse(inst);
     }
 
     void add(Instruction newInst) {

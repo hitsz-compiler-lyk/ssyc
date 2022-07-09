@@ -1,18 +1,10 @@
 package top.origami404.ssyc.ir;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
-import top.origami404.ssyc.ir.inst.BrCondInst;
-import top.origami404.ssyc.ir.inst.BrInst;
-import top.origami404.ssyc.ir.inst.Instruction;
-import top.origami404.ssyc.ir.inst.PhiInst;
+import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IList;
 import top.origami404.ssyc.utils.IListOwner;
@@ -23,22 +15,30 @@ public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public BasicBlock(Function func) {
-        this(func, "_" + bblockNo++);
+    public static BasicBlock createFreeBBlock(Function func, String name) {
+        return new BasicBlock(func, name);
     }
 
-    public BasicBlock(Function func, String name) {
+    public static BasicBlock createBBlockCO(Function func, String name) {
+        final var bb = createFreeBBlock(func, name);
+        func.getIList().asElementView().add(bb);
+        return bb;
+    }
+
+    public BasicBlock(Function func, String labelName) {
         // 在生成 while 或者是 if 的时候, bblock 经常会有自己的带独特前缀的名字
         // 比如 _cond_1, _if_23 之类的
         // 所以对 BasicBlock 保留带 name 的构造函数
 
         super(IRType.BBlockTy);
+        super.setName("%" + labelName);
 
         this.instructions = new IList<>(this);
-        func.getIList().asElementView().add(this);
+        this.inode = new INode<>(this, func.getIList());
+        // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
+        // func.getIList().asElementView().add(this);
 
         this.phiEnd = instructions.asINodeView().listIterator();
-        this.name = name;
         this.predecessors = new ArrayList<>();
     }
 
@@ -63,16 +63,8 @@ public class BasicBlock extends Value
         phiEnd.add(phi.getINode());
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public Iterator<PhiInst> iterPhis() {
-        return new Iterator<PhiInst>() {
+        return new Iterator<>() {
             @Override
             public boolean hasNext() {
                 return iter.hasNext() && iter != phiEnd;
@@ -97,21 +89,26 @@ public class BasicBlock extends Value
         };
     }
 
+    public Iterable<PhiInst> phis() {
+        return this::iterPhis;
+    }
+
     public List<BasicBlock> getSuccessors() {
         // 使用 List 以方便有可能需要使用索引标记的情况
         // 比如说用 List 就可以直接开 boolean visited[N]
         // 而不用开 Map<BasicBlock, Boolean> visited
 
-        final var lastInst = instructions.asElementView().get(instructions.getSize());
-        if (lastInst instanceof BrInst) {
-            final var bc = (BrInst) lastInst;
-            return List.of(bc.getNextBB());
-        } else if (lastInst instanceof BrCondInst) {
-            final var brc = lastInst.as(BrCondInst.class);
-            return List.of(brc.getTrueBB(), brc.getFalseBB());
-        } else {
-            return List.of();
-        }
+        return getLastInstruction().map(lastInst -> {
+            if (lastInst instanceof BrInst) {
+                final var bc = (BrInst) lastInst;
+                return List.of(bc.getNextBB());
+            } else if (lastInst instanceof BrCondInst) {
+                final var brc = (BrCondInst) lastInst;
+                return List.of(brc.getTrueBB(), brc.getFalseBB());
+            } else {
+                return new ArrayList<BasicBlock>();
+            }
+        }).orElse(List.of());
     }
 
     public List<BasicBlock> getPredecessors() {
@@ -122,9 +119,25 @@ public class BasicBlock extends Value
         predecessors.add(predecessor);
     }
 
+    public boolean isTerminated() {
+        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
+    }
+
+    private Optional<Instruction> getLastInstruction() {
+        if (instructions.getSize() == 0) {
+            return Optional.empty();
+        } else {
+            return Optional.of(instructions.asElementView().get(instructions.getSize() - 1));
+        }
+    }
+
+    String getLabelName() {
+        // 去除最前面的 '%'
+        return getName().substring(1);
+    }
+
     private static int bblockNo = 0;
 
-    private String name;
     private IList<Instruction, BasicBlock> instructions;
     private ListIterator<INode<Instruction, BasicBlock>> phiEnd;
     private INode<BasicBlock, Function> inode;

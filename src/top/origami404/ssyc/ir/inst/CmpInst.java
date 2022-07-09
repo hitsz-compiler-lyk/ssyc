@@ -1,10 +1,11 @@
 package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.type.IRType;
 
 public class CmpInst extends Instruction {
     public CmpInst(InstKind cmpKind, Value lhs, Value rhs) {
-        super(cmpKind, lhs.getType());
+        super(cmpKind, IRType.BoolTy);
         super.addOperandCO(lhs);
         super.addOperandCO(rhs);
 
