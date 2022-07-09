@@ -3,6 +3,10 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.IRTypeException;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class PhiInst extends Instruction {
     public PhiInst(IRType type, Variable variable) {
@@ -38,6 +42,14 @@ public class PhiInst extends Instruction {
 
     public Variable getVariable() {
         return variable;
+    }
+
+    public List<Instruction> getArguments() {
+        try {
+            return getOperands().stream().map(Instruction.class::cast).collect(Collectors.toList());
+        } catch (ClassCastException e) {
+            throw new IRTypeException(this, "Arguments of phi must be instructions");
+        }
     }
 
     private final Variable variable;
