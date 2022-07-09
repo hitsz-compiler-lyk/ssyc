@@ -17,6 +17,9 @@ _trash
 test-data/**/*.exec
 test-data/**/*.s
 
+# VSCode Antlr extension cache
+.antlr
+
 # Idea Projects
 .idea
 *.iml

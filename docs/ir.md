@@ -162,14 +162,14 @@ global_zero:
 
 > 本节内容与 LLVM IR 一致
 
-IR 里的被使用者(Usee)是 `Value` 类, 任何一个 `Value` 类的实例都有可能被被人 "使用", 所以 `Value` 类提供了方法 `getUserList()` 来获得使用了这个实例的所有使用者. 使用者 (User) 是类 `User` 的实例, 任何一个 `User` 都有可能 "使用" 其他 `Value` 实例, 被使用者使用的 Value 称之为该使用者的 Operand (参数), 可以通过方法 `getOperandList()` 获得一个使用者的所有使用的实例.
+IR 里的被使用者(Usee)是 `Value` 类, 任何一个 `Value` 类的实例都有可能被被人 "使用", 所以 `Value` 类提供了方法 `getUserList()` 来获得使用了这个实例的所有使用者. 使用者 (User) 是类 `User` 的实例, 任何一个 `User` 都有可能 "使用" 其他 `Value` 实例, 被使用者使用的 Value 称之为该使用者的 Operand (参数), 可以通过方法 `getOperands()` 获得一个使用者的所有使用的实例.
 
 一个 User(Value) 使用的其他 Value 称之为这个 Value 的 operand, 而使用这个 Value 的 User 称之为这个 Value 的 user.
 
 ```java
     User a;
 
-    a.getOperandList()  //==>  获得这个 User 使用的所有 Value (即它的参数)
+    a.getOperands()  //==>  获得这个 User 使用的所有 Value (即它的参数)
     a.getUserList()     //==>  获得使用这个 Value 的所有 User (即它被谁当作了参数)
 ```
 

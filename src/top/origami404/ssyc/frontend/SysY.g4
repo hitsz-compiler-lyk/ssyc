@@ -90,9 +90,11 @@ logOr
     ;
 
 logAnd
-    : relEq '&&' logAnd
-    | relEq
+    : logRel '&&' logAnd
+    | logRel
     ;
+
+logRel: relEq ;
 
 relEqOp: '==' | '!=' ;
 relEq
@@ -102,9 +104,11 @@ relEq
 
 relCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : expAdd relCompOp relComp
-    | expAdd
+    : relExp relCompOp relComp
+    | relExp
     ;
+
+relExp: exp;
 
 expAddOp: '+' | '-' ;
 expAdd
@@ -127,11 +131,13 @@ expUnary
 
 atom
     : '(' exp ')'
-    | lVal
+    | atomLVal
     | IntConst
     | FloatConst
     ;
 
+// 方便 lVal 区分用作左值和右值的情况
+atomLVal: lVal;
 
 //----------------- misc ----------------------------
 funcArgList
