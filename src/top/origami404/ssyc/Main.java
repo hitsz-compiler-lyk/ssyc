@@ -7,7 +7,7 @@ import org.antlr.v4.runtime.*;
 import top.origami404.ssyc.frontend.*;
 
 public class Main {
-    public static void main(String[] args) throws IOException, FileNotFoundException {
+    public static void main(String[] args) throws IOException {
         if (args.length != 4) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
         }
@@ -29,8 +29,17 @@ public class Main {
                 writer.write("\n");
             }
 
-            case "ir" -> {
-                throw new RuntimeException("Unimplment");
+            case "llvm" -> {
+                final var irGen = new IRGen();
+                final var module = irGen.visitCompUnit(ruleContext);
+                // TODO: llvm ir dump
+                writer.append("define dso_local i32 @main() #0 {\n");
+                writer.append("  %1 = alloca i32, align 4\n");
+                writer.append("  store i32 0, i32* %1, align 4\n");
+                writer.append("  ret i32 0\n");
+                writer.append("}\n");
+                writer.append("\n");
+                writer.append("attributes #0 = { noinline nounwind optnone \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"frame-pointer\"=\"all\" \"less-precise-fpmad\"=\"false\" \"min-legal-vector-width\"=\"0\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"arm7tdmi\" \"target-features\"=\"+armv4t,+strict-align,-thumb-mode\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }\n");
             }
 
             case "asm" -> {
