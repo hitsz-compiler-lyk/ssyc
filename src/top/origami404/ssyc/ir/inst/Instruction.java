@@ -33,7 +33,8 @@ public abstract class Instruction extends User
     public void verify() throws IRVerifyException {
         super.verify();
 
-        ensure(getName().charAt(0) == '%', "A instruction must have a name begins with '@'");
+        ensure(getName().charAt(0) == '%', "An instruction must have a name begins with '@'");
+        ensure(getParent().isPresent(), "An instruction must have a parent");
 
         for (final var op : getOperands()) {
             ensure(op != this, "Cannot use itself as an operand");
@@ -45,8 +46,6 @@ public abstract class Instruction extends User
 
         ensureNot(getType().isVoid() && getUserList().size() != 0,
                 "Instructions of Void type must not have any user");
-
-
     }
 
     private static int instNo = 0;
