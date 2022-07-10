@@ -8,15 +8,6 @@ public class BinaryOpInst extends Instruction {
 
         super.addOperandCO(lhs);
         super.addOperandCO(rhs);
-        
-        final var resultTyKind = lhs.getType().getKind();
-        assert lhs.getType() == rhs.getType()
-            : "lhs should have the same type as rhs";
-        assert resultTyKind.isInt() || resultTyKind.isFloat()
-            : "BinOpInst require type INT or FLOAT";
-        assert (resultTyKind.isInt() && opKind.isInt()) || (resultTyKind.isFloat() && opKind.isFloat())
-            : "OpKind type is unmatch with operand type";
-
     }
 
     public Value getLHS() {
