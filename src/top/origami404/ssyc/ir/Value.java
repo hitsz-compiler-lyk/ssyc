@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.inst.Instruction;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public abstract class Value {
     public Value(IRType type) {
@@ -83,6 +85,8 @@ public abstract class Value {
         this.name = name;
     }
 
+    public void verify() throws IRVerifyException {}
+
     /**
      * 一个增加使用者的 "被动" 方法, 它只是朴素地加入一个 User, 不会 "主动" 维护 use-def 关系
      * @param user 待加入的 User
@@ -95,4 +99,15 @@ public abstract class Value {
     private IRType type;
     private List<User> userList;
     private String name;
+
+    // 用于验证 IR 的方法
+    void ensure(boolean cond, String message) {
+        if (!cond) {
+            throw new IRVerifyException(this, message);
+        }
+    }
+
+    void verifyFail(String message) {
+        ensure(false, message);
+    }
 }
