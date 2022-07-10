@@ -35,7 +35,7 @@ public interface IRType {
      * @return 所求的指针类型
      */
     public static PointerIRTy createArrayPtrTy(int elementNum, IRType elementType) {
-        return createPtrTy(createArrayPtrTy(elementNum, elementType));
+        return createPtrTy(createArrayTy(elementNum, elementType));
     }
 
     default boolean isInt()     { return this.equals(IRType.IntTy);     }
