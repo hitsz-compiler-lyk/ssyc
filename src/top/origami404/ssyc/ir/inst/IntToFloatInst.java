@@ -6,7 +6,7 @@ import top.origami404.ssyc.utils.Log;
 
 public class IntToFloatInst extends Instruction {
     public IntToFloatInst(Value from) {
-        super(InstKind.I2F, IRType.IntTy);
+        super(InstKind.I2F, IRType.FloatTy);
         Log.ensure(from.getType().equals(IRType.IntTy));
 
         super.addOperandCO(from);
