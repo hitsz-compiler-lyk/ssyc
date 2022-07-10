@@ -87,6 +87,7 @@ public abstract class Value {
 
     public void verify() throws IRVerifyException {
         ensure(name != null, "A value must have name");
+        ensure(name.length() > 1, "A value's name must longer than 1");
         checkPointerAndArrayType();
 
         for (final var user : userList) {
@@ -109,17 +110,17 @@ public abstract class Value {
     private String name;
 
     // 用于验证 IR 的方法
-    void ensure(boolean cond, String message) {
+    protected void ensure(boolean cond, String message) {
         if (!cond) {
             throw new IRVerifyException(this, message);
         }
     }
 
-    void verifyFail(String message) {
+    protected void verifyFail(String message) {
         ensure(false, message);
     }
 
-    void checkPointerAndArrayType() {
+    private void checkPointerAndArrayType() {
         final var type = getType();
         if (type instanceof PointerIRTy) {
             ensure(((PointerIRTy) type).getBaseType().canBeElement(),
