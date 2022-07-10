@@ -85,7 +85,15 @@ public abstract class Value {
         this.name = name;
     }
 
-    public void verify() throws IRVerifyException {}
+    public void verify() throws IRVerifyException {
+        ensure(name != null, "A value must have name");
+        checkPointerAndArrayType();
+
+        for (final var user : userList) {
+            ensure(user.getOperands().contains(this),
+                    "An user must contains this in its operands list");
+        }
+    }
 
     /**
      * 一个增加使用者的 "被动" 方法, 它只是朴素地加入一个 User, 不会 "主动" 维护 use-def 关系
@@ -109,5 +117,16 @@ public abstract class Value {
 
     void verifyFail(String message) {
         ensure(false, message);
+    }
+
+    void checkPointerAndArrayType() {
+        final var type = getType();
+        if (type instanceof PointerIRTy) {
+            ensure(((PointerIRTy) type).getBaseType().canBeElement(),
+                    "Pointer's base type must be int or float or array");
+        } else if (type instanceof ArrayIRTy) {
+            ensure(((ArrayIRTy) type).getElementType().canBeElement(),
+                    "Array's element type must be int or float or array");
+        }
     }
 }
