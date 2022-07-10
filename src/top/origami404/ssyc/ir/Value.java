@@ -116,6 +116,10 @@ public abstract class Value {
         }
     }
 
+    protected void ensureNot(boolean cond, String message) {
+        ensure(!cond, message);
+    }
+
     protected void verifyFail(String message) {
         ensure(false, message);
     }
