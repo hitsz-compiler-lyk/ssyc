@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class LLVMDumper {
     public LLVMDumper(OutputStream outStream) {
@@ -107,9 +108,11 @@ public class LLVMDumper {
 
         } else if (inst instanceof PhiInst) {
             writer.println("phi " + dumpIRType(inst.getType())
-                    + ((PhiInst) inst).getArguments().stream()
-                    .map(arg -> String.format("[ %s, %s ]", arg.getName(), arg.getParent().orElseThrow().getName()))
+                    + StreamSupport.stream(((PhiInst) inst).getIncomingInfos().spliterator(), false)
+                    .map(info -> "[ %s, %s ]".formatted(info.getValue().getName(), info.getBlock().getName()))
                     .collect(Collectors.joining(", ")));
+                    //.map(arg -> String.format("[ %s, %s ]", arg.getName(), arg.getParent().orElseThrow().getName()))
+                    //.collect(Collectors.joining(", ")));
 
         } else if (inst instanceof ReturnInst) {
             writer.print("ret ");
@@ -149,9 +152,9 @@ public class LLVMDumper {
         } else if (inst instanceof MemInitInst) {
             writer.println("call %s(%s, %s, %s, %s)".formatted(
                     "void @llvm.memcpy.p0i8.p0i8.i32",
-                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getArray())),
-                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getInit()))
-                    "i32 %d".formatted(((MemInitInst) inst).getArray().getType().getSize()),
+                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getArrayPtr())),
+                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getInit())),
+                    "i32 %d".formatted(((PointerIRTy) ((MemInitInst) inst).getArrayPtr().getType()).getBaseType().getSize()),
                     "i1 false"
             ));
 
