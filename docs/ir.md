@@ -366,34 +366,59 @@ offset = 0 * sizeof([4 x [5 x i32]]) + 1 * sizeof([5 x i32]) + 3 * sizeof(i32)
        = 32
 ```
 
-## 笔记: SSA 构造
+## 笔记: Phi
 
-Main ref: [Simple and Efficient Construction of Static Single Assignment Form](https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)
+定义:
 
-### 块内局部变量
+- (基本块 B 的) 前继: 能通过 Br/BrCond 指令直接跳转到 B 的基本块
+- (基本块 B 的) 后继: 作为 B 中存在的 Br/BrCond 的参数的基本块
 
-对于一个基本块内而言, 可以直接通过版本化的方式来构造 SSA. 版本化后的块称为填充的 (filled). 但是简单的版本化无法解决块外定义的变量.
+插入 phi 指令的根本原因是要在静态单赋值的 IR 中表达源语言里的 "值会随着控制流不同而变化的变量" 的概念. 它相当于在严格的 SSA 里给这种概念开一个小洞, 使得 SSA 得以表达这种变量的概念. 于是自然每一个 Phi 都有与其所在基本块的前继的数量相同的 incoming info. 它指示了当控制流从不同前继到达此基本块时, phi 在运行时的值应该取什么.
 
-### 块外变量
+值得注意的是, incomingValue 所在的基本块不一定就是其对应的前继. 
 
-若块只有一个前继, 那么直接递归搜索直到找到定义. 如果有多个前继, 那就分别向上搜索并插入 phi.
+例子: 考虑下面的 C 语言代码:
 
-为了防止无穷递归, 事先在当前块头插入一个空白 phi 当作变量的定义.
+```c
+int a = input();
+int b = input();
+int c = input();
 
-### 未完整的 CFG
+if (b == 0 && c == 0) {
+    a = input();
+}
 
-称一个块是封闭 (sealed) 的, 当且仅当其不可能再有新的前继. 若一个块未封闭, 那么对于待找变量, 先插入一个空白 phi 并记为 incomplete. 等到块封闭了, 再一起解决.
+output(a);
+```
 
-> 填充好的块能当别人的前继, 封闭好的块能知道自己所有的前继
+其会被翻译为:
 
-在不含 goto 的语言里, 一遍过, 总能直到块是什么时候封闭的. 并且可以保证封闭的块的前继是封闭的.
+```llvm
+entry:
+    %a_0 = call %input();
+    %b_0 = call %input();
+    %c_0 = call %input();
+    br %cond_1;
 
-### 消除多余 Phi
+cond_1:
+    %cmp_1 = icmpeq %b_0, 0;
+    br %cmp_1 %cond_2 %exit;
+cond_2:
+    %cmp_2 = icmpeq %c_0, 0;
+    br %cmp_2 %then %exit;
+    
+then:
+    %a_1 = call %input();
+    br %exit
+    
+exit:
+    %a_2 = phi [%a_0 %cond_1], [%a_0 %cond_2], [%a_1 %then];
+    call %output(%a_0);
+    halt;
+```
 
-同一个 phi 内有多个相同变量, 或者一个 phi 的参数只含结果跟另一个, 这种phi都是多余的可消去的.
+对 `exit` 块, 它有三个前继, 分别为 `cond_1`, `cond_2`, `then`; 于是在翻译源代码中 if 后面对 `a` 的使用时, 就得在 IR 中插入一条 phi 指令. 这条 phi 指令的含义便是 "当控制流从 `cond_1`" 来的时候, 我的值就是 `a_0` 的值; 从 `cond_2` 来的时候, 我的值就是 `a_0` 的值; 从 `then` 来的时候, 我的值就是 `a_1` 的值".
 
-## 函数翻译设计
+这个例子也可以佐证 "incomingValue 所在的基本块不一定就是其对应的前继" 这句话. 因为 `a_0` 指令实际上是 `entry` 块中的指令, 但它在 `a_2` 这条 phi 指令中对应的 incoming block 却是 `cond_1`. 
 
-> 待评估的想法
-
-每一个函数都至少有两个基本块 `entry` 跟 `exit`, 对函数体内 `return` 语句的翻译总是翻译为 `br exit`. 在 `exit` 块内统一对返回值做 Phi (如果有返回值的话). `ReturnInst` 在且只在 `exit` 块末尾出现, 且总为该块最后一条指令, 且不是 Terminaor.
+从这个例子我们还可以知道, 不同 incoming block 还可能具有相同的 incoming value.

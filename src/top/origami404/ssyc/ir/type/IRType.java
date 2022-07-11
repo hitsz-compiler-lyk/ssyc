@@ -35,7 +35,7 @@ public interface IRType {
      * @return 所求的指针类型
      */
     public static PointerIRTy createArrayPtrTy(int elementNum, IRType elementType) {
-        return createPtrTy(createArrayPtrTy(elementNum, elementType));
+        return createPtrTy(createArrayTy(elementNum, elementType));
     }
 
     default boolean isInt()     { return this.equals(IRType.IntTy);     }
@@ -45,4 +45,5 @@ public interface IRType {
     default boolean isPtr()     { return this instanceof PointerIRTy;   }
     default boolean isArray()   { return this instanceof ArrayIRTy;     }
     default boolean isFunc()    { return this instanceof FunctionIRTy;  }
+    default boolean canBeElement() { return isInt() || isFloat() || isArray(); }
 }

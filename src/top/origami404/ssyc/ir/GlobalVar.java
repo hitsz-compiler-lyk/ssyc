@@ -10,11 +10,17 @@ public class GlobalVar extends Value {
     }
 
     public static GlobalVar createGlobalArray(IRType arrType, String name, ArrayConst init) {
-        return new GlobalVar(arrType, name, init);
+        return new GlobalVar(IRType.createPtrTy(arrType), name, init);
     }
 
     public Constant getInit() {
         return init;
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        ensure(getName().charAt(0) == '@',
+                "Name of global variable must begin with '@'");
     }
 
     GlobalVar(IRType type, String name, Constant init) {

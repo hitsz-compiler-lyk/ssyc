@@ -6,21 +6,18 @@ import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.utils.IList;
-import top.origami404.ssyc.utils.IListOwner;
-import top.origami404.ssyc.utils.INode;
-import top.origami404.ssyc.utils.INodeOwner;
+import top.origami404.ssyc.utils.*;
 
 public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public static BasicBlock createFreeBBlock(Function func, String name) {
-        return new BasicBlock(func, name);
+    public static BasicBlock createFreeBBlock(Function func, String labelName) {
+        return new BasicBlock(func, labelName);
     }
 
-    public static BasicBlock createBBlockCO(Function func, String name) {
-        final var bb = createFreeBBlock(func, name);
+    public static BasicBlock createBBlockCO(Function func, String labelName) {
+        final var bb = createFreeBBlock(func, labelName);
         func.getIList().asElementView().add(bb);
         return bb;
     }
@@ -38,7 +35,7 @@ public class BasicBlock extends Value
         // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
         // func.getIList().asElementView().add(this);
 
-        this.phiEnd = instructions.asINodeView().listIterator();
+        this.phiEnd = instructions.asElementView().listIterator();
         this.predecessors = new ArrayList<>();
     }
 
@@ -60,37 +57,48 @@ public class BasicBlock extends Value
     }
 
     public void addPhi(PhiInst phi) {
-        phiEnd.add(phi.getINode());
+        phiEnd.add(phi);
     }
 
     public Iterator<PhiInst> iterPhis() {
-        return new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-                return iter.hasNext() && iter != phiEnd;
-            }
-
-            @Override
-            public PhiInst next() {
-                if (!hasNext()) {
-                    throw new NoSuchElementException();
-                }
-
-                final var inst = this.iter.next().getOwner();
-                if (inst instanceof PhiInst) {
-                    return (PhiInst) inst;
-                } else {
-                    throw new RuntimeException("Non-phi instruction appearances before phi");
-                }
-            }
-
-            ListIterator<INode<Instruction, BasicBlock>> iter
-                = instructions.asINodeView().listIterator();
-        };
+        return IteratorTools.iterConvert(
+            IteratorTools.iterBetweenFromBegin(instructions.asElementView(), phiEnd),
+            inst -> {
+                ensure(inst instanceof PhiInst, "Non-phi instruction shouldn't appearance between phis");
+                assert inst instanceof PhiInst;
+                return (PhiInst) inst;
+            });
     }
 
     public Iterable<PhiInst> phis() {
         return this::iterPhis;
+    }
+
+    public Iterable<Instruction> nonPhis() {
+        return () -> IteratorTools.iterBetweenToEnd(instructions.asElementView(), phiEnd);
+    }
+
+    public Iterable<Instruction> nonTerminator() {
+        return () -> IteratorTools.iterBetweenFromBegin(instructions.asElementView(), lastButNoTerminator());
+    }
+
+    public Iterable<Instruction> nonPhiAndTerminator() {
+        return () -> IteratorTools.iterBetween(instructions.asElementView(), phiEnd, lastButNoTerminator());
+    }
+
+    public Iterable<Instruction> allInst() { return instructions; }
+
+    public Instruction getTerminator() {
+        return instructions.asElementView().get(getInstructionCount() - 1);
+    }
+
+    private ListIterator<Instruction> lastButNoTerminator() {
+        final var instCnt = getInstructionCount();
+        if (instCnt > 1) {
+            return instructions.asElementView().listIterator(getInstructionCount() - 2);
+        } else {
+            return IteratorTools.emptyIter();
+        }
     }
 
     public List<BasicBlock> getSuccessors() {
@@ -123,6 +131,50 @@ public class BasicBlock extends Value
         return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
     }
 
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+        ensure(getName().charAt(0) == '%', "Name of basic block must begin with '@'");
+        ensure(getParent().isPresent(), "Basic block must have parent");
+
+        // 指令检查
+        // 条数: 至少一条 (Terminator)
+        ensure(getInstructionCount() >= 1, "A basic block should have at least one instruction.");
+        // Phi 必须在最前面
+        for (final var phi : phis()) {
+            // 啥也不干: 在消耗 phis() 迭代器的过程中检查就做完了
+        }
+        // Phi 跟 Terminator 不能在中间
+        for (final var inst : nonPhiAndTerminator()) {
+            ensureNot(inst instanceof PhiInst, "Phi shouldn't appearance in the middle of the basic block");
+            ensureNot(inst.getKind().isBr(), "Terminator shouldn't appearance in the middle of the basic block");
+        }
+        // 最后必须有 Terminator
+        ensure(isTerminated(), "Basic block must have a terminator at the end");
+
+        ensure(IteratorTools.isUnique(getPredecessors()), "Predecessors of basic block should be unique");
+
+        try {
+            getIList().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "IList exception", e);
+        }
+
+        try {
+            getINode().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "INode exception", e);
+        }
+    }
+
+    @Override
+    public void verifyAll() throws IRVerifyException {
+        super.verifyAll();
+        for (final var inst : instructions.asElementView()) {
+            inst.verifyAll();
+        }
+    }
+
     private Optional<Instruction> getLastInstruction() {
         if (instructions.getSize() == 0) {
             return Optional.empty();
@@ -136,10 +188,8 @@ public class BasicBlock extends Value
         return getName().substring(1);
     }
 
-    private static int bblockNo = 0;
-
     private IList<Instruction, BasicBlock> instructions;
-    private ListIterator<INode<Instruction, BasicBlock>> phiEnd;
+    private ListIterator<Instruction> phiEnd;
     private INode<BasicBlock, Function> inode;
     private Map<String, AnalysisInfo> analysisInfos;
     private List<BasicBlock> predecessors;

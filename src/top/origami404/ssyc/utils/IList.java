@@ -6,7 +6,7 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
+public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> extends AbstractSequentialList<E> {
     // 链表的头节点, 其为 Optional.empty() 当且仅当链表为空
     private Optional<INode<E, P>> begin;
     private int size;   // 链表大小
@@ -36,16 +36,23 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     /**
+     * 已被弃用, 现在 IList 本身就是一个 {@code List<E>}
      * @return 返回一个与该链表绑定的, 元素为 E 的视图
      */
+    @Deprecated
     public List<E> asElementView() {
-        return new ElementListView();
+        return this;
     }
 
-    void setBegin(INode<E, P> begin) {
-        this.begin = Optional.of(begin);
-    }
+    // Only for INode
+    void setBegin(INode<E, P> begin) { this.begin = Optional.of(begin); }
+    Optional<INode<E, P>> getBegin() { return begin; }
 
+    /**
+     * 已被弃用, 现在 IList 本身就是一个 {@code List<E>}, 推荐使用 {@code size()} 来获取大小
+     * @return 元素数量
+     */
+    @Deprecated
     public int getSize() {
         return size;
     }
@@ -59,7 +66,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     /**
-     * @param k
+     * @param k 节点序号
      * @return 第 k 个节点 (从 0 开始编号)
      */
     private INode<E, P> getKthNode(final int k) {
@@ -72,6 +79,50 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             .orElseThrow(() -> new IndexOutOfBoundsException(k));
     }
 
+    @Override
+    public int size() {
+        return IList.this.size;
+    }
+
+    public void verify() throws IListException {
+        if (owner == null) { throw new IListException("Owner of IList shouldn't be null"); }
+
+        for (final var node : asINodeView()) {
+            if (node.getParent().map(this::equals).orElse(false)) {
+                throw new IListException("Node in IList, but the parent isn't itself");
+            }
+        }
+    }
+
+    public void verifyAll() throws IListException {
+        verify();
+        for (final var node : asINodeView()) {
+            node.verify();
+        }
+    }
+
+    @Override
+    public ListIterator<E> listIterator(int index) {
+        return new IListElementIterator(index);
+    }
+
+    public class IListElementIterator implements ListIterator<E> {
+        private IListIterator iter;
+        public IListElementIterator(int index) {
+            this.iter = new IListIterator(index);
+        }
+
+        @Override public boolean hasNext()      { return iter.hasNext();        }
+        @Override public boolean hasPrevious()  { return iter.hasPrevious();    }
+        @Override public int nextIndex()        { return iter.nextIndex();      }
+        @Override public int previousIndex()    { return iter.previousIndex();  }
+        @Override public E next()               { return iter.next().getValue();        }
+        @Override public E previous()           { return iter.previous().getValue();    }
+        @Override public void remove()          { iter.remove();                        }
+        @Override public void set(E e)          { iter.set(e.getINode());               }
+        @Override public void add(E e)          { iter.add(e.getINode());               }
+    }
+
     public class INodeListView extends AbstractSequentialList<INode<E, P>> {
         @Override
         public int size() {
@@ -81,35 +132,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         @Override
         public ListIterator<INode<E, P>> listIterator(int index) {
             return new IListIterator(index);
-        }
-    }
-
-    public class ElementListView extends AbstractSequentialList<E> {
-        @Override
-        public int size() {
-            return IList.this.size;
-        }
-
-        @Override
-        public ListIterator<E> listIterator(int index) {
-            return new ElmItr(index);
-        }
-
-        public class ElmItr implements ListIterator<E> {
-            private IListIterator iter;
-            public ElmItr(int index) {
-                this.iter = new IListIterator(index);
-            }
-
-            @Override public boolean hasNext()      { return iter.hasNext();        }
-            @Override public boolean hasPrevious()  { return iter.hasPrevious();    }
-            @Override public int nextIndex()        { return iter.nextIndex();      }
-            @Override public int previousIndex()    { return iter.previousIndex();  }
-            @Override public E next()               { return iter.next().getValue();        }
-            @Override public E previous()           { return iter.previous().getValue();    }
-            @Override public void remove()          { iter.remove();                        }
-            @Override public void set(E e)          { iter.set(e.getINode());               }
-            @Override public void add(E e)          { iter.add(e.getINode());               }
         }
     }
 
