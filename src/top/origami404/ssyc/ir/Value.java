@@ -85,6 +85,12 @@ public abstract class Value {
         this.name = name;
     }
 
+    /**
+     * 验证 IR 的合法性.
+     * 对于那些 "包含" 其他 Value 的 Value (如 BasicBlock/Function),
+     * 这个方法不会递归调用它的其他元素
+     * @throws IRVerifyException IR 不合法
+     */
     public void verify() throws IRVerifyException {
         ensure(name != null, "A value must have name");
         ensure(name.length() > 1, "A value's name must longer than 1");
@@ -94,6 +100,15 @@ public abstract class Value {
             ensure(user.getOperands().contains(this),
                     "An user must contains this in its operands list");
         }
+    }
+
+    /**
+     * 验证 IR 的合法性
+     * 这个方法会递归调用它包含的其他 Value
+     * @throws IRVerifyException IR 不合法
+     */
+    public void verifyAll() throws IRVerifyException {
+        verify();
     }
 
     /**
