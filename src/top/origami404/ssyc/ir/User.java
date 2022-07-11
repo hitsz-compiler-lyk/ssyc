@@ -43,6 +43,14 @@ public class User extends Value {
         return replaceOperandCO(idx, newValue);
     }
 
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+        for (final var op : operandList) {
+            ensure(op.getUserList().contains(this),
+                    "An operand must contains this in its users list");
+        }
+    }
 
     // 这些直接的修改性方法只有子类有资格调用
     // 因为对普通指令而言, 一旦构造完成, 其参数数量就不应该再改变

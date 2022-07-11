@@ -3,7 +3,10 @@ package top.origami404.ssyc.ir.inst;
 import java.awt.*;
 import java.util.List;
 
+import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.Constant;
+import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.IRTypeException;
@@ -54,5 +57,49 @@ public class GEPInst extends Instruction {
         }
 
         return IRType.createPtrTy(originalType);
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+
+        // Ptr 的类型必须要么是一个指向数组的指针, 要么是一个数组
+        final var ptrType = getPtr().getType();
+        if (ptrType instanceof PointerIRTy) {
+            final var baseType = ((PointerIRTy) ptrType).getBaseType();
+            ensure(baseType.isArray(), "Ptr of GEP must point to an array");
+        } else if (ptrType instanceof ArrayIRTy) {
+            // do nothing
+        } else {
+            verifyFail("Ptr of GEP is neither a pointer nor an array");
+        }
+
+        var currType = ptrType;
+        for (final var index : getIndices()) {
+            ensure(index.getType().isInt(), "Indices of GEP must be a Int");
+
+            Integer indexConst = null;
+            if (index instanceof IntConst) {
+                indexConst = ((IntConst) index).getValue();
+                ensure(indexConst >= 0, "Constant index of GEP must be positive");
+            }
+
+            if (currType instanceof PointerIRTy) {
+                ensure(indexConst == null || indexConst == 0,
+                        "Constant index over a pointer must be exactly zero");
+                currType = ((PointerIRTy) currType).getBaseType();
+            } else if (currType instanceof ArrayIRTy) {
+                final var arrayType = (ArrayIRTy) currType;
+                ensure(indexConst == null || indexConst < arrayType.getElementNum(),
+                        "Constant index over an array must be in range");
+                currType = arrayType.getElementType();
+            } else {
+                verifyFail("Ptr of GEP must be either pointer or an array in every level");
+            }
+        }
+
+        ensure(currType.isInt() || currType.isFloat(),
+                "Shape of ptr of GEP must match the length of indices");
+        ensure(currType.equals(getType()), "The final baseType of ptr must match the type of GEP");
     }
 }

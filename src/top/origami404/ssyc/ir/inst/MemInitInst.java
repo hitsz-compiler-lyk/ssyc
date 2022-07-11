@@ -8,6 +8,8 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.utils.Log;
 
+import java.sql.Array;
+
 public class MemInitInst extends Instruction {
     // 由于 MemInit 的特殊性, 很多时候在它创建的时候, 初始值都还没构造好
     // 所以需要一个没有 init 的构造函数, 待会再补上 init
@@ -39,5 +41,16 @@ public class MemInitInst extends Instruction {
         } else {
             addOperandCO(init);
         }
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+
+        final var arrayType = ((PointerIRTy) getArrayPtr().getType()).getBaseType();
+        ensure(arrayType instanceof ArrayIRTy, "Type of arrayPtr of MemInit must be a pointer to an array");
+
+        final var initType = getInit().getType();
+        ensure(arrayType.equals(initType), "Init and ArrayPtr of a MemInit must share the same type");
     }
 }

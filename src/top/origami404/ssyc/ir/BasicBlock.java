@@ -131,6 +131,50 @@ public class BasicBlock extends Value
         return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
     }
 
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+        ensure(getName().charAt(0) == '%', "Name of basic block must begin with '@'");
+        ensure(getParent().isPresent(), "Basic block must have parent");
+
+        // 指令检查
+        // 条数: 至少一条 (Terminator)
+        ensure(getInstructionCount() >= 1, "A basic block should have at least one instruction.");
+        // Phi 必须在最前面
+        for (final var phi : phis()) {
+            // 啥也不干: 在消耗 phis() 迭代器的过程中检查就做完了
+        }
+        // Phi 跟 Terminator 不能在中间
+        for (final var inst : nonPhiAndTerminator()) {
+            ensureNot(inst instanceof PhiInst, "Phi shouldn't appearance in the middle of the basic block");
+            ensureNot(inst.getKind().isBr(), "Terminator shouldn't appearance in the middle of the basic block");
+        }
+        // 最后必须有 Terminator
+        ensure(isTerminated(), "Basic block must have a terminator at the end");
+
+        ensure(IteratorTools.isUnique(getPredecessors()), "Predecessors of basic block should be unique");
+
+        try {
+            getIList().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "IList exception", e);
+        }
+
+        try {
+            getINode().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "INode exception", e);
+        }
+    }
+
+    @Override
+    public void verifyAll() throws IRVerifyException {
+        super.verifyAll();
+        for (final var inst : instructions.asElementView()) {
+            inst.verifyAll();
+        }
+    }
+
     private Optional<Instruction> getLastInstruction() {
         if (instructions.getSize() == 0) {
             return Optional.empty();
