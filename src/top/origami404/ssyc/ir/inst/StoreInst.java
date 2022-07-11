@@ -1,5 +1,6 @@
 package top.origami404.ssyc.ir.inst;
 
+import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.IRTypeException;
@@ -27,5 +28,18 @@ public class StoreInst extends Instruction {
         } else {
             throw new IRTypeException(this, "Ptr of StoreInst must have a pointer type");
         }
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+
+        final var ptrType = getPtr().getType();
+        ensure(ptrType instanceof PointerIRTy, "Type of an argument of Load must be a pointer");
+
+        assert ptrType instanceof PointerIRTy;
+        final var baseType = (PointerIRTy) ptrType;
+        ensure(baseType.isInt() || baseType.isFloat(),
+                "Type of an argument of Load must be a pointer to Int or Float");
     }
 }
