@@ -1,9 +1,6 @@
 package top.origami404.ssyc.frontend;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -59,7 +56,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         // 翻译完所有基本块之后再填充翻译过程中遗留下来的空白 phi
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
-        function.getBasicBlocks().forEach(this::fillIncompletedPhi);
+        function.getBasicBlocks().forEach(this::fillIncompletedPhiForBlock);
 
         return function;
     }
@@ -921,61 +918,86 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
 
     //#region 填充空白 phi
-    public void fillIncompletedPhi(BasicBlock bblock) {
+    public void fillIncompletedPhiForBlock(BasicBlock bblock) {
         for (final var phi : bblock.phis()) {
             // 对于未完成的 Phi
             if (!phi.isIncompleted()) {
                 continue;
             }
 
-            final var variable = phi.getVariable();
-            for (final var pred : bblock.getPredecessors()) {
-                findDefinitions(pred, variable).stream()
-                    .filter(phi::equals)
-                    .filter(phi.getOperands()::contains)
-                    .forEach(phi::addOperandCO);
-            }
-
-            // 按道理来说递归找的话只需要加一次就完事了
-            phi.markAsCompleted();
-            tryRemoveTrivialPhi(phi);
+            fillIncompletedPhi(phi, bblock);
         }
     }
 
-    private void tryRemoveTrivialPhi(PhiInst phi) {
-        final var bblock = phi.getParent().orElseThrow();
+    public void fillIncompletedPhi(PhiInst phi, BasicBlock block) {
+        final var type = phi.getType();
+        final var variable = phi.getVariable();
 
-        if (phi.getOperandSize() == 0) {
+        // 对每一个前继, 都要获得一个 value
+        // 即对每个前继问: "当控制流从它这里来的时候这个 phi 要取什么 Value"
+        final var incomingValues = block.getPredecessors().stream()
+           .map(pred -> findDefinition(pred, variable, type))
+           .collect(Collectors.toList());
+        // 然后设置为这个 phi 的 incomingValue
+        phi.setIncomingCO(incomingValues);
+
+        // 随后尝试去掉这个 phi
+        final var end = tryReplaceTrivialPhi(phi);
+        if (end != phi) {
+            // 如果能去掉
+            // 首先删除原 phi 所有 incoming (会去除所有 user)
+            phi.clearIncomingCO();
+            // 然后将其从块中删除
+            block.getIList().asElementView().remove(phi);
+            // 然后将其所有出现都替换为 end
+            phi.replaceAllUseWith(end);
+        }
+    }
+
+    private Value tryReplaceTrivialPhi(PhiInst phi) {
+        // incoming 先去重, 再删去自己
+        final var incoming = new HashSet<>(phi.getIncomingValues());
+        incoming.remove(phi);
+
+        if (incoming.size() == 0) {
             throw new RuntimeException("Phi for undefined: " + phi.getVariable().getIRName());
-        } else if (phi.getOperandSize() == 1) {
-            // 下面的 RAUW 方法会把 userList 清空, 所以必须预先保存
-            final var oldUsers = new ArrayList<>(phi.getUserList());
-
-            // replace phi with its operands
-            phi.replaceAllUseWith(phi.getOperand(0));
-            bblock.getIList().asElementView().remove(phi);
-
-            for (final var user : oldUsers) {
-                if (user instanceof PhiInst) {
-                    tryRemoveTrivialPhi((PhiInst) user);
-                }
-            }
+        } else if (incoming.size() == 1) {
+            // 如果去重后只有一个, 那么这个 Phi 是可以去掉的
+            return incoming.iterator().next();
+        } else {
+            // 否则, 这个 phi 不可以去掉
+            return phi;
         }
     }
 
-    private List<Value> findDefinitions(BasicBlock bblock, Variable variable) {
+    private Value findDefinition(BasicBlock bblock, Variable variable, IRType type) {
         final var versionInfo = bblock.getAnalysisInfo(VersionInfo.class);
         if (versionInfo.contains(variable)) {
-            return List.of(versionInfo.getDef(variable).orElseThrow());
+            // 如果当前块有对它的定义, 那么就直接返回这个定义
+            return versionInfo.getDef(variable).orElseThrow();
         }
 
         // 没有定义的话, 就要往上递归去找
-        final var defs = new ArrayList<Value>();
-        for (final var pred : bblock.getPredecessors()) {
-            defs.addAll(findDefinitions(pred, variable));
+        final var phi = new PhiInst(type, variable);
+        // 为了防止递归无限循环, 得先插一个空 phi 在这里作为定义
+        versionInfo.newDef(variable, phi);
+        // 然后尝试去填充这个空 phi
+        fillIncompletedPhi(phi, bblock);
+
+        // 填充完之后看看这个 phi 是否可以被替代
+        final var end = tryReplaceTrivialPhi(phi);
+        if (end != phi) {
+            // 可以的话就直接清空 phi 的 incoming
+            phi.clearIncomingCO();
+            // 然后将其定义替换为 end
+            versionInfo.kill(variable, end);
+        } else {
+            // 不可替代的话就要往基本块里加入这个 phi
+            bblock.addPhi(phi);
         }
 
-        return defs;
+        // 返回找到的定义
+        return end;
     }
     //#endregion
 

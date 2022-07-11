@@ -75,7 +75,7 @@ public class IRBuilder {
     public Value insertFCmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGt, lhs, rhs)); }
     public Value insertFCmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGe, lhs, rhs)); }
 
-    public Instruction insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { return foldBr(new BrCondInst(cond, trueBB, falseBB)); }
+    public Instruction insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { return foldBr(cond, trueBB, falseBB); }
 
     public Instruction insertBrICmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpEq(lhs, rhs), trueBB, falseBB); }
     public Instruction insertBrICmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpNe(lhs, rhs), trueBB, falseBB); }
@@ -193,13 +193,18 @@ public class IRBuilder {
         }
     }
 
-    private Instruction foldBr(BrCondInst inst) {
-        if (inst.getCond() instanceof BoolConst) {
-            final var cond = (BoolConst) inst.getCond();
-            final var targetBB = cond.getValue() ? inst.getTrueBB() : inst.getFalseBB();
+    private Instruction foldBr(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+        // 不可以先生成一条 BrCondInst 进来再折叠
+        // 因为 BrCondInst 的构造函数必须是一致的, 它会往 tureBB/falseBB 里加入当前块作为前继
+        // 而如果构造 BrCondInst 之后再折叠的话, 还要去另一个块里把前继删掉, 太麻烦了
+        // 所以干脆直接三个参数传进来, 等到不能折叠的时候再构造
+        if (cond instanceof BoolConst) {
+            final var targetBB = ((BoolConst) cond).getValue() ? trueBB : falseBB;
             return direct(new BrInst(targetBB));
+        } else if (trueBB == falseBB) {
+            return direct(new BrInst(trueBB));
         } else {
-            return direct(inst);
+            return direct(new BrCondInst(cond, trueBB, falseBB));
         }
     }
 
