@@ -37,7 +37,7 @@ public enum InstKind {
     private static final Set<InstKind> cmpSet = Set.of(
         ICmpEq, ICmpNe, ICmpGt, ICmpGe, ICmpLt, ICmpLe,
         FCmpEq, FCmpNe, FCmpGt, FCmpGe, FCmpLt, FCmpLe);
-    private static final Set<InstKind> brSet = Set.of(Br, BrCond);
+    private static final Set<InstKind> brSet = Set.of(Br, BrCond, Ret);
     private static final Set<InstKind> intSet = Set.of(
         IAdd, ISub, IMul, IDiv, IMod, INeg, F2I,
         ICmpEq, ICmpNe, ICmpGt, ICmpGe, ICmpLt, ICmpLe);
