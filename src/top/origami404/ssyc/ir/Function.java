@@ -1,7 +1,6 @@
 package top.origami404.ssyc.ir;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
@@ -15,13 +14,17 @@ import top.origami404.ssyc.utils.Log;
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner
 {
-    public Function(IRType returnType, List<Parameter> params, String name) {
+    public Function(IRType returnType, List<Parameter> params, String funcName) {
         super(makeFunctionIRTypeFromParameters(returnType, params));
-        super.setName(name);
+        super.setName('@' + funcName);
 
         this.bblocks = new IList<>(this);
 
-        bblocks.asElementView().add(BasicBlock.createBBlockCO(this, "entry"));
+        bblocks.asElementView().add(BasicBlock.createBBlockCO(this, funcName + "_entry"));
+    }
+
+    public String getFuncName() {
+        return getName().substring(1);
     }
 
     @Override
@@ -59,6 +62,42 @@ public class Function extends Value
 
     public Iterable<BasicBlock> getBasicBlocks() {
         return this.getIList().asElementView();
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+
+        ensure(getName().charAt(0) == '@', "Name of a function must begin with '@'");
+
+        final var blockList = bblocks.asElementView();
+        final var labels = blockList.stream()
+            .map(BasicBlock::getLabelName)
+            .collect(Collectors.toList());
+        ensure(unique(labels).equals(labels), "Labels of blocks must be unique");
+        ensure(unique(blockList).equals(blockList), "Blocks in function must be unique");
+
+        final var funcType = getType();
+        final var paramTypes = parameters.stream().map(Parameter::getParamType).collect(Collectors.toList());
+        ensure(funcType.getParamTypes().equals(paramTypes),
+                "Parameters' type must match function type");
+    }
+
+    @Override
+    public void verifyAll() throws IRVerifyException {
+        super.verifyAll();
+
+        for (final var param : parameters) {
+            param.verifyAll();
+        }
+
+        for (final var blocks : bblocks.asElementView()) {
+            blocks.verifyAll();
+        }
+    }
+
+    private static <E> List<E> unique(List<E> list) {
+        return new ArrayList<>(new LinkedHashSet<>(list));
     }
 
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {
