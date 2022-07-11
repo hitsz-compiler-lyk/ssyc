@@ -2,10 +2,7 @@ package top.origami404.ssyc.utils;
 
 import top.origami404.ssyc.ir.inst.Instruction;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 public class IteratorTools {
     public static <E> Iterator<E> iterBetweenFromBegin(List<E> sources, ListIterator<E> end) {
@@ -61,5 +58,13 @@ public class IteratorTools {
             @Override public void set(E instruction)  { throw new UnsupportedOperationException(); }
             @Override public void add(E instruction)  { throw new UnsupportedOperationException(); }
         };
+    }
+
+    public static <E> List<E> unique(List<E> list) {
+        return new ArrayList<>(new LinkedHashSet<>(list));
+    }
+
+    public static <E> boolean isUnique(List<E> list) {
+        return unique(list).equals(list);
     }
 }
