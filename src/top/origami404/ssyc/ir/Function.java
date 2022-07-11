@@ -7,9 +7,7 @@ import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.type.FunctionIRTy;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.utils.IList;
-import top.origami404.ssyc.utils.IListOwner;
-import top.origami404.ssyc.utils.Log;
+import top.origami404.ssyc.utils.*;
 
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner
@@ -74,13 +72,19 @@ public class Function extends Value
         final var labels = blockList.stream()
             .map(BasicBlock::getLabelName)
             .collect(Collectors.toList());
-        ensure(unique(labels).equals(labels), "Labels of blocks must be unique");
-        ensure(unique(blockList).equals(blockList), "Blocks in function must be unique");
+        ensure(IteratorTools.isUnique(labels), "Labels of blocks must be unique");
+        ensure(IteratorTools.isUnique(blockList), "Blocks in function must be unique");
 
         final var funcType = getType();
         final var paramTypes = parameters.stream().map(Parameter::getParamType).collect(Collectors.toList());
         ensure(funcType.getParamTypes().equals(paramTypes),
                 "Parameters' type must match function type");
+
+        try {
+            getIList().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "IList exception", e);
+        }
     }
 
     @Override
@@ -94,10 +98,6 @@ public class Function extends Value
         for (final var blocks : bblocks.asElementView()) {
             blocks.verifyAll();
         }
-    }
-
-    private static <E> List<E> unique(List<E> list) {
-        return new ArrayList<>(new LinkedHashSet<>(list));
     }
 
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {

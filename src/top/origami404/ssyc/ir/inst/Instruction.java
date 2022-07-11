@@ -4,6 +4,7 @@ import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.User;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.IListException;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
 
@@ -46,6 +47,12 @@ public abstract class Instruction extends User
 
         ensureNot(getType().isVoid() && getUserList().size() != 0,
                 "Instructions of Void type must not have any user");
+
+        try {
+            getINode().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "INode exception", e);
+        }
     }
 
     private static int instNo = 0;
