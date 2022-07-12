@@ -2,6 +2,7 @@ package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.BasicBlock;
+import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.IRTypeException;
@@ -30,7 +31,7 @@ public class PhiInst extends Instruction {
 
     public void setIncomingCO(List<Value> incomingValues) {
         if (incomingValues.size() != getIncomingBlocks().size()) {
-            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
+            throw new IRVerifyException(this, "Phi must have the same amount of incoming variable and blocks");
         }
 
         if (getIncomingSize() != 0) {
@@ -104,10 +105,11 @@ public class PhiInst extends Instruction {
     }
 
     public int getIncomingSize() {
-        if (getOperandSize() != getIncomingBlocks().size()) {
-            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
-        }
-
+        // 不需要每次都检查了 (检查代价比较高)
+//        if (getOperandSize() != getIncomingBlocks().size()) {
+//            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
+//        }
+//
         return getOperandSize();
     }
 
@@ -117,6 +119,13 @@ public class PhiInst extends Instruction {
 
     public Value getIncomingValue(int index) {
         return getIncomingValues().get(index);
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+        ensure(getIncomingValues().size() == getIncomingBlocks().size(),
+                "Phi must have the same amount of incoming variable and blocks");
     }
 
     private final Variable variable;

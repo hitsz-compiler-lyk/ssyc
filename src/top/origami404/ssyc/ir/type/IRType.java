@@ -45,4 +45,5 @@ public interface IRType {
     default boolean isPtr()     { return this instanceof PointerIRTy;   }
     default boolean isArray()   { return this instanceof ArrayIRTy;     }
     default boolean isFunc()    { return this instanceof FunctionIRTy;  }
+    default boolean canBeElement() { return isInt() || isFloat() || isArray(); }
 }

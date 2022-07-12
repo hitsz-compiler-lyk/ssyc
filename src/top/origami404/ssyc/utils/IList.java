@@ -44,9 +44,9 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         return this;
     }
 
-    void setBegin(INode<E, P> begin) {
-        this.begin = Optional.of(begin);
-    }
+    // Only for INode
+    void setBegin(INode<E, P> begin) { this.begin = Optional.of(begin); }
+    Optional<INode<E, P>> getBegin() { return begin; }
 
     /**
      * 已被弃用, 现在 IList 本身就是一个 {@code List<E>}, 推荐使用 {@code size()} 来获取大小
@@ -82,6 +82,23 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
     @Override
     public int size() {
         return IList.this.size;
+    }
+
+    public void verify() throws IListException {
+        if (owner == null) { throw new IListException("Owner of IList shouldn't be null"); }
+
+        for (final var node : asINodeView()) {
+            if (node.getParent().map(this::equals).orElse(false)) {
+                throw new IListException("Node in IList, but the parent isn't itself");
+            }
+        }
+    }
+
+    public void verifyAll() throws IListException {
+        verify();
+        for (final var node : asINodeView()) {
+            node.verify();
+        }
     }
 
     @Override

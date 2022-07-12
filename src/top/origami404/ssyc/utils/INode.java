@@ -127,6 +127,49 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return deleted;
     }
 
+    public void verify() throws IListException {
+        if (value == null) {
+            throw new IListException("INode shouldn't have empty value/owner");
+        }
+
+        parent.ifPresentOrElse(l -> {
+            if (!l.asINodeView().contains(this)) {
+                throw new IListException("INode not in parent");
+            }
+        }, () -> { Log.info("Free node, owner: " + value); });
+
+        prev.ifPresentOrElse(n -> {
+            // 如果一个 Node 的 prev 非空, 那 prev 的 next 必须是自己
+            final var self = n.getNext()
+                .orElseThrow(() -> new IListException("INode's prev don't have a next"));
+            if (self != this) {
+                throw new IListException("INode's prev's next isn't itself");
+            }
+        }, () -> getParent().ifPresent(list -> {
+            // 如果一个 Node 的 prev 是空的, 那它必须是列表的开头
+            if (list.getBegin().map(this::equals).orElse(false)) {
+                throw new IListException("INode's prev is null, but isn't the begin of the list");
+            }
+        }));
+
+        next.ifPresentOrElse(n -> {
+            // 如果一个 Node 的 next 非空, 那 next 的 prev 必须是自己
+            final var self = n.getPrev()
+                .orElseThrow(() -> new IListException("INode's next don't have a prev"));
+            if (self != this) {
+                throw new IListException("INode's next's prev isn't itself");
+            }
+        }, () -> getParent().ifPresent(list -> {
+            // 如果一个 Node 的 next 是空, 那它必须是列表的末尾
+            final var self = list.asINodeView().get(list.getSize() - 1);
+            if (self != this) {
+                throw new IListException("INode's next is null, but isn't the end of the list");
+            }
+        }));
+
+        // 这函数太毒瘤了, 这真的不是 JavaScript 吗 (
+    }
+
     private Optional<INode<E, P>> prev;     // 前一个节点
     private Optional<INode<E, P>> next;     // 下一个节点
     private Optional<IList<E, P>> parent;   // 包含该节点的链表

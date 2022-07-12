@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.inst.Instruction;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public abstract class Value {
     public Value(IRType type) {
@@ -84,6 +86,32 @@ public abstract class Value {
     }
 
     /**
+     * 验证 IR 的合法性.
+     * 对于那些 "包含" 其他 Value 的 Value (如 BasicBlock/Function),
+     * 这个方法不会递归调用它的其他元素
+     * @throws IRVerifyException IR 不合法
+     */
+    public void verify() throws IRVerifyException {
+        ensure(name != null, "A value must have name");
+        ensure(name.length() > 1, "A value's name must longer than 1");
+        checkPointerAndArrayType();
+
+        for (final var user : userList) {
+            ensure(user.getOperands().contains(this),
+                    "An user must contains this in its operands list");
+        }
+    }
+
+    /**
+     * 验证 IR 的合法性
+     * 这个方法会递归调用它包含的其他 Value
+     * @throws IRVerifyException IR 不合法
+     */
+    public void verifyAll() throws IRVerifyException {
+        verify();
+    }
+
+    /**
      * 一个增加使用者的 "被动" 方法, 它只是朴素地加入一个 User, 不会 "主动" 维护 use-def 关系
      * @param user 待加入的 User
      */
@@ -95,4 +123,30 @@ public abstract class Value {
     private IRType type;
     private List<User> userList;
     private String name;
+
+    // 用于验证 IR 的方法
+    protected void ensure(boolean cond, String message) {
+        if (!cond) {
+            throw new IRVerifyException(this, message);
+        }
+    }
+
+    protected void ensureNot(boolean cond, String message) {
+        ensure(!cond, message);
+    }
+
+    protected void verifyFail(String message) {
+        ensure(false, message);
+    }
+
+    private void checkPointerAndArrayType() {
+        final var type = getType();
+        if (type instanceof PointerIRTy) {
+            ensure(((PointerIRTy) type).getBaseType().canBeElement(),
+                    "Pointer's base type must be int or float or array");
+        } else if (type instanceof ArrayIRTy) {
+            ensure(((ArrayIRTy) type).getElementType().canBeElement(),
+                    "Array's element type must be int or float or array");
+        }
+    }
 }
