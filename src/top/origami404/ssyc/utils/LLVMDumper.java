@@ -13,8 +13,10 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class LLVMDumper {
     public LLVMDumper(OutputStream outStream) {
@@ -63,101 +65,89 @@ public class LLVMDumper {
         }
 
         if (inst instanceof BinaryOpInst) {
-            writer.println("%s %s %s, %s".formatted(
-                    inst.getKind().isInt()
-                            ? inst.getKind().toString().toLowerCase().substring(1)
-                            : inst.getKind().toString().toLowerCase(),
-                    dumpIRType(inst.getType()),
-                    ((BinaryOpInst) inst).getLHS().getName(),
-                    ((BinaryOpInst) inst).getLHS().getName()
-                    ));
+            final var bop = (BinaryOpInst) inst;
+            ir("<binop> <ty> <lhs-name>, <rhs-name>",
+                    getBinOpName(bop), bop.getType(), bop.getLHS().getName(), bop.getRHS().getName());
 
         } else if (inst instanceof UnaryOpInst) {
-            if (inst.getKind().isInt()) {
-                writer.println("sub i32 0, %s".formatted(
-                        ((UnaryOpInst) inst).getArg().getName()
-                ));
-            } else if (inst.getKind().isFloat()) {
-                writer.println("fneg %s".formatted(
-                        getReference(((UnaryOpInst) inst).getArg())
-                ));
+            final var uop = (UnaryOpInst) inst;
+            final var kind = uop.getKind();
+
+            if (kind.isInt()) {
+                ir("sub i32 0, <op-name>", uop.getArg().getName());
+            } else if (kind.isFloat()) {
+                ir("fneg <val>", uop.getArg());
+            } else {
+                throw new RuntimeException("Unknown UnaryOp kind: " + kind);
             }
 
         } else if (inst instanceof IntToFloatInst) {
-            writer.println("sitofp %s to float".formatted(getReference(((IntToFloatInst) inst).getFrom())));
+            ir("sitofp <from> to float", ((IntToFloatInst) inst).getFrom());
 
         } else if (inst instanceof FloatToIntInst) {
-            writer.println("fptosi %s to i32".formatted(getReference(((FloatToIntInst) inst).getFrom())));
+            ir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
 
         } else if (inst instanceof CmpInst) {
-            writer.println("%s %s %s %s, %s".formatted(
-                    inst.getKind().toString().substring(0, 4).toLowerCase(),
-                    inst.getKind().toString().substring(4),
-                    dumpIRType(inst.getType()),
-                    ((CmpInst) inst).getLHS().getName(),
-                    ((CmpInst) inst).getRHS().getName()
-            ));
+            final var cmp = (CmpInst) inst;
+            ir("<cmpop> <ty> <lhs-name>, <rhs-name>",
+                    getCmpOpName(cmp), cmp.getType(), cmp.getLHS().getName(), cmp.getRHS().getName());
 
         } else if (inst instanceof BrInst) {
-            writer.println("br %s".formatted(getReference(((BrInst) inst).getNextBB())));
+            ir("br <nextBB>", ((BrInst) inst).getNextBB());
 
         } else if (inst instanceof BrCondInst) {
-            writer.println("br %s, %s, %s".formatted(
-                    getReference(((BrCondInst) inst).getCond()),
-                    getReference(((BrCondInst) inst).getTrueBB()),
-                    getReference(((BrCondInst) inst).getFalseBB())
-            ));
+            final var br = (BrCondInst) inst;
+            ir("br <cond> <trueBB> <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
 
         } else if (inst instanceof PhiInst) {
-            writer.println("phi %s %s".formatted(
-                    dumpIRType(inst.getType()),
-                    StreamSupport.stream(((PhiInst) inst).getIncomingInfos().spliterator(), false)
-                            .map(info -> "[ %s, %s ]".formatted(info.getValue().getName(), info.getBlock().getName()))
-                            .collect(Collectors.joining(", "))
-            ));
+            final var phi = (PhiInst) inst;
+            final var incomingStrings = new ArrayList<String>();
+            for (final var info : phi.getIncomingInfos()) {
+                final var str = "[ %s, %s ]".formatted(info.getValue().getName(), info.getBlock().getName());
+                incomingStrings.add(str);
+            }
+
+            ir("phi <incoming-type> <incoming*>",
+                    phi.getType(),
+                    String.join(", ", incomingStrings));
 
         } else if (inst instanceof ReturnInst) {
-            writer.println("ret %s".formatted(((ReturnInst) inst).getReturnValue()
-                    .map(this::getReference).orElse("void")));
+            ir("ret <val>", ((ReturnInst) inst).getReturnValue());
 
         } else if (inst instanceof CallInst) {
-            writer.println("call %s %s(%s)".formatted(
-                    dumpIRType(inst.getType()),
-                    ((CallInst) inst).getCallee().getName(),
-                    ((CallInst) inst).getArgList().stream().map(this::getReference)
-                            .collect(Collectors.joining(", "))
-            ));
+            final var call = (CallInst) inst;
+            ir("call <ret-ty> <func-name>(<arg*>)",
+                inst.getType(),
+                call.getCallee().getName(),
+                joinWithRef(call.getArgList()));
 
         } else if (inst instanceof AllocInst) {
-            writer.println("alloca %s, align 8".formatted(dumpIRType(inst.getType())));
+            final var alloc = (AllocInst) inst;
+            ir("alloca <base-type>, align 8", alloc.getType().getBaseType());
 
         } else if (inst instanceof GEPInst) {
-            writer.println("getelementptr %s, %s, %s".formatted(
-                    dumpIRType(((PointerIRTy)((GEPInst) inst).getPtr().getType()).getBaseType()),
-                    getReference(((GEPInst) inst).getPtr()),
-                    ((GEPInst) inst).getIndices().stream().map(this::getReference)
-                            .collect(Collectors.joining(", "))
-            ));
+            final var gep = (GEPInst) inst;
+            ir("getelementptr <base-type> <ptr> <index*>",
+                    ((PointerIRTy) gep.getPtr().getType()).getBaseType(),
+                    gep.getPtr(),
+                    joinWithRef(gep.getIndices()));
 
         } else if (inst instanceof LoadInst) {
-            writer.println("load %s, %s".formatted(
-                    dumpIRType(inst.getType()),
-                    getReference(((LoadInst) inst).getPtr())));
+            final var load = (LoadInst) inst;
+            ir("load <ty> <ptr>", load.getType(), load.getPtr());
             
         } else if (inst instanceof StoreInst) {
-            writer.println("store %s, %s".formatted(
-                    getReference(((StoreInst) inst).getVal()),
-                    getReference(((StoreInst) inst).getPtr())
-            ));
+            final var store = (StoreInst) inst;
+            ir("store <val> <ptr>", store.getVal(), store.getPtr());
 
         } else if (inst instanceof MemInitInst) {
-            writer.println("call %s(%s, %s, %s, %s)".formatted(
-                    "void @llvm.memcpy.p0i8.p0i8.i32",
-                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getArrayPtr())),
-                    "i8* align 4 bitcast (%s to i8*)".formatted(getReference(((MemInitInst) inst).getInit())),
-                    "i32 %d".formatted(((PointerIRTy) ((MemInitInst) inst).getArrayPtr().getType()).getBaseType().getSize()),
-                    "i1 false"
-            ));
+            final var meminit = (MemInitInst) inst;
+            final var size = ((PointerIRTy) meminit.getArrayPtr().getType()).getBaseType().getSize();
+            final var fmt = "call void @llvm.memcpy.p0i8.p0i8.i32("
+                          + "i8* align 4 bitcase (<src> to i8*), "
+                          + "i8* align 4 bitcase (<dst> to i8*), "
+                          + "i32 <size>, i1 false)";
+            ir(fmt, meminit.getArrayPtr(), meminit.getInit(), size);
 
         }
         throw new RuntimeException("Unknown instruction type: "+inst.getKind());
@@ -175,18 +165,36 @@ public class LLVMDumper {
      * @return ir string
      */
     private String dumpIRType(IRType type) {
-        return switch (type.getKind()) {
+        final var kind = type.getKind();
+        return switch (kind) {
             case Int -> "i32";
             case Bool -> "i1";
             case Float -> "float";
-            case Void -> throw new RuntimeException("Void can't be used.");
-            case Array ->
-                    String.format("[%d x %s]", ((ArrayIRTy) type).getElementNum(), dumpIRType(((ArrayIRTy) type).getElementType()));
             case Pointer -> dumpIRType(((PointerIRTy) type).getBaseType()) + "*";
-            case Function -> throw new RuntimeException("Function type needn't be used.");
+            case Array -> {
+                final var array = (ArrayIRTy) type;
+                yield "[%d x %s]".formatted(array.getElementNum(), dumpIRType(array.getElementType()));
+            }
+
             case BBlock -> "label";
             case Parameter -> dumpIRType(((Parameter) type).getParamType());
+
+            case Void -> throw new RuntimeException("Void can't be used.");
+            case Function -> throw new RuntimeException("Function type needn't be used.");
+            default -> throw new RuntimeException("Unknown IRType kind: " + kind);
         };
+    }
+
+    private String getBinOpName(BinaryOpInst bop) {
+        final var kindName = bop.getKind().toString().toLowerCase();
+        return bop.getKind().isInt() ? kindName.substring(1) : kindName;
+    }
+
+    private String getCmpOpName(CmpInst cmp) {
+        final var str = cmp.getKind().toString().toLowerCase();
+        final var name = str.substring(0, 4);
+        final var kind = str.substring(4);
+        return name + " " + kind;
     }
 
     /**
@@ -202,7 +210,23 @@ public class LLVMDumper {
         }
     }
 
+    private void ir(String fmt, Object... args) {
+        final var newArgs = Arrays.stream(args).map(o -> {
+            if (o instanceof Value) {
+                return getReference((Value) o);
+            } else if (o instanceof IRType) {
+                return dumpIRType((IRType) o);
+            } else {
+                return o;
+            }
+        }).toArray();
 
+        writer.println(fmt.replaceAll("<.*?>", "%s").formatted(newArgs));
+    }
+
+    private String joinWithRef(List<? extends Value> list) {
+        return list.stream().map(this::getReference).collect(Collectors.joining());
+    }
 
     private OutputStream outStream;
     private PrintWriter writer;
