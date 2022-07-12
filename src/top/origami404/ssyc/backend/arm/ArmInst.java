@@ -19,6 +19,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         INeg, FNeg,
 
+        IntToFloat,
+        FloatToInt,
+
         MOV,
 
         Call,

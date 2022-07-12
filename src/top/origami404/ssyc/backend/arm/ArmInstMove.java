@@ -57,7 +57,7 @@ public class ArmInstMove extends ArmInst {
     @Override
     public String toString() {
         var isVector = "";
-        if (dst.IsFloat()) {
+        if (dst.IsFloat() || src.IsFloat()) {
             isVector = "v";
         }
 

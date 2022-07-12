@@ -9,6 +9,8 @@ import top.origami404.ssyc.backend.arm.ArmBlock;
 import top.origami404.ssyc.backend.arm.ArmFunction;
 import top.origami404.ssyc.backend.arm.ArmInstBinary;
 import top.origami404.ssyc.backend.arm.ArmInstCall;
+import top.origami404.ssyc.backend.arm.ArmInstFloatToInt;
+import top.origami404.ssyc.backend.arm.ArmInstIntToFloat;
 import top.origami404.ssyc.backend.arm.ArmInstLoad;
 import top.origami404.ssyc.backend.arm.ArmFunction.FunctionInfo;
 import top.origami404.ssyc.backend.arm.ArmInst.ArmInstKind;
@@ -32,10 +34,13 @@ import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
+import top.origami404.ssyc.ir.inst.AllocInst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
 import top.origami404.ssyc.ir.inst.CallInst;
+import top.origami404.ssyc.ir.inst.FloatToIntInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
+import top.origami404.ssyc.ir.inst.IntToFloatInst;
 import top.origami404.ssyc.ir.inst.LoadInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
@@ -118,12 +123,18 @@ public class CodeGenManager {
                         ResolveLoadInst((LoadInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof StoreInst) {
                         ResolveStoreInst((StoreInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof AllocInst) {
+                        ResolveAllocInst((AllocInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof GEPInst) {
                         ResolveGEPInst((GEPInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof CallInst) {
                         ResolveCallInst((CallInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof ReturnInst) {
                         ResolveReturnInst((ReturnInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof IntToFloatInst) {
+                        ResolveIntToFloatInst((IntToFloatInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof FloatToIntInst) {
+                        ResolveFloatToIntInst((FloatToIntInst) inst, armBlock, armFunc.getFuncInfo());
                     }
                 }
             }
@@ -461,5 +472,29 @@ public class CodeGenManager {
             new ArmInstMove(block, new IPhyReg("r0"), src);
         }
         new ArmInstReturn(block);
+    }
+
+    // 需要先转到浮点寄存器 才能使用 vcvt
+    private void ResolveIntToFloatInst(IntToFloatInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var vr = new FVirtualReg();
+        var src = ResolveOperand(inst.getFrom(), block, funcinfo);
+        var dst = ResolveOperand(inst, block, funcinfo);
+        new ArmInstMove(block, vr, src);
+        new ArmInstIntToFloat(block, dst, vr);
+    }
+
+    // 先使用 vcvt 在转到整型寄存器中
+    private void ResolveFloatToIntInst(FloatToIntInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var vr = new FVirtualReg();
+        var src = ResolveOperand(inst.getFrom(), block, funcinfo);
+        new ArmInstFloatToInt(block, vr, src);
+        var dst = ResolveOperand(inst, block, funcinfo);
+        new ArmInstMove(block, dst, vr);
+    }
+
+    private void ResolveAllocInst(AllocInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var offset = ResolveIImmOperand(inst.getAllocSize(), block, funcinfo);
+        var dst = ResolveOperand(inst, block, funcinfo);
+        new ArmInstBinary(block, ArmInstKind.IAdd, dst, new IPhyReg("sp"), offset);
     }
 }
