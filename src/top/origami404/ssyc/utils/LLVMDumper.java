@@ -210,6 +210,19 @@ public class LLVMDumper {
         }
     }
 
+    /**
+     * <p>
+     * 用于便捷表示输出 LLVM IR 的方法.
+     * </p>
+     *
+     * <p>
+     * 格式串中所有的 {@code <.*?>} 都等价于 %s, 而对于可变参数中的对象而言,
+     * Value 类型的对象会输出 getReference(o), IRType 类型的对象会输出 dumpIRType(o),
+     * 其他的对象的输出等价于 o.toString()
+     * </p>
+     * @param fmt 格式串
+     * @param args 可变参数
+     */
     private void ir(String fmt, Object... args) {
         final var newArgs = Arrays.stream(args).map(o -> {
             if (o instanceof Value) {
