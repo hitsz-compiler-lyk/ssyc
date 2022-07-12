@@ -1,26 +1,26 @@
 package top.origami404.ssyc.backend.operand;
 
 import java.util.HashSet;
+import java.util.Set;
 
 import top.origami404.ssyc.backend.arm.ArmInst;
-import top.origami404.ssyc.utils.Log;
 
-public class Reg extends Operand {
-    private HashSet<ArmInst> instSet = new HashSet<>();
+public abstract class Reg extends Operand {
+    private Set<ArmInst> instSet;
 
     public Reg(opType s) {
         super(s);
-        instSet = new HashSet<>();
+        this.instSet = new HashSet<>();
     }
 
-    @Override
-    public String toString() {
-        Log.ensure(false);
-        return  "";
-    }
+    public abstract String toString();
 
     public void addInst(ArmInst inst) {
         instSet.add(inst);
+    }
+
+    public Set<ArmInst> getInstSet() {
+        return instSet;
     }
 
     public int getInstNum() {

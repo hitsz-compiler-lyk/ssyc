@@ -13,18 +13,8 @@ public class IVirtualReg extends Reg {
         this.id = cnt++;
     }
 
-    public IVirtualReg(String label, boolean isGlobal) {
-        super(opType.IVirtual);
-        super.setGlobal(isGlobal);
-        super.setLabel(label);
-        this.id = cnt++;
-    }
-
     @Override
     public String toString() {
-        if (label != "") {
-            return "@IV_" + label;
-        }
         return "@IV" + Integer.toString(id);
     }
 }

@@ -11,7 +11,7 @@ public class ArmInstLoad extends ArmInst {
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr) {
-        super(ArmInstKind.MOV);
+        super(ArmInstKind.LOAD);
         this.dst = dst;
         this.addr = addr;
         this.offset = new IImm(0);
@@ -19,7 +19,7 @@ public class ArmInstLoad extends ArmInst {
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset) {
-        super(ArmInstKind.MOV);
+        super(ArmInstKind.LOAD);
         this.dst = dst;
         this.addr = addr;
         this.offset = offset;
@@ -28,10 +28,16 @@ public class ArmInstLoad extends ArmInst {
 
     @Override
     public String toString() {
-        if (addr.getLabel() != "") {
-            return "\t" + "ldr" + "\t" + dst.toString() + ",\t" + addr.toString() + " \n";
+        var isVector = "";
+        if (dst.IsFloat()) {
+            isVector = "v";
+        }
+
+        if (addr.IsAddr()) {
+            return "\t" + isVector + "ldr" + "\t" + dst.toString() + ",\t" + addr.toString() + " \n";
         } else {
-            return "\t" + "ldr" + "\t" + dst.toString() + ",\t[" + addr.toString() + ",\t" + offset.toString() + "]\n";
+            return "\t" + isVector + "ldr" + "\t" + dst.toString() + ",\t[" + addr.toString() + ",\t"
+                    + offset.toString() + "]\n";
         }
     }
 

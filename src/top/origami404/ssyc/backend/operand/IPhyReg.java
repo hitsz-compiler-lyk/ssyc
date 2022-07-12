@@ -1,6 +1,7 @@
 package top.origami404.ssyc.backend.operand;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import top.origami404.ssyc.utils.Log;
 
@@ -8,7 +9,7 @@ public class IPhyReg extends Reg {
     private String name;
     private int id;
 
-    private static final HashMap<Integer, String> nameMap = new HashMap<Integer, String>() {
+    private static final Map<Integer, String> idNameMap = new HashMap<Integer, String>() {
         {
             for (int i = 0; i <= 12; i++) {
                 put(i, "r" + Integer.toString(i));
@@ -20,6 +21,18 @@ public class IPhyReg extends Reg {
         }
     };
 
+    private static final Map<String, Integer> nameIdMap = new HashMap<String, Integer>() {
+        {
+            for (int i = 0; i <= 15; i++) {
+                put("r" + Integer.toString(i), i);
+            }
+            put("sp", 13);
+            put("lr", 14);
+            put("pc", 15);
+            put("cspr", 16);
+        }
+    };
+
     public IPhyReg(opType s) {
         super(s);
     }
@@ -27,8 +40,15 @@ public class IPhyReg extends Reg {
     public IPhyReg(int n) {
         super(opType.IPhy);
         this.id = n;
-        this.name = nameMap.get(n);
+        this.name = idNameMap.get(n);
         Log.ensure(this.name != null);
+    }
+
+    public IPhyReg(String name) {
+        super(opType.IPhy);
+        Log.ensure(nameIdMap.get(name) != null);
+        this.id = nameIdMap.get(name);
+        this.name = name;
     }
 
     public int getId() {

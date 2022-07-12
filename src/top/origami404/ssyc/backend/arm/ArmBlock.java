@@ -2,6 +2,8 @@ package top.origami404.ssyc.backend.arm;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.utils.IList;
@@ -11,7 +13,7 @@ import top.origami404.ssyc.utils.INodeOwner;
 
 public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBlock, ArmFunction> {
     public static class BlockLiveInfo {
-        private HashSet<Operand> liveUse, liveDef, liveIn, liveOut;
+        private Set<Operand> liveUse, liveDef, liveIn, liveOut;
 
         BlockLiveInfo() {
             this.liveUse = new HashSet<Operand>();
@@ -20,42 +22,42 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
             this.liveOut = new HashSet<Operand>();
         }
 
-        public HashSet<Operand> getLiveUse() {
+        public Set<Operand> getLiveUse() {
             return liveUse;
         }
 
-        public HashSet<Operand> getLiveDef() {
+        public Set<Operand> getLiveDef() {
             return liveDef;
         }
 
-        public HashSet<Operand> getLiveIn() {
+        public Set<Operand> getLiveIn() {
             return liveIn;
         }
 
-        public HashSet<Operand> getLiveOut() {
+        public Set<Operand> getLiveOut() {
             return liveOut;
         }
 
-        public void setLiveUse(HashSet<Operand> liveUse) {
+        public void setLiveUse(Set<Operand> liveUse) {
             this.liveUse = liveUse;
         }
 
-        public void setLiveDef(HashSet<Operand> liveDef) {
+        public void setLiveDef(Set<Operand> liveDef) {
             this.liveDef = liveDef;
         }
 
-        public void setLiveIn(HashSet<Operand> liveIn) {
+        public void setLiveIn(Set<Operand> liveIn) {
             this.liveIn = liveIn;
         }
 
-        public void setLiveOut(HashSet<Operand> liveOut) {
+        public void setLiveOut(Set<Operand> liveOut) {
             this.liveOut = liveOut;
         }
     }
 
     private String label;
 
-    private ArrayList<ArmBlock> pred;
+    private List<ArmBlock> pred;
 
     private ArmBlock trueSuccBlock, falseSuccBlock;
 
@@ -96,7 +98,7 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.falseSuccBlock = falseSuccBlock;
     }
 
-    public ArrayList<ArmBlock> getSucc() {
+    public List<ArmBlock> getSucc() {
         var ret = new ArrayList<ArmBlock>();
         if (trueSuccBlock != null) {
             ret.add(trueSuccBlock);
@@ -115,7 +117,7 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         return label;
     }
 
-    public ArrayList<ArmBlock> getPred() {
+    public List<ArmBlock> getPred() {
         return pred;
     }
 

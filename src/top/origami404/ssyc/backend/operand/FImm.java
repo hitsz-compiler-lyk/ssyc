@@ -13,26 +13,12 @@ public class FImm extends Imm {
     }
 
     @Override
-    public void setLabel(String label) {
-        super.setLabel(label);
-    }
-
-    @Override
-    public String getLabel() {
-        return label;
-    }
-
-    @Override
     public String toHexString() {
         return Float.toHexString(imm);
     }
 
     @Override
     public String toString() {
-        if (label != "") {
-            return "#" + Float.toString(imm);
-        } else {
-            return label;
-        }
+        return "#" + Float.toString(imm);
     }
 }

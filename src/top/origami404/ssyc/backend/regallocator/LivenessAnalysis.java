@@ -7,7 +7,7 @@ import top.origami404.ssyc.backend.arm.ArmFunction;
 import top.origami404.ssyc.backend.operand.Operand;
 
 public class LivenessAnalysis {
-    public void funcLivenessAnalysis(ArmFunction func) {
+    public static void funcLivenessAnalysis(ArmFunction func) {
         for (var block : func.asElementView()) {
             var blockLiveInfo = block.getBlockLiveInfo();
 

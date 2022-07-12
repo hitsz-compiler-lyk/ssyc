@@ -13,18 +13,8 @@ public class FVirtualReg extends Reg {
         this.id = cnt++;
     }
 
-    public FVirtualReg(String label, boolean isGlobal) {
-        super(opType.FVirtual);
-        super.setGlobal(isGlobal);
-        super.setLabel(label);
-        this.id = cnt++;
-    }
-
     @Override
     public String toString() {
-        if (label != "") {
-            return "@IV_" + label;
-        }
         return "@FV" + Integer.toString(id);
     }
 

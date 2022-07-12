@@ -1,8 +1,6 @@
 package top.origami404.ssyc.backend.operand;
 
-import top.origami404.ssyc.utils.Log;
-
-public class Operand {
+public abstract class Operand {
     public enum opType {
         IVirtual,
         IPhy,
@@ -10,11 +8,10 @@ public class Operand {
         FPhy,
         IImm,
         FImm,
+        Addr,
     }
 
     opType s;
-    String label;
-    boolean isGlobal;
 
     public opType getState() {
         return s;
@@ -60,6 +57,18 @@ public class Operand {
         return s == opType.FImm || s == opType.FPhy || s == opType.FVirtual;
     }
 
+    public boolean IsAddr() {
+        return s == opType.Addr;
+    }
+
+    public boolean IsVirtual() {
+        return s == opType.IVirtual || s == opType.FVirtual;
+    }
+
+    public boolean IsPhy() {
+        return !IsVirtual();
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Operand)) {
@@ -74,25 +83,14 @@ public class Operand {
         if (this.getState() == opType.FImm) {
             return ((FImm) obj).getImm() == ((FImm) this).getImm();
         }
-        return false;
+        if (this.getState() == opType.IPhy) {
+            return ((IPhyReg) obj).getId() == ((IPhyReg) this).getId();
+        }
+        if (this.getState() == opType.FPhy) {
+            return ((FPhyReg) obj).getId() == ((FPhyReg) this).getId();
+        }
+        return this.equals(obj);
     }
 
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public void setGlobal(boolean isGlobal) {
-        this.isGlobal = isGlobal;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    @Override
-    public String toString() {
-        Log.ensure(false);
-        return "";
-    }
-
+    public abstract String toString();
 }

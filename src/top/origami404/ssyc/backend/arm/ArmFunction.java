@@ -3,9 +3,11 @@ package top.origami404.ssyc.backend.arm;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import top.origami404.ssyc.backend.operand.Imm;
 import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.backend.operand.addr;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.utils.IList;
@@ -13,23 +15,23 @@ import top.origami404.ssyc.utils.IListOwner;
 
 public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     public static class FunctionInfo {
-        private HashMap<Value, Operand> varMap;
+        private Map<Value, Operand> varMap;
         private int stackSize;
         private ArmBlock startBlock, endBlock;
         private ArmFunction func;
         private List<Parameter> parameter;
-        private HashSet<Imm> numSet;
+        private Set<addr> numSet;
 
         public FunctionInfo(ArmFunction func) {
             this.func = func;
             this.varMap = new HashMap<>();
             this.stackSize = 0;
             this.startBlock = new ArmBlock(func, "." + func.name + ".startBlock");
-            this.endBlock = new ArmBlock("." + func.name + ".startBlock");
+            this.endBlock = new ArmBlock("." + func.name + ".endBlock");
             this.numSet = new HashSet<>();
         }
 
-        public HashMap<Value, Operand> getVarMap() {
+        public Map<Value, Operand> getVarMap() {
             return varMap;
         }
 
@@ -53,7 +55,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             return parameter;
         }
 
-        public HashSet<Imm> getNumSet() {
+        public Set<addr> getNumSet() {
             return numSet;
         }
 
@@ -69,7 +71,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             this.parameter = parameter;
         }
 
-        public void addImm(Imm op) {
+        public void addAddr(addr op) {
             var key = ".LCPI_" + func.name + "_" + Integer.toString(numSet.size());
             op.setLabel(key);
             numSet.add(op);

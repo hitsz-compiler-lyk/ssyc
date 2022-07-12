@@ -16,7 +16,7 @@ public class GraphColoring implements RegAllocator {
             var done = false;
 
             while (!done) {
-                new LivenessAnalysis().funcLivenessAnalysis(func);
+                LivenessAnalysis.funcLivenessAnalysis(func);
 
             }
         }

@@ -1,51 +1,51 @@
 package top.origami404.ssyc.backend.arm;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.backend.operand.Reg;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
 
-public class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
+public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public enum ArmInstKind {
         IAdd, ISub, IRsb, IMul, IDiv,
         FAdd, FSub, FMul, FDiv,
 
+        IMulAdd, IMulSub,
+        FMulAdd, FMulSub,
+
         INeg, FNeg,
 
         MOV,
+
+        Call,
+        Return,
+
         LOAD,
+        STORE,
     }
 
     public enum ArmCondType {
         Any,
-        Ge, Gt, Eq, Ne, Le, Lt,
-    }
+        Ge, Gt, Eq, Ne, Le, Lt;
 
-    public static String toString(ArmCondType cond) {
-        switch (cond) {
-            case Ge:
-                return "ge";
-            case Gt:
-                return "gt";
-            case Eq:
-                return "eq";
-            case Ne:
-                return "ne";
-            case Le:
-                return "le";
-            case Lt:
-                return "lt";
-            default:
-                return "";
+        @Override
+        public String toString() {
+            switch (this) {
+                case Any:
+                    return "";
+                default:
+                    return super.toString().toLowerCase();
+            }
         }
     }
 
     private ArmInstKind inst;
     private INode<ArmInst, ArmBlock> inode;
-    private ArrayList<Reg> regUse, regDef;
+    private List<Reg> regUse, regDef;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
@@ -58,11 +58,11 @@ public class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         return inst;
     }
 
-    public ArrayList<Reg> getRegUse() {
+    public List<Reg> getRegUse() {
         return regUse;
     }
 
-    public ArrayList<Reg> getRegDef() {
+    public List<Reg> getRegDef() {
         return regDef;
     }
 
@@ -77,6 +77,9 @@ public class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             regDef.add((Reg) r);
         }
     }
+
+    @Override
+    public abstract String toString();
 
     @Override
     public INode<ArmInst, ArmBlock> getINode() {
