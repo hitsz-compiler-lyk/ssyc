@@ -161,7 +161,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             }
         }, () -> getParent().ifPresent(list -> {
             // 如果一个 Node 的 next 是空, 那它必须是列表的末尾
-            final var self = list.asINodeView().get(list.getSize() - 1);
+            final var self = list.asINodeView().get(list.size() - 1);
             if (self != this) {
                 throw new IListException("INode's next is null, but isn't the end of the list");
             }

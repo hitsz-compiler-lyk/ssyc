@@ -6,7 +6,7 @@ public interface IListOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
     IList<E, P> getIList();
 
     default List<E> asElementView() {
-        return getIList().asElementView();
+        return getIList();
     }
 
     default List<INode<E, P>> asINodeView() {

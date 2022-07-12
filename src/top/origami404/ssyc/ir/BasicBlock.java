@@ -18,7 +18,7 @@ public class BasicBlock extends Value
 
     public static BasicBlock createBBlockCO(Function func, String labelName) {
         final var bb = createFreeBBlock(func, labelName);
-        func.getIList().asElementView().add(bb);
+        func.getIList().add(bb);
         return bb;
     }
 
@@ -33,9 +33,9 @@ public class BasicBlock extends Value
         this.instructions = new IList<>(this);
         this.inode = new INode<>(this, func.getIList());
         // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
-        // func.getIList().asElementView().add(this);
+        // func.getIList().add(this);
 
-        this.phiEnd = instructions.asElementView().listIterator();
+        this.phiEnd = instructions.listIterator();
         this.predecessors = new ArrayList<>();
     }
 
@@ -48,7 +48,7 @@ public class BasicBlock extends Value
     }
 
     public int getInstructionCount() {
-        return instructions.getSize();
+        return instructions.size();
     }
 
     @Override
@@ -62,7 +62,7 @@ public class BasicBlock extends Value
 
     public Iterator<PhiInst> iterPhis() {
         return IteratorTools.iterConvert(
-            IteratorTools.iterBetweenFromBegin(instructions.asElementView(), phiEnd),
+            IteratorTools.iterBetweenFromBegin(instructions, phiEnd),
             inst -> {
                 ensure(inst instanceof PhiInst, "Non-phi instruction shouldn't appearance between phis");
                 assert inst instanceof PhiInst;
@@ -75,27 +75,27 @@ public class BasicBlock extends Value
     }
 
     public Iterable<Instruction> nonPhis() {
-        return () -> IteratorTools.iterBetweenToEnd(instructions.asElementView(), phiEnd);
+        return () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd);
     }
 
     public Iterable<Instruction> nonTerminator() {
-        return () -> IteratorTools.iterBetweenFromBegin(instructions.asElementView(), lastButNoTerminator());
+        return () -> IteratorTools.iterBetweenFromBegin(instructions, lastButNoTerminator());
     }
 
     public Iterable<Instruction> nonPhiAndTerminator() {
-        return () -> IteratorTools.iterBetween(instructions.asElementView(), phiEnd, lastButNoTerminator());
+        return () -> IteratorTools.iterBetween(instructions, phiEnd, lastButNoTerminator());
     }
 
     public Iterable<Instruction> allInst() { return instructions; }
 
     public Instruction getTerminator() {
-        return instructions.asElementView().get(getInstructionCount() - 1);
+        return instructions.get(getInstructionCount() - 1);
     }
 
     private ListIterator<Instruction> lastButNoTerminator() {
         final var instCnt = getInstructionCount();
         if (instCnt > 1) {
-            return instructions.asElementView().listIterator(getInstructionCount() - 2);
+            return instructions.listIterator(getInstructionCount() - 2);
         } else {
             return IteratorTools.emptyIter();
         }
@@ -170,16 +170,16 @@ public class BasicBlock extends Value
     @Override
     public void verifyAll() throws IRVerifyException {
         super.verifyAll();
-        for (final var inst : instructions.asElementView()) {
+        for (final var inst : instructions) {
             inst.verifyAll();
         }
     }
 
     private Optional<Instruction> getLastInstruction() {
-        if (instructions.getSize() == 0) {
+        if (instructions.size() == 0) {
             return Optional.empty();
         } else {
-            return Optional.of(instructions.asElementView().get(instructions.getSize() - 1));
+            return Optional.of(instructions.get(instructions.size() - 1));
         }
     }
 
