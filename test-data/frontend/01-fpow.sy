@@ -1,5 +1,5 @@
 void print_int(int x) {
-    putf("%d\n", x);
+    putint(x); putch(10);
 }
 
 int fpow(int a, int b) {
