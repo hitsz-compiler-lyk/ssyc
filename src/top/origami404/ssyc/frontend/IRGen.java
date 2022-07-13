@@ -948,7 +948,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             // 首先删除原 phi 所有 incoming (会去除所有 user)
             phi.clearIncomingCO();
             // 然后将其从块中删除
-            block.getIList().asElementView().remove(phi);
+            block.getIList().remove(phi);
             // 然后将其所有出现都替换为 end
             phi.replaceAllUseWith(end);
         }

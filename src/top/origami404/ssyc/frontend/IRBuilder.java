@@ -133,7 +133,7 @@ public class IRBuilder {
     }
 
     public BasicBlock createFreeBBlock() {
-        return createFreeBBlock("%s_tmp_%d".formatted(currFunc.getName(), currFunc.getIList().getSize()));
+        return createFreeBBlock("%s_tmp_%d".formatted(currFunc.getName(), currFunc.getIList().size()));
     }
 
     public BasicBlock createFreeBBlock(String name) {

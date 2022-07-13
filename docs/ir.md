@@ -252,7 +252,7 @@ for (final var inode : bb.asINodeView()) {
     // inode.insertAfterCO(other_inode)
 }
 
-for (final var inst : bb.asElementView()) {
+for (final var inst : bb) {
     // use inst
     Log.ensure(inst instanceof INodeOwner);
     Log.ensure(inst.getParent() == bb);
@@ -365,6 +365,97 @@ offset = 0 * sizeof([4 x [5 x i32]]) + 1 * sizeof([5 x i32]) + 3 * sizeof(i32)
        = 0 * 80 + 1 * 20 + 3 * 4
        = 32
 ```
+
+## IR 合法性验证
+
+在 Value 类中加入一个 `public void verify()` 方法. 如果有违反会抛出 (新的) `IRVerifyException` 异常.
+
+之所以不默认在构造函数里检查, 是因为有时候 IR 在刚被构建, 还没离开前端的时候, 有一些约束是不满足的.
+
+做**最严格**的 IR 合法性验证.
+
+- 基本验证
+    - [x] 每一个 Value 都要有 name
+    - [x] name 的长度至少为 2 (因为要包括一个前缀 `@` 或 `%`, 然后剩下的名字长度至少为 1)
+    - [x] 指针类型的基本类型只能是数组类型或 Int 或 Float (换言之, IR 中不应该存在多重指针/布尔指针)
+    - [x] 数组类型的元素类型只能是数组类型或 Int 或 Float (换言之, IR 中不应该存在指针的数组/布尔数组)
+    - [x] use-def 关系:
+        - 如果你在我的 operandList 里, 那我一定要在你的 userList 里; 反之亦然.
+    - [x] IList 所有关系:
+        - IList 必然有 owner
+        - IList 的节点的 parent 必须都是自己
+        - INode 必须要有 value/owner
+        - INode 必须是其 parent 的节点
+            - 如果 INode 无 parent, 发出警告
+        - INode 的前后关系
+            - 如果 prev 非空, 那 prev 的 next 必须是自己, 否则它必须是 IList 的开头 (或者不在 IList 中)
+            - 如果 next 非空, 那 next 的 prev 必须是自己, 否则它必须是 IList 的末尾 (或者不在 IList 中)
+- 函数验证
+    - [x] 名字必须以 `@` 开头
+    - ~~一定要有 parent (module)~~ 函数似乎没有 Parent, 可能需要进一步思考要不要加
+    - ~~必须有且只有一个 entry 块 (命名为 `<函数名>_entry` 的块)~~
+        - 现在直接将 "entry 块" 定义为函数基本块列表的第一个块
+        - 因为优化的原因, 是存在一开始加入的那个基本块被删除的情况的, 所以函数里完全可能没有叫 `entry` 的块
+    - [x] Parameter 信息与自己的 IRType 信息吻合 (数量一致, 类型相同)
+    - [x] 基本块的 labelName 互不相同
+    - 返回值与自己的类型吻合 (这个在 Ret 指令的检查里做)
+    - 你是我的后继那我必须是你的前继, 反之亦然 (这个在 Ret 指令的检查里做)
+- 基本块验证
+    - [x] 名字必须以 `%` 开头
+    - [x] 一定要有 parent (function)
+    - [x] 必须有且只有一条 Terminator 指令 (Br/BrCond/Ret), 并且只能在 IList 的末尾
+    - [x] Phi 指令在且仅在开头, 并且 phiEnd 指向第一条非 Phi 指令
+    - [x] 前继要互不相同
+- 指令验证
+    - 通用指令验证
+        - [x] 名字必须以 `%` 开头
+        - [x] 一定要有 parent (basic block)
+        - [x] 所有指令不能成自环; 即 operandList 与 userList 不能是自己
+        - [x] 类型为 Void 的指令不可以有 user
+        - 类型不能是 BasicBlock/Parameter (在各个具体指令的类型检查里查了)
+    - 比较与运算类指令验证 (Binray/Unary/IntToFloat/FloatToInt/Cmp)
+        - [x] 类型检查:
+            - 自己的类型与操作数的类型匹配
+            - 自己的类型与 InstKind 匹配
+        - [x] 确保操作数不全部都是常量 (这种情况应该被直接折叠)
+        - [x] 对整数除法指令确保不直接除以常量 0 (间接/运行时的那我也没办法)
+    - 跳转类指令 (Br/BrCond/Ret)
+        - 必须都是 Void 类型
+        - [x] 跳转的对象不是自己 (TODO: 需要思考)
+        - [x] return 语句与函数类型信息吻合
+        - [x] 自己必须在跳转目标的前继列表中
+        - [x] 条件跳转的条件不能是常量 (否则就被折叠了)
+        - [x] 条件跳转的两个目标基本块不能相同 (否则就被折叠了)
+    - Phi 指令:
+        - [x] Phi 的 incoming 必须与当前块的前继数量相同
+        - phi 不可以自己指向自己 (这个在通用指令验证里做了)
+        - phi 的 `isIncompleted()` 必须返回 false
+    - 内存相关指令 (Alloc/Load/Store/GEP/MemInit)
+        - Alloc 指令
+            - 类型必须为指针类型
+            - [x] 参数必然是数组类型, 因为源语言里没有 "变量的指针", 也不需要动态分配变量
+        - Load 指令
+            - [x] 类型必须为 Int/Float (因为源语言里没有布尔类型, 并且也不会把数组的一部分数组拿出来玩)
+            - [x] 参数必然为指向基本类型的指针类型 (任何对数组具体位置的引用都要通过 GEP 算)
+        - Store 指令
+            - 类型必须为 Void
+            - [x] 参数必须为指向基本类型的指针类型
+        - GEP 指令
+            - [x] 最后必须是一个指向基本类型的指针类型
+            - indices 的数量必须和 ptr 的类型吻合 (满足上一条自动满足这一条)
+        - MemInit 指令
+            - 必须是 Void 类型
+            - [x] 绑定的 ArrayConst 的类型必须与 ptrArr 的 baseType 吻合
+    - Call 指令
+        - [x] 自己的类型必须与被调用函数的返回类型相同
+        - [x] 自己的参数的数量与类型必须与被调用函数的形参数量与类型相同
+- 常量验证
+    - [x] INT_0 和 FLOAT_0 只能有一个
+    - ArrayConst 常量的元素数量必须和类型匹配 (它就是这么实现的)
+- 全局变量验证 (GlobalVar)
+    - [x] 名字必须以 `@` 开头
+    - 必须都是指针类型 (它就是这么实现的)
+
 
 ## 笔记: Phi
 
