@@ -29,6 +29,8 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         LOAD,
         STORE,
+
+        Branch,
     }
 
     public enum ArmCondType {
@@ -44,17 +46,34 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                     return super.toString().toLowerCase();
             }
         }
+
+        public ArmCondType getOppCondType() {
+            switch (this) {
+                case Le:
+                    return Ge;
+                case Ge:
+                    return Le;
+                case Gt:
+                    return Lt;
+                case Lt:
+                    return Gt;
+                default:
+                    return this;
+            }
+        }
     }
 
     private ArmInstKind inst;
     private INode<ArmInst, ArmBlock> inode;
     private List<Reg> regUse, regDef;
+    private ArmCondType cond;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
         this.inode = new INode<>(this);
         this.regUse = new ArrayList<Reg>();
         this.regDef = new ArrayList<Reg>();
+        this.cond = ArmCondType.Any;
     }
 
     public ArmInstKind getInst() {
@@ -73,6 +92,14 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         if (!r.IsImm()) {
             regUse.add((Reg) r);
         }
+    }
+
+    public ArmCondType getCond() {
+        return cond;
+    }
+
+    public void setCond(ArmCondType cond) {
+        this.cond = cond;
     }
 
     public void addRegDef(Operand r) {

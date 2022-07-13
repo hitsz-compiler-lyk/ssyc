@@ -18,12 +18,30 @@ public class ArmInstStroe extends ArmInst {
         block.asElementView().add(this);
     }
 
+    public ArmInstStroe(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
+        super(ArmInstKind.STORE);
+        this.src = src;
+        this.addr = addr;
+        this.offset = new IImm(0);
+        block.asElementView().add(this);
+        this.setCond(cond);
+    }
+
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.STORE);
         this.src = src;
         this.addr = addr;
         this.offset = offset;
         block.asElementView().add(this);
+    }
+
+    public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
+        super(ArmInstKind.STORE);
+        this.src = src;
+        this.addr = addr;
+        this.offset = offset;
+        block.asElementView().add(this);
+        this.setCond(cond);
     }
 
     @Override
@@ -33,10 +51,11 @@ public class ArmInstStroe extends ArmInst {
             isVector = "v";
         }
         if (addr.IsAddr()) {
-            return "\t" + isVector + "ldr" + "\t" + src.toString() + ",\t" + addr.toString() + " \n";
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + src.toString() + ",\t" + addr.toString()
+                    + "\n";
         } else {
-            return "\t" + isVector + "str" + "\t" + src.toString() + ",\t[" + addr.toString() + ",\t"
-                    + offset.toString() + "]\n";
+            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.toString() + ",\t[" + addr.toString()
+                    + ",\t" + offset.toString() + "]\n";
         }
     }
 }

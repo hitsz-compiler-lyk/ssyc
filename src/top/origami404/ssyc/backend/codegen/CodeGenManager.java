@@ -1,6 +1,7 @@
 package top.origami404.ssyc.backend.codegen;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,17 +9,21 @@ import java.util.Map;
 import top.origami404.ssyc.backend.arm.ArmBlock;
 import top.origami404.ssyc.backend.arm.ArmFunction;
 import top.origami404.ssyc.backend.arm.ArmInstBinary;
+import top.origami404.ssyc.backend.arm.ArmInstBranch;
 import top.origami404.ssyc.backend.arm.ArmInstCall;
+import top.origami404.ssyc.backend.arm.ArmInstCmp;
 import top.origami404.ssyc.backend.arm.ArmInstFloatToInt;
 import top.origami404.ssyc.backend.arm.ArmInstIntToFloat;
 import top.origami404.ssyc.backend.arm.ArmInstLoad;
 import top.origami404.ssyc.backend.arm.ArmFunction.FunctionInfo;
+import top.origami404.ssyc.backend.arm.ArmInst.ArmCondType;
 import top.origami404.ssyc.backend.arm.ArmInst.ArmInstKind;
 import top.origami404.ssyc.backend.arm.ArmInstMove;
 import top.origami404.ssyc.backend.arm.ArmInstReturn;
 import top.origami404.ssyc.backend.arm.ArmInstStroe;
 import top.origami404.ssyc.backend.arm.ArmInstTernay;
 import top.origami404.ssyc.backend.arm.ArmInstUnary;
+import top.origami404.ssyc.backend.operand.FImm;
 import top.origami404.ssyc.backend.operand.FVirtualReg;
 import top.origami404.ssyc.backend.operand.IImm;
 import top.origami404.ssyc.backend.operand.IPhyReg;
@@ -31,12 +36,16 @@ import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.BoolConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.AllocInst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
+import top.origami404.ssyc.ir.inst.BrCondInst;
+import top.origami404.ssyc.ir.inst.BrInst;
 import top.origami404.ssyc.ir.inst.CallInst;
+import top.origami404.ssyc.ir.inst.CmpInst;
 import top.origami404.ssyc.ir.inst.FloatToIntInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
@@ -47,6 +56,7 @@ import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
+import top.origami404.ssyc.ir.type.IRTyKind;
 import top.origami404.ssyc.utils.Log;
 
 public class CodeGenManager {
@@ -55,6 +65,22 @@ public class CodeGenManager {
     private Map<Function, ArmFunction> funcMap;
     private Map<BasicBlock, ArmBlock> blockMap;
     private Map<String, GlobalVar> globalvars;
+    private static final Map<InstKind, ArmCondType> condMap = new HashMap<InstKind, ArmCondType>() {
+        {
+            put(InstKind.ICmpEq, ArmCondType.Eq);
+            put(InstKind.ICmpNe, ArmCondType.Ne);
+            put(InstKind.ICmpGt, ArmCondType.Gt);
+            put(InstKind.ICmpGe, ArmCondType.Ge);
+            put(InstKind.ICmpLt, ArmCondType.Lt);
+            put(InstKind.ICmpLe, ArmCondType.Le);
+            put(InstKind.FCmpEq, ArmCondType.Eq);
+            put(InstKind.FCmpNe, ArmCondType.Ne);
+            put(InstKind.FCmpGt, ArmCondType.Gt);
+            put(InstKind.FCmpGe, ArmCondType.Ge);
+            put(InstKind.FCmpLt, ArmCondType.Lt);
+            put(InstKind.FCmpLe, ArmCondType.Le);
+        }
+    };
 
     public CodeGenManager() {
         functions = new ArrayList<ArmFunction>();
@@ -135,6 +161,12 @@ public class CodeGenManager {
                         ResolveIntToFloatInst((IntToFloatInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof FloatToIntInst) {
                         ResolveFloatToIntInst((FloatToIntInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof BrInst) {
+                        ResolveBrInst((BrInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof BrCondInst) {
+                        ResolveBrCondInst((BrCondInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof CmpInst) {
+                        continue;
                     }
                 }
             }
@@ -196,7 +228,7 @@ public class CodeGenManager {
     private Operand ResolveParameter(Parameter val, ArmBlock block, FunctionInfo funcinfo) {
         if (!valMap.containsKey(val)) {
             Operand vr;
-            if (val.getParamType() == IRType.FloatTy) {
+            if (val.getParamType().isFloat()) {
                 vr = new FVirtualReg();
             } else {
                 vr = new IVirtualReg();
@@ -251,7 +283,7 @@ public class CodeGenManager {
                 return valMap.get(val);
             } else {
                 Operand vr;
-                if (val.getType() == IRType.FloatTy) {
+                if (val.getType().isFloat()) {
                     vr = new FVirtualReg();
                 } else {
                     vr = new IVirtualReg();
@@ -483,7 +515,7 @@ public class CodeGenManager {
         new ArmInstIntToFloat(block, dst, vr);
     }
 
-    // 先使用 vcvt 在转到整型寄存器中
+    // 先使用 vcvt 再转到整型寄存器中
     private void ResolveFloatToIntInst(FloatToIntInst inst, ArmBlock block, FunctionInfo funcinfo) {
         var vr = new FVirtualReg();
         var src = ResolveOperand(inst.getFrom(), block, funcinfo);
@@ -496,5 +528,46 @@ public class CodeGenManager {
         var offset = ResolveIImmOperand(inst.getAllocSize(), block, funcinfo);
         var dst = ResolveOperand(inst, block, funcinfo);
         new ArmInstBinary(block, ArmInstKind.IAdd, dst, new IPhyReg("sp"), offset);
+    }
+
+    private void ResolveBrInst(BrInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        new ArmInstBranch(block, blockMap.get(inst.getNextBB()));
+    }
+
+    private void ResolveBrCondInst(BrCondInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var cond = inst.getCond();
+        if (cond instanceof BoolConst) {
+            var boolConst = (BoolConst) cond;
+            if (boolConst.getValue()) {
+                new ArmInstBranch(block, blockMap.get(inst.getTrueBB()));
+            } else {
+                new ArmInstBranch(block, blockMap.get(inst.getFalseBB()));
+            }
+        } else if (cond instanceof CmpInst) {
+            var Armcond = ResolveCmpInst((CmpInst) cond, block, funcinfo);
+            new ArmInstBranch(block, blockMap.get(inst.getTrueBB()), Armcond);
+            new ArmInstBranch(block, blockMap.get(inst.getFalseBB()));
+        } else {
+            Log.ensure(false);
+        }
+    }
+
+    private ArmCondType ResolveCmpInst(CmpInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var lhs = inst.getLHS();
+        var rhs = inst.getRHS();
+        var cond = condMap.get(inst.getKind());
+
+        Operand lhsReg, rhsReg;
+        if (lhs instanceof Constant) {
+            lhsReg = ResolveLhsOperand(rhs, block, funcinfo);
+            rhsReg = ResolveOperand(lhs, block, funcinfo);
+            cond = cond.getOppCondType();
+        } else {
+            lhsReg = ResolveLhsOperand(lhs, block, funcinfo);
+            rhsReg = ResolveOperand(rhs, block, funcinfo);
+        }
+
+        new ArmInstCmp(block, lhsReg, rhsReg, cond);
+        return cond;
     }
 }

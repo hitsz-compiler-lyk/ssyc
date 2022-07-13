@@ -17,12 +17,20 @@ public class ArmInstUnary extends ArmInst {
         block.asElementView().add(this);
     }
 
+    public ArmInstUnary(ArmBlock block, ArmInstKind inst, Operand dst, Operand src, ArmCondType cond) {
+        super(inst);
+        this.dst = dst;
+        this.src = src;
+        block.asElementView().add(this);
+        this.setCond(cond);
+    }
+
     @Override
     public String toString() {
         if (getInst() == ArmInstKind.INeg) {
-            return "\t" + "neg" + "\t" + dst.toString() + "\t" + src.toString();
+            return "\t" + "neg" + getCond().toString() + "\t" + dst.toString() + "\t" + src.toString();
         } else if (getInst() == ArmInstKind.FNeg) {
-            return "\t" + "vneg.f32" + "\t" + dst.toString() + "\t" + src.toString();
+            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.toString() + "\t" + src.toString();
         } else {
             Log.ensure(false);
             return "";

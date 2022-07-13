@@ -6,7 +6,6 @@ import top.origami404.ssyc.backend.operand.Operand;
 
 public class ArmInstMove extends ArmInst {
     private Operand dst, src;
-    private ArmCondType cond;
 
     public ArmInstMove(ArmInstKind inst) {
         super(inst);
@@ -16,7 +15,6 @@ public class ArmInstMove extends ArmInst {
         super(ArmInstKind.MOV);
         this.dst = dst;
         this.src = src;
-        this.cond = ArmCondType.Any;
         block.asElementView().add(this);
     }
 
@@ -24,22 +22,21 @@ public class ArmInstMove extends ArmInst {
         super(ArmInstKind.MOV);
         this.dst = dst;
         this.src = src;
-        this.cond = ArmCondType.Any;
     }
 
     public ArmInstMove(ArmBlock block, Operand dst, Operand src, ArmCondType cond) {
         super(ArmInstKind.MOV);
         this.dst = dst;
         this.src = src;
-        this.cond = cond;
         block.asElementView().add(this);
+        this.setCond(cond);
     }
 
     public ArmInstMove(Operand dst, Operand src, ArmCondType cond) {
         super(ArmInstKind.MOV);
         this.dst = dst;
         this.src = src;
-        this.cond = cond;
+        this.setCond(cond);
     }
 
     public void setDst(Operand dst) {
@@ -50,10 +47,6 @@ public class ArmInstMove extends ArmInst {
         this.src = src;
     }
 
-    public void setCond(ArmCondType cond) {
-        this.cond = cond;
-    }
-
     @Override
     public String toString() {
         var isVector = "";
@@ -62,23 +55,24 @@ public class ArmInstMove extends ArmInst {
         }
 
         if (src.IsIImm() && CodeGenManager.checkEncodeIImm(~((IImm) src).getImm())) {
-            return "\t" + isVector + "mvn" + cond.toString() + "\t" + dst.toString() + ",\t" + "#"
+            return "\t" + isVector + "mvn" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
                     + Integer.toString(~((IImm) src).getImm()) + "\n";
         } else if (src.IsIImm() && !CodeGenManager.checkEncodeIImm(((IImm) src).getImm())) {
             var imm = ((IImm) src).getImm();
             var high = imm >>> 16;
             var low = (imm << 16) >>> 16;
             String ret = "";
-            ret += "\t" + isVector + "movw" + cond.toString() + "\t" + dst.toString() + ",\t" + "#"
+            ret += "\t" + isVector + "movw" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
                     + Integer.toString(low) + "\n";
             if (high != 0) {
-                ret += "\t" + isVector + "movt" + cond.toString() + "\t" + dst.toString() + ",\t" + "#"
+                ret += "\t" + isVector + "movt" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
                         + Integer.toString(high)
                         + "\n";
             }
             return ret;
         } else {
-            return "\t" + isVector + "mov" + cond.toString() + "\t" + dst.toString() + ",\t" + src.toString() + "\n";
+            return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.toString() + ",\t" + src.toString()
+                    + "\n";
         }
     }
 }

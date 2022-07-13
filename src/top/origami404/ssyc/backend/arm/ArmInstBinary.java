@@ -35,6 +35,15 @@ public class ArmInstBinary extends ArmInst {
         block.asElementView().add(this);
     }
 
+    public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
+        super(inst);
+        this.dst = dst;
+        this.lhs = lhs;
+        this.rhs = rhs;
+        block.asElementView().add(this);
+        this.setCond(cond);
+    }
+
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
         this.dst = dst;
@@ -42,11 +51,20 @@ public class ArmInstBinary extends ArmInst {
         this.rhs = rhs;
     }
 
+    public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
+        super(inst);
+        this.dst = dst;
+        this.lhs = lhs;
+        this.rhs = rhs;
+        this.setCond(cond);
+    }
+
     @Override
     public String toString() {
         String op = binaryMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + "\t" + dst.toString() + ",\t" + lhs.toString() + ",\t" + rhs.toString() + "\n";
+        String ret = "\t" + op + getCond().toString() + "\t" + dst.toString() + ",\t" + lhs.toString() + ",\t"
+                + rhs.toString() + "\n";
         return ret;
     }
 }

@@ -31,11 +31,23 @@ public class ArmInstTernay extends ArmInst {
         block.asElementView().add(this);
     }
 
+    public ArmInstTernay(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3,
+            ArmCondType cond) {
+        super(inst);
+        this.dst = dst;
+        this.op1 = op1;
+        this.op2 = op2;
+        this.op3 = op3;
+        block.asElementView().add(this);
+        this.setCond(cond);
+    }
+
     @Override
     public String toString() {
         String op = ternayMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + "\t" + dst.toString() + ",\t" + op1.toString() + ",\t" + op2.toString() + ",\t"
+        String ret = "\t" + op + getCond().toString() + "\t" + dst.toString() + ",\t" + op1.toString() + ",\t"
+                + op2.toString() + ",\t"
                 + op3.toString() + "\n";
         return ret;
     }
