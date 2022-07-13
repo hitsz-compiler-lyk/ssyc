@@ -238,7 +238,7 @@ public class LLVMDumper {
     }
 
     private String joinWithRef(List<? extends Value> list) {
-        return list.stream().map(this::getReference).collect(Collectors.joining());
+        return list.stream().map(this::getReference).collect(Collectors.joining(", "));
     }
 
     private OutputStream outStream;
