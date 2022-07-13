@@ -32,6 +32,7 @@ public class Main {
             case "llvm" -> {
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
+                module.verifyAll();
                 // TODO: llvm ir dump
                 writer.append("define dso_local i32 @main() #0 {\n");
                 writer.append("  %1 = alloca i32, align 4\n");

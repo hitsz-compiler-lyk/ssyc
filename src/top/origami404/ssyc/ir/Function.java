@@ -18,7 +18,7 @@ public class Function extends Value
 
         this.bblocks = new IList<>(this);
 
-        bblocks.asElementView().add(BasicBlock.createBBlockCO(this, funcName + "_entry"));
+        bblocks.add(BasicBlock.createBBlockCO(this, funcName + "_entry"));
     }
 
     public String getFuncName() {
@@ -55,11 +55,11 @@ public class Function extends Value
     }
 
     public BasicBlock getEntryBBlock() {
-        return bblocks.asElementView().get(0);
+        return bblocks.get(0);
     }
 
     public Iterable<BasicBlock> getBasicBlocks() {
-        return this.getIList().asElementView();
+        return this.getIList();
     }
 
     @Override
@@ -68,7 +68,7 @@ public class Function extends Value
 
         ensure(getName().charAt(0) == '@', "Name of a function must begin with '@'");
 
-        final var blockList = bblocks.asElementView();
+        final var blockList = bblocks;
         final var labels = blockList.stream()
             .map(BasicBlock::getLabelName)
             .collect(Collectors.toList());
@@ -95,7 +95,7 @@ public class Function extends Value
             param.verifyAll();
         }
 
-        for (final var blocks : bblocks.asElementView()) {
+        for (final var blocks : bblocks) {
             blocks.verifyAll();
         }
     }
