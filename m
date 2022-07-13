@@ -61,12 +61,11 @@ run_jar() {
 }
 
 build_test_image() {
-    docker build docker -t ssyc-test:v1
+    docker build local-test -t ssyc-test
 }
 
 run_test() {
-    compile
-    docker run --rm -it -v "$PWD:/src" ssyc-test:v1
+    docker run --rm -it --user $(id -u):$(id -g) -e "TERM=xterm-256color" -v "$PWD:/src" ssyc-test $@
 }
 
 subcommand=${1:-'full'}
@@ -79,6 +78,6 @@ case $subcommand in
     jar) make_jar ;;
     jar-run) run_jar ;;
     build_test) build_test_image ;;
-    test) run_test ;;
+    test) run_test ${@:2};;
     full) cleanup && compile && echo 'Build finish.' && run $@;;
 esac

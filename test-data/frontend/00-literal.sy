@@ -14,3 +14,7 @@ float decFloat6 = 123.456e10;
 float hexFloat1 = 0xABC.DEFp1320;   // hex must have fractional part
 float hexFloat2 = 0x.DEFP-1215;
 float hexFloat3 = 0xABC.p+1010;
+
+int main() {
+    return 0;
+}

@@ -13,6 +13,7 @@
         "target": true,
         "**/.antlr": true,
         "test-data/**/*.exec": true,
+        "test-data/**/*.c": true,
     },
 
     "explorer.fileNesting.enabled": true,
