@@ -16,23 +16,8 @@ import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.BoolConst;
 import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.inst.AllocInst;
-import top.origami404.ssyc.ir.inst.BinaryOpInst;
-import top.origami404.ssyc.ir.inst.BrCondInst;
-import top.origami404.ssyc.ir.inst.BrInst;
-import top.origami404.ssyc.ir.inst.CallInst;
-import top.origami404.ssyc.ir.inst.CmpInst;
-import top.origami404.ssyc.ir.inst.FloatToIntInst;
-import top.origami404.ssyc.ir.inst.GEPInst;
-import top.origami404.ssyc.ir.inst.InstKind;
-import top.origami404.ssyc.ir.inst.Instruction;
-import top.origami404.ssyc.ir.inst.IntToFloatInst;
-import top.origami404.ssyc.ir.inst.LoadInst;
-import top.origami404.ssyc.ir.inst.MemInitInst;
-import top.origami404.ssyc.ir.inst.PhiInst;
-import top.origami404.ssyc.ir.inst.ReturnInst;
-import top.origami404.ssyc.ir.inst.StoreInst;
-import top.origami404.ssyc.ir.inst.UnaryOpInst;
+import top.origami404.ssyc.ir.inst.*;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
 
@@ -96,11 +81,7 @@ public class IRBuilder {
     public ReturnInst insertReturn() { return direct(new ReturnInst()); }
     public ReturnInst insertReturn(Value returnVal) { return direct(new ReturnInst(returnVal)); }
 
-    public AllocInst insertAllocVariable(IRType varType) { return direct(new AllocInst(varType)); }
-    public AllocInst insertAllocArray(int elementNum, IRType baseType) {
-        final var arrayTy = IRType.createArrayTy(elementNum, baseType);
-        return direct(new AllocInst(arrayTy));
-    }
+    public CAllocInst insertCAlloc(ArrayIRTy allocBaseType) { return direct(new CAllocInst(allocBaseType)); }
 
     public LoadInst insertLoad(Value ptr) { return direct(new LoadInst(ptr)); }
     public StoreInst insertStore(Value ptr, Value val) { return direct(new StoreInst(ptr, val)); }

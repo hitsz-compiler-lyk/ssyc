@@ -1,6 +1,8 @@
 package top.origami404.ssyc.frontend;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -15,10 +17,12 @@ import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
-import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.inst.CAllocInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.PhiInst;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
 import top.origami404.ssyc.utils.ChainMap;
 import top.origami404.ssyc.utils.Log;
@@ -96,7 +100,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         for (final var exp : ctx.exp()) {
             final var num = visitExp(exp);
             if (num instanceof IntConst) {
-            final var ic = (IntConst) num;
+                final var ic = (IntConst) num;
                 shape.add(ic.getValue());
             } else {
                 throw new RuntimeException("exp in lValExp must be an integer constant");
@@ -240,7 +244,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                 // 分配数组空间, 并且定义数组;
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
-                final var arrPtr = new AllocInst(type);
+                Log.ensure(type instanceof ArrayIRTy);
+                final var arrPtr = new CAllocInst((ArrayIRTy) type);
                 finalInfo.newDef(variable, arrPtr);
 
                 // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
@@ -462,8 +467,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Optional<Value> findArray(String name) {
-        // 数组必然是 final, 因为数组被翻译成 IR 中数组的指针
-        // 而数组指针指向谁永远不会变
+        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
+        // 而那个指针指向谁永远不会变
         final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         return scope.get(name)
             .map(ScopeEntry::var)
@@ -655,14 +660,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return new LValResult(true, variable, null);
 
         } else {
-            // 因为数组本身就带一个指针
-            final var prefixedIndices = new ArrayList<Value>();
-            prefixedIndices.add(Constant.INT_0);
-            prefixedIndices.addAll(indices);
-
             final var arrPtr = findArray(name)
-                .orElseThrow(() -> new SemanticException(ctx, "Not a function: " + name));
-            final var gep = builder.insertGEP(arrPtr, prefixedIndices);
+                .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
+            final var gep = builder.insertGEP(arrPtr, indices);
 
             return new LValResult(false, null, gep);
         }
@@ -1062,12 +1062,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (type instanceof SimpleIRTy) {
             // 普通类型的值直接按值传递
             return type;
+        } else if (type instanceof PointerIRTy) {
+            // 是指针类型的话, 说明第一维被省略了, 已经被退化了, 直接原样返回
+            return type;
+        } else if (type instanceof ArrayIRTy) {
+            // 是数组类型则进行退化, 比如 [2 x [3 x i32]] --> *[3 x i32]
+            return IRType.createPtrTy(((ArrayIRTy) type).getElementType());
         } else {
-            // 数组类型的参数就传递数组的指针
-
-            // 第零维为空的数组会被 createTypeByShape 翻译成指针
-            // 所以不管 type 是指针还是数组, 都得再套一层指针
-            return IRType.createPtrTy(type);
+            throw new RuntimeException("Unknown function parameter type: " + type);
         }
     }
 

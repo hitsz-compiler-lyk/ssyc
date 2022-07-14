@@ -3,12 +3,9 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.ArrayConst;
-import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.utils.Log;
-
-import java.sql.Array;
 
 public class MemInitInst extends Instruction {
     // 由于 MemInit 的特殊性, 很多时候在它创建的时候, 初始值都还没构造好
@@ -47,10 +44,12 @@ public class MemInitInst extends Instruction {
     public void verify() throws IRVerifyException {
         super.verify();
 
-        final var arrayType = ((PointerIRTy) getArrayPtr().getType()).getBaseType();
-        ensure(arrayType instanceof ArrayIRTy, "Type of arrayPtr of MemInit must be a pointer to an array");
+        final var arrPtrType = getArrayPtr().getType();
+        ensure(arrPtrType instanceof PointerIRTy, "ArrayPtr of a MemInit must be a pointer type");
 
-        final var initType = getInit().getType();
-        ensure(arrayType.equals(initType), "Init and ArrayPtr of a MemInit must share the same type");
+        final var arrPtrBaseType = ((PointerIRTy) arrPtrType).getBaseType();
+        final var initBaseType = getInit().getType().getElementType();
+        ensure(arrPtrBaseType.equals(initBaseType),
+                "Init and ArrayPtr of a MemInit must share the same base type");
     }
 }
