@@ -13,7 +13,7 @@ public enum InstKind {
 
     Br, BrCond,
 
-    Alloc, Load, Store, Phi, GEP,
+    CAlloc, Load, Store, Phi, GEP,
 
     Call, Ret,
 

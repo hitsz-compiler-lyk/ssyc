@@ -4,7 +4,6 @@ import java.util.Map;
 
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.inst.AllocInst;
 
 public class Module {
     public Map<String, Function> getFunctions() {
