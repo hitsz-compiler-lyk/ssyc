@@ -26,6 +26,11 @@ public class BoolConst extends Constant {
         return hashCode() == 1;
     }
 
+    @Override
+    public String toString() {
+        return Integer.toString(hashCode());
+    }
+
     private BoolConst(String name) {
         super(IRType.BoolTy);
         super.setName(name);

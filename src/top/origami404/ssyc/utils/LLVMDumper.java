@@ -2,6 +2,7 @@ package top.origami404.ssyc.utils;
 
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
+import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
@@ -24,42 +25,17 @@ public class LLVMDumper {
         this.writer = new PrintWriter(outStream);
     }
 
-    public void dump(Value value) {
-        dumpAll(value);
-    }
-
-    private void dumpAll(Value value) {
-        if (value instanceof Function) {
-            writer.println(dumpFunction((Function) value));
-        } else if (value instanceof Parameter) {
-            writer.println(dumpParameter((Parameter) value));
-        } else if (value instanceof BasicBlock ) {
-            writer.println(dumpBasicBlock((BasicBlock) value));
-        } else if (value instanceof Instruction ) {
-            writer.println(dumpInstruction((Instruction) value));
-        } else if (value instanceof Constant) {
-            writer.println(dumpConstant((Constant) value));
-        } else {
-            throw new RuntimeException("Unknown IR type!");
+    public void dump(Module module) {
+        for (final var func : module.getFunctions().values()) {
+            dumpFunction(func);
         }
     }
 
-    private String dumpFunction(Function function) {
-        throw new UnsupportedOperationException("TODO");
-        // TODO Function dump
+    private void dumpFunction(Function function) {
+
     }
 
-    private String dumpParameter(Parameter parameter) {
-        throw new UnsupportedOperationException("TODO");
-        // TODO Parameter dump
-    }
-
-    private String dumpBasicBlock(BasicBlock bblock) {
-        throw new UnsupportedOperationException("TODO");
-        // TODO BasicBlock dump
-    }
-
-    private String dumpInstruction(Instruction inst) {
+    private void dumpInstruction(Instruction inst) {
         if (!inst.getType().isVoid()) {
             writer.print(inst.getName() + " = "); // "%1 = "
         }
@@ -149,11 +125,13 @@ public class LLVMDumper {
                           + "i32 <size>, i1 false)";
             ir(fmt, meminit.getArrayPtr(), meminit.getInit(), size);
 
+        } else {
+            throw new RuntimeException("Unknown instruction type: " + inst.getKind());
         }
-        throw new RuntimeException("Unknown instruction type: "+inst.getKind());
+
     }
 
-    private String dumpConstant(Constant constant) {
+    private String dumpArrayConstant(Constant constant) {
         throw new UnsupportedOperationException("TODO");
         // TODO Constant dump
     }
