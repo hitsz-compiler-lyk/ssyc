@@ -29,6 +29,10 @@ public class ArmInstTernay extends ArmInst {
         this.op2 = op2;
         this.op3 = op3;
         block.asElementView().add(this);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.op1);
+        this.addRegUse(this.op2);
+        this.addRegUse(this.op3);
     }
 
     public ArmInstTernay(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3,
@@ -40,6 +44,10 @@ public class ArmInstTernay extends ArmInst {
         this.op3 = op3;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.op1);
+        this.addRegUse(this.op2);
+        this.addRegUse(this.op3);
     }
 
     @Override

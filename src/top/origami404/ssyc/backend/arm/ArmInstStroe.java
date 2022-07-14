@@ -16,6 +16,9 @@ public class ArmInstStroe extends ArmInst {
         this.addr = addr;
         this.offset = new IImm(0);
         block.asElementView().add(this);
+        this.addRegUse(this.src);
+        this.addRegUse(this.addr);
+        this.addRegUse(this.offset);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
@@ -25,6 +28,9 @@ public class ArmInstStroe extends ArmInst {
         this.offset = new IImm(0);
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegUse(this.src);
+        this.addRegUse(this.addr);
+        this.addRegUse(this.offset);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset) {
@@ -33,6 +39,9 @@ public class ArmInstStroe extends ArmInst {
         this.addr = addr;
         this.offset = offset;
         block.asElementView().add(this);
+        this.addRegUse(this.src);
+        this.addRegUse(this.addr);
+        this.addRegUse(this.offset);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
@@ -42,6 +51,9 @@ public class ArmInstStroe extends ArmInst {
         this.offset = offset;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegUse(this.src);
+        this.addRegUse(this.addr);
+        this.addRegUse(this.offset);
     }
 
     @Override

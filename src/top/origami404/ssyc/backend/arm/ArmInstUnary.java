@@ -15,6 +15,8 @@ public class ArmInstUnary extends ArmInst {
         this.dst = dst;
         this.src = src;
         block.asElementView().add(this);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     public ArmInstUnary(ArmBlock block, ArmInstKind inst, Operand dst, Operand src, ArmCondType cond) {
@@ -23,6 +25,8 @@ public class ArmInstUnary extends ArmInst {
         this.src = src;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     @Override

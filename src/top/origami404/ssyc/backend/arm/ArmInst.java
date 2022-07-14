@@ -89,9 +89,23 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public void addRegUse(Operand r) {
-        if (!r.IsImm()) {
+        if (r instanceof Reg) {
             regUse.add((Reg) r);
         }
+    }
+
+    public void addRegDef(Operand r) {
+        if (r instanceof Reg) {
+            regDef.add((Reg) r);
+        }
+    }
+
+    public void delRegUse(Operand r) {
+        regUse.remove(r);
+    }
+
+    public void delRegDef(Operand r) {
+        regDef.remove(r);
     }
 
     public ArmCondType getCond() {
@@ -100,12 +114,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void setCond(ArmCondType cond) {
         this.cond = cond;
-    }
-
-    public void addRegDef(Operand r) {
-        if (!r.IsImm()) {
-            regDef.add((Reg) r);
-        }
     }
 
     @Override

@@ -16,12 +16,16 @@ public class ArmInstMove extends ArmInst {
         this.dst = dst;
         this.src = src;
         block.asElementView().add(this);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     public ArmInstMove(Operand dst, Operand src) {
         super(ArmInstKind.MOV);
         this.dst = dst;
         this.src = src;
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     public ArmInstMove(ArmBlock block, Operand dst, Operand src, ArmCondType cond) {
@@ -30,6 +34,8 @@ public class ArmInstMove extends ArmInst {
         this.src = src;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     public ArmInstMove(Operand dst, Operand src, ArmCondType cond) {
@@ -37,14 +43,8 @@ public class ArmInstMove extends ArmInst {
         this.dst = dst;
         this.src = src;
         this.setCond(cond);
-    }
-
-    public void setDst(Operand dst) {
-        this.dst = dst;
-    }
-
-    public void setSrc(Operand src) {
-        this.src = src;
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     @Override

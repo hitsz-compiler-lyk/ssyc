@@ -101,7 +101,7 @@ public class addr extends Operand {
         if (isInt) {
             return Integer.toHexString(ival);
         } else if (isFloat) {
-            return Float.toHexString(fval);
+            return Integer.toHexString(Float.floatToIntBits(fval));
         } else {
             Log.ensure(false);
             return "";

@@ -1,7 +1,6 @@
 package top.origami404.ssyc.backend.codegen;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +22,6 @@ import top.origami404.ssyc.backend.arm.ArmInstReturn;
 import top.origami404.ssyc.backend.arm.ArmInstStroe;
 import top.origami404.ssyc.backend.arm.ArmInstTernay;
 import top.origami404.ssyc.backend.arm.ArmInstUnary;
-import top.origami404.ssyc.backend.operand.FImm;
 import top.origami404.ssyc.backend.operand.FVirtualReg;
 import top.origami404.ssyc.backend.operand.IImm;
 import top.origami404.ssyc.backend.operand.IPhyReg;
@@ -36,14 +34,15 @@ import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.BoolConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
-import top.origami404.ssyc.ir.inst.AllocInst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
 import top.origami404.ssyc.ir.inst.BrCondInst;
 import top.origami404.ssyc.ir.inst.BrInst;
+import top.origami404.ssyc.ir.inst.CAllocInst;
 import top.origami404.ssyc.ir.inst.CallInst;
 import top.origami404.ssyc.ir.inst.CmpInst;
 import top.origami404.ssyc.ir.inst.FloatToIntInst;
@@ -54,9 +53,7 @@ import top.origami404.ssyc.ir.inst.LoadInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
-import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
-import top.origami404.ssyc.ir.type.IRTyKind;
 import top.origami404.ssyc.utils.Log;
 
 public class CodeGenManager {
@@ -149,8 +146,8 @@ public class CodeGenManager {
                         ResolveLoadInst((LoadInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof StoreInst) {
                         ResolveStoreInst((StoreInst) inst, armBlock, armFunc.getFuncInfo());
-                    } else if (inst instanceof AllocInst) {
-                        ResolveAllocInst((AllocInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof CAllocInst) {
+                        ResolveCAllocInst((CAllocInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof GEPInst) {
                         ResolveGEPInst((GEPInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof CallInst) {
@@ -170,6 +167,24 @@ public class CodeGenManager {
                     }
                 }
             }
+
+            for (var block : func.asElementView()) {
+                var armBlock = blockMap.get(block);
+                var phiIt = block.iterPhis();
+                while (phiIt.hasNext()) {
+                    var phi = phiIt.next();
+                    var incomingInfoIt = phi.getIncomingInfos().iterator();
+                    var phiReg = ResolveOperand(phi, armBlock, armFunc.getFuncInfo());
+                    while (incomingInfoIt.hasNext()) {
+                        var incomingInfo = incomingInfoIt.next();
+                        var src = incomingInfo.getValue();
+                        var incomingBlock = blockMap.get(incomingInfo.getBlock());
+                        var srcReg = ResolveOperand(src, incomingBlock, armFunc.getFuncInfo());
+                        new ArmInstMove(incomingBlock, phiReg, srcReg);
+                    }
+                }
+            }
+
         }
     }
 
@@ -272,25 +287,23 @@ public class CodeGenManager {
     }
 
     private Operand ResolveOperand(Value val, ArmBlock block, FunctionInfo funcinfo) {
-        if (val instanceof Constant) {
+        if (valMap.containsKey(val)) {
+            return valMap.get(val);
+        } else if (val instanceof Constant) {
             return ResolveImmOperand((Constant) val, block, funcinfo);
         } else if (val instanceof Parameter && funcinfo.getParameter().contains(val)) {
             return ResolveParameter((Parameter) val, block, funcinfo);
         } else if (val instanceof GlobalVar) {
             return ResolveGlobalVar((GlobalVar) val, block, funcinfo);
         } else {
-            if (valMap.containsKey(val)) {
-                return valMap.get(val);
+            Operand vr;
+            if (val.getType().isFloat()) {
+                vr = new FVirtualReg();
             } else {
-                Operand vr;
-                if (val.getType().isFloat()) {
-                    vr = new FVirtualReg();
-                } else {
-                    vr = new IVirtualReg();
-                }
-                valMap.put(val, vr);
-                return vr;
+                vr = new IVirtualReg();
             }
+            valMap.put(val, vr);
+            return vr;
         }
     }
 
@@ -524,7 +537,7 @@ public class CodeGenManager {
         new ArmInstMove(block, dst, vr);
     }
 
-    private void ResolveAllocInst(AllocInst inst, ArmBlock block, FunctionInfo funcinfo) {
+    private void ResolveCAllocInst(CAllocInst inst, ArmBlock block, FunctionInfo funcinfo) {
         var offset = ResolveIImmOperand(inst.getAllocSize(), block, funcinfo);
         var dst = ResolveOperand(inst, block, funcinfo);
         new ArmInstBinary(block, ArmInstKind.IAdd, dst, new IPhyReg("sp"), offset);
@@ -569,5 +582,138 @@ public class CodeGenManager {
 
         new ArmInstCmp(block, lhsReg, rhsReg, cond);
         return cond;
+    }
+
+    // code gen arm
+
+    public StringBuilder CodeGenArm() {
+        var arm = new StringBuilder();
+        arm.append(".arch armv7ve\n");
+        if (!globalvars.isEmpty()) {
+            arm.append("\n\n.data\n.align 4\n");
+        }
+        for (var entry : globalvars.entrySet()) {
+            var key = entry.getKey();
+            var val = entry.getValue().getInit();
+            arm.append(".global\t" + key + "\n" + key + ":\n");
+            if (val instanceof IntConst) {
+                arm.append(CodeGenIntConst((IntConst) val));
+            } else if (val instanceof FloatConst) {
+                arm.append(CodeGenFloatConst((FloatConst) val));
+            } else if (val instanceof ArrayConst) {
+                arm.append(CodeGenArrayConst((ArrayConst) val));
+            }
+        }
+
+        return arm;
+    }
+
+    private String CodeGenIntConst(IntConst val) {
+        return "\t" + ".long" + "\t" + Integer.toString(val.getValue()) + "\n";
+    }
+
+    private String CodeGenIntConst(int val) {
+        return "\t" + ".long" + "\t" + Integer.toString(val) + "\n";
+    }
+
+    private String CodeGenFloatConst(FloatConst val) {
+        return "\t" + ".long" + "\t" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
+    }
+
+    private String CodeGenFloatConst(Float val) {
+        return "\t" + ".long" + "\t" + Integer.toHexString(Float.floatToIntBits(val)) + "\n";
+    }
+
+    private String CodeGenArrayConst(ArrayConst val) {
+        var sb = new StringBuilder();
+        for (var elem : val.getRawElements()) {
+            if (elem instanceof IntConst) {
+                return CodeGenIntArrayConst(val);
+                // sb.append(CodeGenIntConst((IntConst) elem));
+            } else if (elem instanceof FloatConst) {
+                return CodeGenFloatArrayConst(val);
+                // sb.append(CodeGenFloatConst((FloatConst) elem));
+            } else if (elem instanceof ArrayConst) {
+                sb.append(CodeGenArrayConst((ArrayConst) elem));
+            }
+        }
+        return sb.toString();
+    }
+
+    private String CodeGenIntArrayConst(ArrayConst arr) {
+        var sb = new StringBuilder();
+        int cnt = 0, val = 0;
+        boolean frist = true;
+        for (var elem : arr.getRawElements()) {
+            Log.ensure(elem instanceof IntConst);
+            var ic = (IntConst) elem;
+            if (val == ic.getValue() && frist == false) {
+                cnt++;
+            } else {
+                if (cnt == 1) {
+                    sb.append(CodeGenIntConst(val));
+                } else if (cnt > 1) {
+                    if (val == 0) {
+                        sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                    } else {
+                        sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
+                                + Integer.toString(val) + "\n");
+                    }
+                }
+                cnt = 1;
+                val = ic.getValue();
+                frist = false;
+            }
+        }
+        if (cnt == 1) {
+            sb.append(CodeGenIntConst(val));
+        } else if (cnt > 1) {
+            if (val == 0) {
+                sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+            } else {
+                sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
+                        + Integer.toString(val) + "\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String CodeGenFloatArrayConst(ArrayConst arr) {
+        var sb = new StringBuilder();
+        int cnt = 0;
+        float val = 0;
+        boolean frist = true;
+        for (var elem : arr.getRawElements()) {
+            Log.ensure(elem instanceof FloatConst);
+            var fc = (FloatConst) elem;
+            if (val == fc.getValue() && frist == false) {
+                cnt++;
+            } else {
+                if (cnt == 1) {
+                    sb.append(CodeGenFloatConst(val));
+                } else if (cnt > 1) {
+                    if (val == 0) {
+                        sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                    } else {
+                        sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
+                                + Float.toString(val) + "\n");
+                    }
+                }
+                cnt = 1;
+                val = fc.getValue();
+                frist = false;
+            }
+        }
+        if (cnt == 1) {
+            sb.append(CodeGenFloatConst(val));
+        } else if (cnt > 1) {
+            if (val == 0) {
+                sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+            } else {
+                sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
+                        + Float.toString(val) + "\n");
+            }
+        }
+        return sb.toString();
     }
 }

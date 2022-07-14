@@ -15,6 +15,8 @@ public class ArmInstCmp extends ArmInst {
         this.rhs = rhs;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegUse(this.lhs);
+        this.addRegUse(this.rhs);
     }
 
     @Override

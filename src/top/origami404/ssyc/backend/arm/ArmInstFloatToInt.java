@@ -14,6 +14,8 @@ public class ArmInstFloatToInt extends ArmInst {
         this.dst = dst;
         this.src = src;
         block.asElementView().add(this);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.src);
     }
 
     @Override

@@ -69,6 +69,10 @@ public abstract class Operand {
         return !IsVirtual();
     }
 
+    public boolean IsReg() {
+        return !IsIImm() && s != opType.Addr;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Operand)) {

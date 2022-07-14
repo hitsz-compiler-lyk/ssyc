@@ -33,6 +33,9 @@ public class ArmInstBinary extends ArmInst {
         this.lhs = lhs;
         this.rhs = rhs;
         block.asElementView().add(this);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.lhs);
+        this.addRegUse(this.rhs);
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -42,6 +45,9 @@ public class ArmInstBinary extends ArmInst {
         this.rhs = rhs;
         block.asElementView().add(this);
         this.setCond(cond);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.lhs);
+        this.addRegUse(this.rhs);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
@@ -49,6 +55,9 @@ public class ArmInstBinary extends ArmInst {
         this.dst = dst;
         this.lhs = lhs;
         this.rhs = rhs;
+        this.addRegDef(this.dst);
+        this.addRegUse(this.lhs);
+        this.addRegUse(this.rhs);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -57,6 +66,9 @@ public class ArmInstBinary extends ArmInst {
         this.lhs = lhs;
         this.rhs = rhs;
         this.setCond(cond);
+        this.addRegDef(this.dst);
+        this.addRegUse(this.lhs);
+        this.addRegUse(this.rhs);
     }
 
     @Override
