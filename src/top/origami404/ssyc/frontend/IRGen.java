@@ -1,6 +1,8 @@
 package top.origami404.ssyc.frontend;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -15,10 +17,12 @@ import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
-import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.inst.CAllocInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.PhiInst;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
 import top.origami404.ssyc.utils.ChainMap;
 import top.origami404.ssyc.utils.Log;
@@ -96,7 +100,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         for (final var exp : ctx.exp()) {
             final var num = visitExp(exp);
             if (num instanceof IntConst) {
-            final var ic = (IntConst) num;
+                final var ic = (IntConst) num;
                 shape.add(ic.getValue());
             } else {
                 throw new RuntimeException("exp in lValExp must be an integer constant");
@@ -186,12 +190,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
                     throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
                 }
 
-                // 全局常量需要特别放到全局常量表中
-                final var constant = (Constant) value;
-                if (inGlobal()) {
-                    currModule.getConstants().put(name, constant);
-                }
-
                 // 局部跟全局常量都丢到 finalInfo 中
                 finalInfo.newDef(variable, value);
 
@@ -227,6 +225,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                         currModule.getVariables().put(name, global);
                         finalInfo.newDef(variable, global);
+
+                        arrayConst.setName(name + "$init");
+                        currModule.getArrayConstants().put(name + "$init", arrayConst);
                     } else {
                         throw new RuntimeException();
                     }
@@ -240,7 +241,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                 // 分配数组空间, 并且定义数组;
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
-                final var arrPtr = new AllocInst(type);
+                Log.ensure(type instanceof ArrayIRTy);
+                final var arrPtr = new CAllocInst((ArrayIRTy) type);
                 finalInfo.newDef(variable, arrPtr);
 
                 // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
@@ -255,6 +257,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 全局数组只能使用常量来初始化, 所以不用担心全局数组的指令放哪
                 final var init = makeArrayConstAndInsertStoreForNonConst(arrPtr, initValue);
                 memInitInst.setInit(init);
+
+                // 把当前的初始值加入到全局常量数组中去
+                final var initName = "@" + name.substring(1) + "$init";
+                init.setName(initName);
+                currModule.getArrayConstants().put(initName, init);
             }
 
         }
@@ -461,15 +468,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private Optional<Value> findArray(String name) {
-        // 数组必然是 final, 因为数组被翻译成 IR 中数组的指针
-        // 而数组指针指向谁永远不会变
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
-        return scope.get(name)
-            .map(ScopeEntry::var)
-            .flatMap(finalInfo::getArrayVar);
-    }
-
     private void ensureInitValIsExp(InitValContext ctx) {
         if (ctx.exp() == null) {
             throw new SemanticException(ctx, "Except a normal expression here");
@@ -594,18 +592,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var lValResult = visitLVal(ctx.lVal());
 
         if (lValResult.isVar) {
-            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-            final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
-
             final var variable = lValResult.var;
-            final var type = scope.get(variable.name)
-                .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + variable.name))
-                .type;
+            final var type = lValResult.type;
 
             // 如果在全局的 finalInfo 与当前块的 versionInfo 里都找不到这个变量的话
             // 就先插入一个空白的 phi 当作定义
-            return finalInfo.getDef(variable)
-                .or(() -> versionInfo.getDef(variable))
+            return findVariable(variable)
                 .orElseGet(() -> builder.insertEmptyPhi(type, variable));
 
         } else {
@@ -613,8 +605,27 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
+    private Optional<Value> findVariable(Variable variable) {
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+
+        // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
+        final var finalDef = finalInfo.getDef(variable);
+        final var currDef = versionInfo.getDef(variable);
+        final var def = mergeOpt(finalDef, currDef);
+
+        // 对全局变量而言, 不管是变量还是数组, 都要 Load 进来才算
+        return def.map(v -> {
+            if (v instanceof GlobalVar) {
+                return builder.insertLoad(v);
+            } else {
+                return v;
+            }
+        });
+    }
+
     private static int parseInt(String text) {
-        if (text.length() >= 2 && text.charAt(1) == 'x' || text.charAt(1) == 'X') {
+        if (text.length() >= 2 && (text.charAt(1) == 'x' || text.charAt(1) == 'X')) {
             return Integer.parseInt(text.substring(2), 16);
         } else if (text.charAt(0) == '0') {
             if (text.equals("0")) {
@@ -632,13 +643,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     static class LValResult {
-        public LValResult(boolean isVar, Variable var, GEPInst gep) {
+        public LValResult(boolean isVar, IRType type, Variable var, GEPInst gep) {
             this.isVar = isVar;
+            this.type = type;
             this.var = var;
             this.gep = gep;
         }
 
         final boolean isVar;
+        final IRType type;
         final Variable var;
         final GEPInst gep;
     }
@@ -648,23 +661,34 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var name = ctx.Ident().getText();
         final var entry = scope.get(name)
             .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
-        final var variable = entry.var;
 
         final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
         if (indices.isEmpty()) {
-            return new LValResult(true, variable, null);
+            return new LValResult(true, entry.type, entry.var, null);
 
         } else {
-            // 因为数组本身就带一个指针
-            final var prefixedIndices = new ArrayList<Value>();
-            prefixedIndices.add(Constant.INT_0);
-            prefixedIndices.addAll(indices);
-
             final var arrPtr = findArray(name)
-                .orElseThrow(() -> new SemanticException(ctx, "Not a function: " + name));
-            final var gep = builder.insertGEP(arrPtr, prefixedIndices);
+                .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
+            final var gep = builder.insertGEP(arrPtr, indices);
 
-            return new LValResult(false, null, gep);
+            return new LValResult(false, entry.type, entry.var, gep);
+        }
+    }
+
+    private Optional<Value> findArray(String name) {
+        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
+        // 而那个指针指向谁永远不会变
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        return scope.get(name)
+                .map(ScopeEntry::var)
+                .flatMap(finalInfo::getArrayVar);
+    }
+
+    private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
+        if (first.isPresent()) {
+            return first;
+        } else {
+            return second;
         }
     }
 
@@ -749,7 +773,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.stmtPutf() != null) {
             // TODO: 似乎不需要支持 putf ?
             throw new SemanticException(ctx, "Unsupported putf now");
-        } else if (ctx.exp() != null) {
+        } else if (ctx.exp() != null && ctx.Return() == null) {
             visitExp(ctx.exp());
         } else if (ctx.lVal() != null) {
             // 赋值语句
@@ -779,14 +803,19 @@ public class IRGen extends SysYBaseVisitor<Object> {
             } else {
                 builder.insertReturn();
             }
-        } else {/* 空语句, 啥也不干 */}
+        } else {
+            /* 空语句, 啥也不干 */
+            throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
+        }
 
         return null;
     }
 
     @Override
     public Void visitBlock(BlockContext ctx) {
+        scope = new ChainMap<>(scope);
         ctx.children.forEach(this::visit);
+        scope = scope.getParent().orElseThrow(() -> new SemanticException(ctx, "Reach scope top"));
         return null;
     }
 
@@ -1062,12 +1091,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (type instanceof SimpleIRTy) {
             // 普通类型的值直接按值传递
             return type;
+        } else if (type instanceof PointerIRTy) {
+            // 是指针类型的话, 说明第一维被省略了, 已经被退化了, 直接原样返回
+            return type;
+        } else if (type instanceof ArrayIRTy) {
+            // 是数组类型则进行退化, 比如 [2 x [3 x i32]] --> *[3 x i32]
+            return IRType.createPtrTy(((ArrayIRTy) type).getElementType());
         } else {
-            // 数组类型的参数就传递数组的指针
-
-            // 第零维为空的数组会被 createTypeByShape 翻译成指针
-            // 所以不管 type 是指针还是数组, 都得再套一层指针
-            return IRType.createPtrTy(type);
+            throw new RuntimeException("Unknown function parameter type: " + type);
         }
     }
 

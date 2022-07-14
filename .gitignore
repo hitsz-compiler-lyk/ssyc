@@ -21,6 +21,7 @@ test-data/**/*.return
 test-data/**/*.res
 test-data/**/*.s
 test-data/**/*.llvm
+test-data/**/*.exec
 
 # VSCode Antlr extension cache
 .antlr

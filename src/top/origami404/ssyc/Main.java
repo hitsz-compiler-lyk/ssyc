@@ -1,20 +1,24 @@
 package top.origami404.ssyc;
 
 import java.io.*;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.*;
 
 import top.origami404.ssyc.frontend.*;
+import top.origami404.ssyc.utils.LLVMDumper;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        if (args.length != 4) {
+        if (args.length != 3) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
+            throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
         }
 
-        final var target = args[1];
-        final var inputStream = openInput(args[2]);
-        final var outputStream = openOutput(args[3]);
+        final var target = args[0];
+        final var inputStream = openInput(args[1]);
+        final var outputStream = openOutput(args[2]);
         final var writer = new OutputStreamWriter(outputStream);
 
         final var input = CharStreams.fromStream(inputStream);
@@ -27,20 +31,17 @@ public class Main {
             case "ast" -> {
                 writer.write(DebugTools.toDebugTreeString(ruleContext).toString());
                 writer.write("\n");
+                writer.close();
             }
 
             case "llvm" -> {
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
-                // TODO: llvm ir dump
-                writer.append("define dso_local i32 @main() #0 {\n");
-                writer.append("  %1 = alloca i32, align 4\n");
-                writer.append("  store i32 0, i32* %1, align 4\n");
-                writer.append("  ret i32 0\n");
-                writer.append("}\n");
-                writer.append("\n");
-                writer.append("attributes #0 = { noinline nounwind optnone \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"frame-pointer\"=\"all\" \"less-precise-fpmad\"=\"false\" \"min-legal-vector-width\"=\"0\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"arm7tdmi\" \"target-features\"=\"+armv4t,+strict-align,-thumb-mode\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }\n");
+
+                final var dumper = new LLVMDumper(outputStream);
+                dumper.dump(module);
+                dumper.close();
             }
 
             case "asm" -> {
@@ -49,6 +50,7 @@ public class Main {
                 writer.append("main:\n");
                 writer.append("    mov r0, #1\n");
                 writer.append("    bx lr\n");
+                writer.close();
             }
 
             default -> {
@@ -56,7 +58,8 @@ public class Main {
             }
         }
 
-        writer.close();
+        inputStream.close();
+        outputStream.close();
     }
 
     private static InputStream openInput(String filename) throws FileNotFoundException {
@@ -67,11 +70,13 @@ public class Main {
         return new FileInputStream(filename);
     }
 
-    private static OutputStream openOutput(String filename) throws FileNotFoundException {
+    private static OutputStream openOutput(String filename) throws IOException {
         if (filename.equals("-")) {
             return System.out;
         }
 
-        return new FileOutputStream(filename);
+        final var file = new File(filename);
+        file.createNewFile();
+        return new FileOutputStream(file);
     }
 }

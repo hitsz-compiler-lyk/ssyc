@@ -53,12 +53,17 @@ public class ArrayConst extends Constant {
     }
 
     public void addZeroTo(int targetSize) {
-        final var elmTy = ((ArrayIRTy) getType()).getElementType();
+        final var elmTy = getType().getElementType();
         final var zero = Constant.getZeroByType(elmTy);
 
         while (elements.size() < targetSize) {
             elements.add(zero);
         }
+    }
+
+    @Override
+    public ArrayIRTy getType() {
+        return (ArrayIRTy) super.getType();
     }
 
     /**

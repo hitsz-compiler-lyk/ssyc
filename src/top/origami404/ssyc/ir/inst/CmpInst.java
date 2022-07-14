@@ -26,8 +26,8 @@ public class CmpInst extends Instruction {
         final var lhsType = lhs.getType();
         final var rhsType = rhs.getType();
 
-        ensure(thisType.isInt() || thisType.isFloat(),
-                "Type of a CmpInst must either be Int or be Float");
+        ensure(thisType.isBool(),
+                "Type of a CmpInst must be Bool");
         ensure((getKind().isInt() && thisType.isInt()) || (getKind().isFloat()) && thisType.isFloat(),
                 "Type of a CmpInst must match its kind");
         ensure(thisType.equals(lhsType) && thisType.equals(rhsType),

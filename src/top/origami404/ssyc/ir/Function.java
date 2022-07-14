@@ -16,9 +16,12 @@ public class Function extends Value
         super(makeFunctionIRTypeFromParameters(returnType, params));
         super.setName('@' + funcName);
 
-        this.bblocks = new IList<>(this);
+        this.parameters = params;
 
-        bblocks.add(BasicBlock.createBBlockCO(this, funcName + "_entry"));
+        this.bblocks = new IList<>(this);
+        BasicBlock.createBBlockCO(this, funcName + "_entry");
+
+        this.analysisInfos = new HashMap<>();
     }
 
     public String getFuncName() {

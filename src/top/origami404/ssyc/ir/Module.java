@@ -1,18 +1,23 @@
 package top.origami404.ssyc.ir;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.constant.ArrayConst;
 
 public class Module {
+    public Module() {
+        this.functions = new HashMap<>();
+        this.variables = new HashMap<>();
+        this.arrayConst = new HashMap<>();
+    }
+
     public Map<String, Function> getFunctions() {
         return functions;
     }
 
-    public Map<String, Constant> getConstants() {
-        return constants;
+    public Map<String, ArrayConst> getArrayConstants() {
+        return arrayConst;
     }
 
     public Map<String, GlobalVar> getVariables() {
@@ -28,12 +33,12 @@ public class Module {
             global.verifyAll();
         }
 
-        for (final var constant : constants.values()) {
+        for (final var constant : arrayConst.values()) {
             constant.verifyAll();
         }
     }
 
-    private Map<String, Function> functions;
-    private Map<String, GlobalVar> variables;
-    private Map<String, Constant> constants;
+    private final Map<String, Function> functions;
+    private final Map<String, GlobalVar> variables;
+    private final Map<String, ArrayConst> arrayConst;
 }

@@ -5,10 +5,11 @@ import java.util.Optional;
 
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.GlobalVar;
+import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.inst.CAllocInst;
 
 // 这里的 "常量" 并非指 IR 中的 "Constant";
 // IR 中的 Constant 是指在编译期能立即得到值的东西 (本身绝大部分 IR 就已经都是不可变的了)
@@ -45,12 +46,13 @@ public class FinalInfo implements AnalysisInfo {
     public Optional<Value> getArrayVar(Variable var) {
         final var opt = getDef(var);
         opt.ifPresent(v -> {
-            final var isAlloc = v instanceof AllocInst;
+            final var isCAlloc = v instanceof CAllocInst;
             final var isGlobalPtr = v instanceof GlobalVar && v.getType().isPtr();
+            final var isParameter = v instanceof Parameter && v.getType().isPtr();
 
-            if (!isAlloc && !isGlobalPtr) {
+            if (!isCAlloc && !isGlobalPtr && !isParameter) {
                 throw new RuntimeException(
-                    "An array final var must bind to an AllocInst or Global variable to a pointer");
+                    "An array final var must bind to an CAllocInst or Global variable or a Parameter to a pointer");
             }
         });
 
