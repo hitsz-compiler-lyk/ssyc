@@ -1,10 +1,8 @@
 package top.origami404.ssyc.utils;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Function;
+import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.Parameter;
-import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
@@ -24,21 +22,52 @@ import java.util.stream.Collectors;
 
 public class LLVMDumper {
     public LLVMDumper(OutputStream outStream) {
-        this.outStream = outStream;
         this.writer = new PrintWriter(outStream);
     }
 
     public void dump(Module module) {
+        for (final var arrayConst : module.getArrayConstants().values()) {
+            dumpGlobalConstant(arrayConst);
+        }
+
+        for (final var global : module.getVariables().values()) {
+            dumpGlobalVariable(global);
+        }
+
         for (final var func : module.getFunctions().values()) {
             dumpFunction(func);
         }
     }
 
     private void dumpFunction(Function function) {
+        ir("define dso_local global <return-ty> <func-name>(<param*>) {",
+                function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
 
+        for (final var block : function.asElementView()) {
+            ir("<label>:", block.getLabelName());
+            block.asElementView().forEach(this::dumpInstruction);
+        }
+
+        ir("}");
+    }
+
+    private void dumpGlobalVariable(GlobalVar gv) {
+        final var name = gv.getName();
+        final var init = gv.getInit();
+        final var baseType = gv.getType().getBaseType();
+
+        if (baseType instanceof PointerIRTy) { // array
+            ir("<name>$addr = dso_local global <arr-ptr-type> getelementptr inbounds (<base-type>, <init>, i32 0, i32 0), align 4",
+                    name, baseType, init.getType(), init);
+
+        } else { // variable
+            ir("<name> = dso_local global <init>, align 4", name, init);
+        }
     }
 
     private void dumpInstruction(Instruction inst) {
+        writer.print("  "); // indent
+
         // 因为 CAlloc 与 LLVM IR 中的 Alloc 的不同之处, CAlloc 语句虽然不是 VoidType, 也不能直接写成 %n = xxx 的形式
         if (!inst.getType().isVoid() && !(inst instanceof CAllocInst)) {
             writer.print(inst.getName() + " = "); // "%1 = "
@@ -139,7 +168,7 @@ public class LLVMDumper {
 
     private void dumpGlobalConstant(Constant constant) {
         if (constant instanceof ArrayConst) {
-            ir("<name> = private unnamed_addr constant <constant>", constant.getName(), dumpConstant(constant));
+            ir("<name> = dso_local global <constant>, align 4", constant.getName(), dumpConstant(constant));
         } else {
             throw new RuntimeException("Global constant should only be array");
         }
@@ -247,6 +276,5 @@ public class LLVMDumper {
         return list.stream().map(this::getReference).collect(Collectors.joining(", "));
     }
 
-    private OutputStream outStream;
-    private PrintWriter writer;
+    private final PrintWriter writer;
 }

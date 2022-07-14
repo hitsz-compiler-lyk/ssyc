@@ -183,7 +183,7 @@ public class BasicBlock extends Value
         }
     }
 
-    String getLabelName() {
+    public String getLabelName() {
         // 去除最前面的 '%'
         return getName().substring(1);
     }
