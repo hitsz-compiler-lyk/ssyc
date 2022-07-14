@@ -9,8 +9,8 @@ public class GlobalVar extends Value {
         return new GlobalVar(IRType.createPtrTy(varType), name, init);
     }
 
-    public static GlobalVar createGlobalArray(IRType arrType, String name, ArrayConst init) {
-        return new GlobalVar(IRType.createPtrTy(arrType), name, init);
+    public static GlobalVar createGlobalArray(IRType arrPtr, String name, ArrayConst init) {
+        return new GlobalVar(arrPtr, name, init);
     }
 
     public Constant getInit() {
