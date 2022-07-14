@@ -21,5 +21,13 @@ public class FloatConst extends Constant {
                 "Float 0 should be unique");
     }
 
+    @Override
+    public String toString() {
+        final var lifted = (double) value;
+        final var bits = Double.doubleToLongBits(lifted);
+        final var hex = Long.toHexString(bits).toUpperCase();
+        return "0x" + hex;
+    }   
+
     private final float value;
 }

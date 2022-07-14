@@ -1,10 +1,17 @@
 package top.origami404.ssyc.ir;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import top.origami404.ssyc.ir.constant.ArrayConst;
 
 public class Module {
+    public Module() {
+        this.functions = new HashMap<>();
+        this.variables = new HashMap<>();
+        this.arrayConst = new HashMap<>();
+    }
+
     public Map<String, Function> getFunctions() {
         return functions;
     }
@@ -31,7 +38,7 @@ public class Module {
         }
     }
 
-    private Map<String, Function> functions;
-    private Map<String, GlobalVar> variables;
-    private Map<String, ArrayConst> arrayConst;
+    private final Map<String, Function> functions;
+    private final Map<String, GlobalVar> variables;
+    private final Map<String, ArrayConst> arrayConst;
 }

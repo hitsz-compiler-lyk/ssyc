@@ -7,6 +7,7 @@ import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.*;
+import top.origami404.ssyc.utils.IList.IListElementIterator;
 
 public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
@@ -31,12 +32,14 @@ public class BasicBlock extends Value
         super.setName("%" + labelName);
 
         this.instructions = new IList<>(this);
-        this.inode = new INode<>(this, func.getIList());
+        this.inode = new INode<>(this);
         // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
         // func.getIList().add(this);
 
         this.phiEnd = instructions.listIterator();
         this.predecessors = new ArrayList<>();
+
+        this.analysisInfos = new HashMap<>();
     }
 
     public IList<Instruction, BasicBlock> getIList() {
@@ -75,7 +78,7 @@ public class BasicBlock extends Value
     }
 
     public Iterable<Instruction> nonPhis() {
-        return () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd);
+        return () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd.clone());
     }
 
     public Iterable<Instruction> nonTerminator() {
@@ -94,10 +97,10 @@ public class BasicBlock extends Value
 
     private ListIterator<Instruction> lastButNoTerminator() {
         final var instCnt = getInstructionCount();
-        if (instCnt > 1) {
-            return instructions.listIterator(getInstructionCount() - 2);
+        if (instCnt >= 1) {
+            return instructions.listIterator(instCnt - 1);
         } else {
-            return IteratorTools.emptyIter();
+            return instructions.listIterator();
         }
     }
 
@@ -183,13 +186,13 @@ public class BasicBlock extends Value
         }
     }
 
-    String getLabelName() {
+    public String getLabelName() {
         // 去除最前面的 '%'
         return getName().substring(1);
     }
 
     private IList<Instruction, BasicBlock> instructions;
-    private ListIterator<Instruction> phiEnd;
+    private IList<Instruction, BasicBlock>.IListElementIterator phiEnd;
     private INode<BasicBlock, Function> inode;
     private Map<String, AnalysisInfo> analysisInfos;
     private List<BasicBlock> predecessors;

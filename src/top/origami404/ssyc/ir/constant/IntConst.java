@@ -21,5 +21,10 @@ public class IntConst extends Constant {
                 "Int 0 should be unique");
     }
 
+    @Override
+    public String toString() {
+        return Integer.toString(value);
+    }
+
     private final int value;
 }
