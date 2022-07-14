@@ -31,6 +31,7 @@ public class Main {
             case "ast" -> {
                 writer.write(DebugTools.toDebugTreeString(ruleContext).toString());
                 writer.write("\n");
+                writer.close();
             }
 
             case "llvm" -> {
@@ -40,6 +41,7 @@ public class Main {
 
                 final var dumper = new LLVMDumper(outputStream);
                 dumper.dump(module);
+                dumper.close();
             }
 
             case "asm" -> {
@@ -48,6 +50,7 @@ public class Main {
                 writer.append("main:\n");
                 writer.append("    mov r0, #1\n");
                 writer.append("    bx lr\n");
+                writer.close();
             }
 
             default -> {
@@ -55,7 +58,8 @@ public class Main {
             }
         }
 
-        writer.close();
+        inputStream.close();
+        outputStream.close();
     }
 
     private static InputStream openInput(String filename) throws FileNotFoundException {

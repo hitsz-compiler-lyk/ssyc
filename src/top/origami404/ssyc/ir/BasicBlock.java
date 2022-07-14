@@ -32,7 +32,7 @@ public class BasicBlock extends Value
         super.setName("%" + labelName);
 
         this.instructions = new IList<>(this);
-        this.inode = new INode<>(this, func.getIList());
+        this.inode = new INode<>(this);
         // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
         // func.getIList().add(this);
 
@@ -97,10 +97,10 @@ public class BasicBlock extends Value
 
     private ListIterator<Instruction> lastButNoTerminator() {
         final var instCnt = getInstructionCount();
-        if (instCnt > 1) {
-            return instructions.listIterator(getInstructionCount() - 2);
+        if (instCnt >= 1) {
+            return instructions.listIterator(instCnt - 1);
         } else {
-            return IteratorTools.emptyIter();
+            return instructions.listIterator();
         }
     }
 

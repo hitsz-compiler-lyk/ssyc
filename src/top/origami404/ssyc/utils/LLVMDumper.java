@@ -25,6 +25,10 @@ public class LLVMDumper {
         this.writer = new PrintWriter(outStream);
     }
 
+    public void close() {
+        this.writer.close();
+    }
+
     public void dump(Module module) {
         for (final var arrayConst : module.getArrayConstants().values()) {
             dumpGlobalConstant(arrayConst);
@@ -121,7 +125,13 @@ public class LLVMDumper {
                     String.join(", ", incomingStrings));
 
         } else if (inst instanceof ReturnInst) {
-            ir("ret <val>", ((ReturnInst) inst).getReturnValue());
+            final var returnVal = ((ReturnInst) inst).getReturnValue();
+
+            if (returnVal.isPresent()) {
+                ir("ret <val>", returnVal.get());
+            } else {
+                ir("ret void");
+            }
 
         } else if (inst instanceof CallInst) {
             final var call = (CallInst) inst;
