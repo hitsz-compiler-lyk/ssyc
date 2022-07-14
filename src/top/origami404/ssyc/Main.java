@@ -1,6 +1,8 @@
 package top.origami404.ssyc;
 
 import java.io.*;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.*;
 
@@ -9,13 +11,14 @@ import top.origami404.ssyc.utils.LLVMDumper;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        if (args.length != 4) {
+        if (args.length != 3) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
+            throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
         }
 
-        final var target = args[1];
-        final var inputStream = openInput(args[2]);
-        final var outputStream = openOutput(args[3]);
+        final var target = args[0];
+        final var inputStream = openInput(args[1]);
+        final var outputStream = openOutput(args[2]);
         final var writer = new OutputStreamWriter(outputStream);
 
         final var input = CharStreams.fromStream(inputStream);
@@ -63,11 +66,13 @@ public class Main {
         return new FileInputStream(filename);
     }
 
-    private static OutputStream openOutput(String filename) throws FileNotFoundException {
+    private static OutputStream openOutput(String filename) throws IOException {
         if (filename.equals("-")) {
             return System.out;
         }
 
-        return new FileOutputStream(filename);
+        final var file = new File(filename);
+        file.createNewFile();
+        return new FileOutputStream(file);
     }
 }

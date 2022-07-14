@@ -107,7 +107,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
     }
 
     public class IListElementIterator implements ListIterator<E> {
-        private IListIterator iter;
+        private final IListIterator iter;
         public IListElementIterator(int index) {
             this.iter = new IListIterator(index);
         }
@@ -147,9 +147,13 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         private IteratorActionKind lastMoved;               // 最后一次调用移动性方法是什么方法
 
         public IListIterator(int index) {
-            final var node = IList.this.getKthNode(index);
+            if (index > 0) {
+                final var node = IList.this.getKthNode(index - 1);
+                this.nextNode = Optional.of(node);
+            } else {
+                this.nextNode = Optional.empty();
+            }
 
-            this.nextNode = Optional.of(node);
             this.prevNode = nextNode.flatMap(INode::getPrev);
             this.tempNode = null;
             this.lastModified = IteratorActionKind.OTHER;

@@ -64,7 +64,7 @@ def ssyc(option: str) -> Callable[[str, str], None]:
         sh(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst}')
     return do
 
-ssyc_llvm = one_pass('ssyc', '.sy', '.llvm')(ssyc('llvm-ir'))
+ssyc_llvm = one_pass('ssyc', '.sy', '.llvm')(ssyc('llvm'))
 
 # Check that: https://stackoverflow.com/questions/62436694/why-cant-gcc-compile-assembly-produced-by-clang
 clang_cmd = 'clang -I/usr/arm-linux-gnueabihf/include -no-integrated-as -target armv7-linux-gnueabihf -static -g0'
