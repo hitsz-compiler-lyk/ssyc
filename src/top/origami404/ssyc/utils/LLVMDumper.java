@@ -5,7 +5,10 @@ import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
+import top.origami404.ssyc.ir.constant.FloatConst;
+import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRTyKind;
@@ -36,7 +39,8 @@ public class LLVMDumper {
     }
 
     private void dumpInstruction(Instruction inst) {
-        if (!inst.getType().isVoid()) {
+        // 因为 CAlloc 与 LLVM IR 中的 Alloc 的不同之处, CAlloc 语句虽然不是 VoidType, 也不能直接写成 %n = xxx 的形式
+        if (!inst.getType().isVoid() && !(inst instanceof CAllocInst)) {
             writer.print(inst.getName() + " = "); // "%1 = "
         }
 
@@ -97,9 +101,11 @@ public class LLVMDumper {
                 call.getCallee().getName(),
                 joinWithRef(call.getArgList()));
 
-        } else if (inst instanceof AllocInst) {
-            final var alloc = (AllocInst) inst;
-            ir("alloca <base-type>, align 8", alloc.getType().getBaseType());
+        } else if (inst instanceof CAllocInst) {
+            final var calloc = (CAllocInst) inst;
+            ir("<calloc-name>$alloca = alloca <base-type>, align 8", calloc.getName(), calloc.getAllocType());
+            ir("<calloc-name> = getelementptr <base-type> <calloc-name>$alloca i32 0, i32 0",
+                    calloc.getName(), calloc.getAllocType(), calloc.getName());
 
         } else if (inst instanceof GEPInst) {
             final var gep = (GEPInst) inst;
@@ -120,8 +126,8 @@ public class LLVMDumper {
             final var meminit = (MemInitInst) inst;
             final var size = ((PointerIRTy) meminit.getArrayPtr().getType()).getBaseType().getSize();
             final var fmt = "call void @llvm.memcpy.p0i8.p0i8.i32("
-                          + "i8* align 4 bitcase (<src> to i8*), "
-                          + "i8* align 4 bitcase (<dst> to i8*), "
+                          + "i8* align 4 bitcast (<src> to i8*), "
+                          + "i8* align 4 bitcast (<dst> to i8*), "
                           + "i32 <size>, i1 false)";
             ir(fmt, meminit.getArrayPtr(), meminit.getInit(), size);
 
@@ -131,9 +137,31 @@ public class LLVMDumper {
 
     }
 
-    private String dumpArrayConstant(Constant constant) {
-        throw new UnsupportedOperationException("TODO");
-        // TODO Constant dump
+    private void dumpGlobalConstant(Constant constant) {
+        if (constant instanceof ArrayConst) {
+            ir("<name> = private unnamed_addr constant <constant>", constant.getName(), dumpConstant(constant));
+        } else {
+            throw new RuntimeException("Global constant should only be array");
+        }
+    }
+
+    private String dumpConstant(Constant constant) {
+        if (constant instanceof IntConst) {
+            return getReference(constant);
+
+        } else if (constant instanceof FloatConst) {
+            return getReference(constant);
+
+        } else if (constant instanceof ArrayConst) {
+            final var type = dumpIRType(constant.getType());
+            final var elms = ((ArrayConst) constant).getRawElements().stream()
+                .map(this::dumpConstant)
+                .collect(Collectors.joining(", "));
+            return "%s [%s]".formatted(type, elms);
+
+        } else {
+            throw new RuntimeException("Unknown constant type: " + constant);
+        }
     }
 
 
