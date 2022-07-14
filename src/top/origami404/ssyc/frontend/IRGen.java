@@ -190,12 +190,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
                     throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
                 }
 
-                // 全局常量需要特别放到全局常量表中
-                final var constant = (Constant) value;
-                if (inGlobal()) {
-                    currModule.getConstants().put(name, constant);
-                }
-
                 // 局部跟全局常量都丢到 finalInfo 中
                 finalInfo.newDef(variable, value);
 
@@ -231,6 +225,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                         currModule.getVariables().put(name, global);
                         finalInfo.newDef(variable, global);
+
+                        arrayConst.setName(name + "$init");
+                        currModule.getArrayConstants().put(name + "$init", arrayConst);
                     } else {
                         throw new RuntimeException();
                     }
@@ -260,6 +257,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 全局数组只能使用常量来初始化, 所以不用担心全局数组的指令放哪
                 final var init = makeArrayConstAndInsertStoreForNonConst(arrPtr, initValue);
                 memInitInst.setInit(init);
+
+                // 把当前的初始值加入到全局常量数组中去
+                final var initName = "@" + name.substring(1) + "$init";
+                init.setName(initName);
+                currModule.getArrayConstants().put(initName, init);
             }
 
         }
@@ -466,15 +468,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private Optional<Value> findArray(String name) {
-        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
-        // 而那个指针指向谁永远不会变
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
-        return scope.get(name)
-            .map(ScopeEntry::var)
-            .flatMap(finalInfo::getArrayVar);
-    }
-
     private void ensureInitValIsExp(InitValContext ctx) {
         if (ctx.exp() == null) {
             throw new SemanticException(ctx, "Except a normal expression here");
@@ -599,23 +592,36 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var lValResult = visitLVal(ctx.lVal());
 
         if (lValResult.isVar) {
-            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-            final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
-
             final var variable = lValResult.var;
-            final var type = scope.get(variable.name)
-                .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + variable.name))
-                .type;
+            final var type = lValResult.type;
 
             // 如果在全局的 finalInfo 与当前块的 versionInfo 里都找不到这个变量的话
             // 就先插入一个空白的 phi 当作定义
-            return finalInfo.getDef(variable)
-                .or(() -> versionInfo.getDef(variable))
+            return findVariable(variable)
                 .orElseGet(() -> builder.insertEmptyPhi(type, variable));
 
         } else {
             return builder.insertLoad(lValResult.gep);
         }
+    }
+
+    private Optional<Value> findVariable(Variable variable) {
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+
+        // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
+        final var finalDef = finalInfo.getDef(variable);
+        final var currDef = versionInfo.getDef(variable);
+        final var def = mergeOpt(finalDef, currDef);
+
+        // 对全局变量而言, 不管是变量还是数组, 都要 Load 进来才算
+        return def.map(v -> {
+            if (v instanceof GlobalVar) {
+                return builder.insertLoad(v);
+            } else {
+                return v;
+            }
+        });
     }
 
     private static int parseInt(String text) {
@@ -637,13 +643,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     static class LValResult {
-        public LValResult(boolean isVar, Variable var, GEPInst gep) {
+        public LValResult(boolean isVar, IRType type, Variable var, GEPInst gep) {
             this.isVar = isVar;
+            this.type = type;
             this.var = var;
             this.gep = gep;
         }
 
         final boolean isVar;
+        final IRType type;
         final Variable var;
         final GEPInst gep;
     }
@@ -653,18 +661,34 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var name = ctx.Ident().getText();
         final var entry = scope.get(name)
             .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
-        final var variable = entry.var;
 
         final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
         if (indices.isEmpty()) {
-            return new LValResult(true, variable, null);
+            return new LValResult(true, entry.type, entry.var, null);
 
         } else {
             final var arrPtr = findArray(name)
                 .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
             final var gep = builder.insertGEP(arrPtr, indices);
 
-            return new LValResult(false, null, gep);
+            return new LValResult(false, entry.type, entry.var, gep);
+        }
+    }
+
+    private Optional<Value> findArray(String name) {
+        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
+        // 而那个指针指向谁永远不会变
+        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
+        return scope.get(name)
+                .map(ScopeEntry::var)
+                .flatMap(finalInfo::getArrayVar);
+    }
+
+    private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
+        if (first.isPresent()) {
+            return first;
+        } else {
+            return second;
         }
     }
 
