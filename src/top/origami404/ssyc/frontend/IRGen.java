@@ -625,7 +625,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static int parseInt(String text) {
-        if (text.length() >= 2 && text.charAt(1) == 'x' || text.charAt(1) == 'X') {
+        if (text.length() >= 2 && (text.charAt(1) == 'x' || text.charAt(1) == 'X')) {
             return Integer.parseInt(text.substring(2), 16);
         } else if (text.charAt(0) == '0') {
             if (text.equals("0")) {
@@ -773,7 +773,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.stmtPutf() != null) {
             // TODO: 似乎不需要支持 putf ?
             throw new SemanticException(ctx, "Unsupported putf now");
-        } else if (ctx.exp() != null) {
+        } else if (ctx.exp() != null && ctx.Return() == null) {
             visitExp(ctx.exp());
         } else if (ctx.lVal() != null) {
             // 赋值语句
@@ -803,14 +803,19 @@ public class IRGen extends SysYBaseVisitor<Object> {
             } else {
                 builder.insertReturn();
             }
-        } else {/* 空语句, 啥也不干 */}
+        } else {
+            /* 空语句, 啥也不干 */
+            throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
+        }
 
         return null;
     }
 
     @Override
     public Void visitBlock(BlockContext ctx) {
+        scope = new ChainMap<>(scope);
         ctx.children.forEach(this::visit);
+        scope = scope.getParent().orElseThrow(() -> new SemanticException(ctx, "Reach scope top"));
         return null;
     }
 

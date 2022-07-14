@@ -69,14 +69,13 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
      * @param k 节点序号
      * @return 第 k 个节点 (从 0 开始编号)
      */
-    private INode<E, P> getKthNode(final int k) {
+    private Optional<INode<E, P>> getKthNode(final int k) {
         var curr = begin;
         for (int i = 0; i < k; i++) {
             curr = curr.flatMap(INode::getNext);
         }
 
-        return curr
-            .orElseThrow(() -> new IndexOutOfBoundsException(k));
+        return curr;
     }
 
     @Override
@@ -88,7 +87,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         if (owner == null) { throw new IListException("Owner of IList shouldn't be null"); }
 
         for (final var node : asINodeView()) {
-            if (node.getParent().map(this::equals).orElse(false)) {
+            if (!node.getParent().map(this::equals).orElse(false)) {
                 throw new IListException("Node in IList, but the parent isn't itself");
             }
         }
@@ -102,11 +101,16 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
     }
 
     @Override
-    public ListIterator<E> listIterator(int index) {
+    public IListElementIterator listIterator(int index) {
         return new IListElementIterator(index);
     }
 
-    public class IListElementIterator implements ListIterator<E> {
+    @Override
+    public IListElementIterator listIterator() {
+        return listIterator(0);
+    }
+
+    public class IListElementIterator implements ListIterator<E>, Cloneable {
         private final IListIterator iter;
         public IListElementIterator(int index) {
             this.iter = new IListIterator(index);
@@ -121,6 +125,30 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         @Override public void remove()          { iter.remove();                        }
         @Override public void set(E e)          { iter.set(e.getINode());               }
         @Override public void add(E e)          { iter.add(e.getINode());               }
+
+        private IListElementIterator(IListIterator iter) {
+            this.iter = iter;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj instanceof IList.IListElementIterator) {
+                final var other = (IList<?, ?>.IListElementIterator) obj;
+                return other.iter.equals(this.iter);
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public IListElementIterator clone() {
+            try {
+                super.clone();
+                return new IListElementIterator(iter.clone());
+            } catch (CloneNotSupportedException e) {
+                throw new RuntimeException("Clone not supported", e);
+            }
+        }
     }
 
     public class INodeListView extends AbstractSequentialList<INode<E, P>> {
@@ -139,7 +167,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         NEXT, PREV, ADD, REMOVE, SET, OTHER
     }
 
-    public class IListIterator implements ListIterator<INode<E, P>> {
+    public class IListIterator implements ListIterator<INode<E, P>>, Cloneable {
         private Optional<INode<E, P>> prevNode;     // nextNode 的前继
         private Optional<INode<E, P>> nextNode;     // 下一次调用 next() 要返回的节点
         private INode<E, P> tempNode;               // 上一次调用 previous() 或者是 next() 返回的节点
@@ -147,16 +175,40 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         private IteratorActionKind lastMoved;               // 最后一次调用移动性方法是什么方法
 
         public IListIterator(int index) {
-            if (index > 0) {
-                final var node = IList.this.getKthNode(index - 1);
-                this.nextNode = Optional.of(node);
-            } else {
-                this.nextNode = Optional.empty();
-            }
-
+            this.nextNode = IList.this.getKthNode(index);
             this.prevNode = nextNode.flatMap(INode::getPrev);
             this.tempNode = null;
             this.lastModified = IteratorActionKind.OTHER;
+        }
+
+        // For clone only
+        private IListIterator(Optional<INode<E, P>> prevNode, Optional<INode<E, P>> nextNode, INode<E, P> tempNode,
+                              IteratorActionKind lastModified, IteratorActionKind lastMoved) {
+            this.prevNode = prevNode;
+            this.nextNode = nextNode;
+            this.tempNode = tempNode;
+            this.lastModified = lastModified;
+            this.lastMoved = lastMoved;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj instanceof IList.IListIterator) {
+                final var other = (IList<?, ?>.IListIterator) obj;
+                return other.nextNode.equals(this.nextNode);
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public IListIterator clone() {
+            try {
+                super.clone();
+                return new IListIterator(prevNode, nextNode, tempNode, lastModified, lastMoved);
+            } catch (CloneNotSupportedException e) {
+                throw new RuntimeException("Clone Not Support", e);
+            }
         }
 
         //====================== Query ====================//

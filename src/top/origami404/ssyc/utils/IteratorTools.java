@@ -15,12 +15,11 @@ public class IteratorTools {
 
     public static <E> Iterator<E> iterBetween(List<E> sources, ListIterator<E> begin, ListIterator<E> end) {
         return new Iterator<>() {
-            final int endIndex = end.nextIndex();
-            final ListIterator<E> iter = sources.listIterator(begin.nextIndex());
+            final ListIterator<E> iter = begin;
 
             @Override
             public boolean hasNext() {
-                return iter.nextIndex() < endIndex;
+                return !iter.equals(end);
             }
 
             @Override
