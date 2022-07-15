@@ -7,15 +7,13 @@ import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BrCondInst extends Instruction {
-    public BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+    public BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB, BasicBlock currBlock) {
         super(InstKind.BrCond, IRType.VoidTy);
 
         super.addOperandCO(cond);
         super.addOperandCO(trueBB);
         super.addOperandCO(falseBB);
 
-        final var currBlock = this.getParent()
-            .orElseThrow(() -> new RuntimeException("Free BrCond instruction"));
         trueBB.addPredecessor(currBlock);
         falseBB.addPredecessor(currBlock);
 

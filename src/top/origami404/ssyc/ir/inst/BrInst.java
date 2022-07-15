@@ -5,12 +5,10 @@ import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BrInst extends Instruction {
-    public BrInst(BasicBlock nextBB) {
+    public BrInst(BasicBlock nextBB, BasicBlock currBlock) {
         super(InstKind.Br, IRType.VoidTy);
         super.addOperandCO(nextBB);
-
-        final var currBlock = this.getParent()
-            .orElseThrow(() -> new RuntimeException("Free br instruction"));
+        
         nextBB.addPredecessor(currBlock);
     }
 

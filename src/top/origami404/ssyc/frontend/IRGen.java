@@ -780,16 +780,23 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.lVal() != null) {
             // 赋值语句
             final var lValResult = visitLVal(ctx.lVal());
-            final var value = findVariable(lValResult.var)
-                .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + lValResult.var));
-            final var leftValue = getLeftValue(value, lValResult.indices);
             final var newDef = visitExp(ctx.exp());
+            final var valueOpt = findVariable(lValResult.var);
 
-            if (leftValue.isEmpty()) {
+            if (valueOpt.isEmpty()) {
                 final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-                versionInfo.kill(lValResult.var, newDef);
+                versionInfo.newDef(lValResult.var, newDef);
+
             } else {
-                builder.insertStore(leftValue.get(), newDef);
+                final var value = valueOpt.get();
+                final var leftValue = getLeftValue(value, lValResult.indices);
+
+                if (leftValue.isEmpty()) {
+                    final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+                    versionInfo.kill(lValResult.var, newDef);
+                } else {
+                    builder.insertStore(leftValue.get(), newDef);
+                }
             }
 
 
@@ -865,6 +872,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public void visitLogAnd(LogAndContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
         if (ctx.logAnd() == null) {
             visitLogRel(ctx.logRel(), trueBB, falseBB);
+            return;
         }
 
         final var nextCondBB = builder.createFreeBBlock(nameWithLineAndColumn(ctx, "and_rhs"));
@@ -874,8 +882,26 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     public void visitLogRel(LogRelContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
-        final var cond = visitRelEq(ctx.relEq());
-        builder.insertBrCond(cond, trueBB, falseBB);
+        try {
+            var cond = visitRelEq(ctx.relEq());
+            if (!cond.getType().isBool()) {
+                cond = insertConvertForUnaryOp(cond,
+                        c -> builder.insertICmpNe(c, Constant.INT_0),
+                        c -> builder.insertFCmpNe(c, Constant.FLOAT_0));
+            }
+
+            builder.insertBrCond(cond, trueBB, falseBB);
+
+        } catch (LogNotAsUnaryExpException e) {
+            final var arg = e.arg;
+            Log.ensure(!arg.getType().isBool(), "Unary NOT for Bool is impossible");
+            final var cond = insertConvertForUnaryOp(arg,
+                    c -> builder.insertICmpNe(c, Constant.INT_0),
+                    c -> builder.insertFCmpNe(c, Constant.FLOAT_0));
+
+            builder.insertBrCond(cond, trueBB, falseBB);
+
+        }
     }
 
     @Override
@@ -888,8 +914,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var rhs = visitRelEq(ctx.relEq());
         final var op = ctx.relEqOp().getText();
         return switch (op) {
-            case "==" -> insertConvertForBinary(lhs, rhs, builder::insertICmpEq, builder::insertFCmpEq);
-            case "!=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpNe, builder::insertFCmpNe);
+            case "==" -> insertConvertForCmp(lhs, rhs, builder::insertICmpEq, builder::insertFCmpEq);
+            case "!=" -> insertConvertForCmp(lhs, rhs, builder::insertICmpNe, builder::insertFCmpNe);
             default -> throw new SemanticException(ctx, "Unknown relEq op: " + op);
         };
     }
@@ -904,25 +930,43 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var rhs = visitRelComp(ctx.relComp());
         final var op = ctx.relCompOp().getText();
         return switch (op) {
-            case "<"  -> insertConvertForBinary(lhs, rhs, builder::insertICmpLt, builder::insertFCmpLt);
-            case "<=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpLe, builder::insertFCmpLe);
-            case ">"  -> insertConvertForBinary(lhs, rhs, builder::insertICmpGt, builder::insertFCmpGt);
-            case ">=" -> insertConvertForBinary(lhs, rhs, builder::insertICmpGe, builder::insertFCmpGe);
+            case "<"  -> insertConvertForCmp(lhs, rhs, builder::insertICmpLt, builder::insertFCmpLt);
+            case "<=" -> insertConvertForCmp(lhs, rhs, builder::insertICmpLe, builder::insertFCmpLe);
+            case ">"  -> insertConvertForCmp(lhs, rhs, builder::insertICmpGt, builder::insertFCmpGt);
+            case ">=" -> insertConvertForCmp(lhs, rhs, builder::insertICmpGe, builder::insertFCmpGe);
             default -> throw new SemanticException(ctx, "Unknown relComp op: " + op);
         };
     }
 
+    private Value insertConvertForCmp(
+            Value lhs,
+            Value rhs,
+            BiFunction<Value, Value, Value> intMerger,
+            BiFunction<Value, Value, Value> floatMerger
+    ) {
+        if (lhs.getType().isBool()) {
+            lhs = builder.insertB2I(lhs);
+        }
+
+        if (rhs.getType().isBool()) {
+            rhs = builder.insertB2I(rhs);
+        }
+
+        return insertConvertForBinary(lhs, rhs, intMerger, floatMerger);
+    }
+
     @Override
     public Value visitRelExp(RelExpContext ctx) {
-        try {
-            final var val = visitExp(ctx.exp());
-            Log.ensure(val.getType().isInt());
-            return builder.insertICmpNe(val, IntConst.INT_0);
-        } catch (LogNotAsUnaryExpException e) {
-            final var val = e.arg;
-            Log.ensure(val.getType().isInt());
-            return builder.insertICmpEq(val, IntConst.INT_0);
-        }
+        // try {
+        //     final var val = visitExp(ctx.exp());
+        //     Log.ensure(val.getType().isInt());
+        //     return builder.insertICmpNe(val, IntConst.INT_0);
+        // } catch (LogNotAsUnaryExpException e) {
+        //     final var val = e.arg;
+        //     Log.ensure(val.getType().isInt());
+        //     return builder.insertICmpEq(val, IntConst.INT_0);
+        // }
+        return visitExp(ctx.exp());
     }
 
     @Override
