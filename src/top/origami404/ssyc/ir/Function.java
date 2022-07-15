@@ -15,6 +15,7 @@ public class Function extends Value
     public Function(IRType returnType, List<Parameter> params, String funcName) {
         super(makeFunctionIRTypeFromParameters(returnType, params));
         super.setName('@' + funcName);
+        this.isExternal = false;
 
         this.parameters = params;
 
@@ -24,44 +25,52 @@ public class Function extends Value
         this.analysisInfos = new HashMap<>();
     }
 
+    public Function(IRType funcType, String funcName) {
+        super(funcType);
+        Log.ensure(super.getType() instanceof FunctionIRTy);
+
+        super.setName('@' + funcName);
+        this.isExternal = true;
+    }
+
     public String getFuncName() {
         return getName().substring(1);
     }
 
     @Override
     public FunctionIRTy getType() {
-        Log.ensure(super.getType() instanceof FunctionIRTy);
         return (FunctionIRTy)super.getType();
     }
 
     @Override
     public IList<BasicBlock, Function> getIList() {
+        ensureNotExternal();
         return bblocks;
     }
 
     @Override
     public Map<String, AnalysisInfo> getInfoMap() {
+        ensureNotExternal();
         return analysisInfos;
     }
 
-    // 外部函数将只有 name 与 parameters
+    // 外部函数将只有 name 与 type
     public boolean isExternal() {
         return isExternal;
     }
 
-    public void markExternal() {
-        this.isExternal = true;
-    }
-
     public List<Parameter> getParameters() {
+        ensureNotExternal();
         return parameters;
     }
 
     public BasicBlock getEntryBBlock() {
+        ensureNotExternal();
         return bblocks.get(0);
     }
 
     public Iterable<BasicBlock> getBasicBlocks() {
+        ensureNotExternal();
         return this.getIList();
     }
 
@@ -70,6 +79,10 @@ public class Function extends Value
         super.verify();
 
         ensure(getName().charAt(0) == '@', "Name of a function must begin with '@'");
+
+        if (isExternal) {
+            return;
+        }
 
         final var blockList = bblocks;
         final var labels = blockList.stream()
@@ -94,6 +107,10 @@ public class Function extends Value
     public void verifyAll() throws IRVerifyException {
         super.verifyAll();
 
+        if (isExternal) {
+            return;
+        }
+
         for (final var param : parameters) {
             param.verifyAll();
         }
@@ -101,6 +118,10 @@ public class Function extends Value
         for (final var blocks : bblocks) {
             blocks.verifyAll();
         }
+    }
+
+    private void ensureNotExternal() {
+        ensureNot(isExternal, "Function should NOT be external");
     }
 
     private static FunctionIRTy makeFunctionIRTypeFromParameters(IRType returnType, List<Parameter> params) {
@@ -111,5 +132,5 @@ public class Function extends Value
     private List<Parameter> parameters;
     private IList<BasicBlock, Function> bblocks;
     private Map<String, AnalysisInfo> analysisInfos;
-    private boolean isExternal = false;
+    private final boolean isExternal;
 }

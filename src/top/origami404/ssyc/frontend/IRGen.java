@@ -39,10 +39,39 @@ public class IRGen extends SysYBaseVisitor<Object> {
     @Override
     public Module visitCompUnit(CompUnitContext ctx) {
         currModule = new Module();
+        addExternalFunctions();
         ctx.children.forEach(this::visit);
         return currModule;
     }
 
+    private void addExternalFunctions() {
+        final var Int = IRType.IntTy;
+        final var Float = IRType.FloatTy;
+        final var Void = IRType.VoidTy;
+        final var PtrInt = IRType.createPtrTy(Int);
+        final var PtrFloat = IRType.createPtrTy(Float);
+
+        addExternalFunc("getint", Int);
+        addExternalFunc("getch", Int);
+        addExternalFunc("getarray", Int, PtrInt);
+        addExternalFunc("getfloat", Float);
+        addExternalFunc("getfarray", Int, PtrFloat);
+
+        addExternalFunc("putint", Void, Int);
+        addExternalFunc("putch", Void, Int);
+        addExternalFunc("putarray", Void, Int, PtrFloat);
+        addExternalFunc("putfloat", Void, Float);
+        addExternalFunc("putfarray", Void, Int, PtrFloat);
+    }
+
+    private void addExternalFunc(String funcName, IRType returnType, IRType... paramTypes) {
+        final var type = IRType.createFuncTy(returnType, List.of(paramTypes));
+        final var func = new Function(type, funcName);
+        // final var variable = new Variable(funcName, 0);
+
+        currModule.getFunctions().put(funcName, func);
+        // finalInfo.newDef(variable, func);
+    }
 
 //====================================================================================================================//
 
@@ -926,7 +955,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return visitRelExp(ctx.relExp());
         }
 
-        final var lhs = visitExp(ctx.exp());
+        final var lhs = visitRelExp(ctx.relExp());
         final var rhs = visitRelComp(ctx.relComp());
         final var op = ctx.relCompOp().getText();
         return switch (op) {

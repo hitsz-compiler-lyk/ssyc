@@ -1,6 +1,5 @@
 package top.origami404.ssyc.utils;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
@@ -40,11 +39,15 @@ public class LLVMDumper {
         }
 
         for (final var func : module.getFunctions().values()) {
-            dumpFunction(func);
+            if (func.isExternal()) {
+                dumpExternalFunction(func);
+            } else {
+                dumpNormalFunction(func);
+            }
         }
     }
 
-    private void dumpFunction(Function function) {
+    private void dumpNormalFunction(Function function) {
         ir("define dso_local global <return-ty> <func-name>(<param*>) {",
                 function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
 
@@ -54,6 +57,15 @@ public class LLVMDumper {
         }
 
         ir("}");
+    }
+
+    private void dumpExternalFunction(Function function) {
+        final var returnType = function.getType().getReturnType();
+        final var paramTypes = function.getType().getParamTypes().stream()
+            .map(this::dumpIRType).collect(Collectors.joining(", "));
+
+        ir("declare dso_local <return-ty> <func-name>(<parma-type*)",
+                returnType, function.getName(), paramTypes);
     }
 
     private void dumpGlobalVariable(GlobalVar gv) {
@@ -100,6 +112,9 @@ public class LLVMDumper {
 
         } else if (inst instanceof FloatToIntInst) {
             ir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
+
+        } else if (inst instanceof BoolToIntInst) {
+            ir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
 
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
@@ -221,6 +236,7 @@ public class LLVMDumper {
             case Int -> "i32";
             case Bool -> "i1";
             case Float -> "float";
+            case Void -> "void";
             case Pointer -> dumpIRType(((PointerIRTy) type).getBaseType()) + "*";
             case Array -> {
                 final var array = (ArrayIRTy) type;
@@ -230,7 +246,6 @@ public class LLVMDumper {
             case BBlock -> "label";
             case Parameter -> dumpIRType(((Parameter) type).getParamType());
 
-            case Void -> throw new RuntimeException("Void can't be used.");
             case Function -> throw new RuntimeException("Function type needn't be used.");
             default -> throw new RuntimeException("Unknown IRType kind: " + kind);
         };
