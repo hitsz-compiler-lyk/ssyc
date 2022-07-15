@@ -745,13 +745,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static IRType findCommonType(IRType ty1, IRType ty2) {
-        Log.ensure(ty1.isInt() || ty1.isFloat());
-        Log.ensure(ty2.isInt() || ty2.isFloat());
+        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool());
+        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool());
 
         if (ty1.equals(ty2)) {
             // 两个都是 Int 或者是两个都 Float 的情况
             return ty1; // or return ty2
         } else {
+            Log.ensure(!(ty1.isBool() || ty2.isBool()), "Bool can NOT be convert to other type");
             // 一个 Int, 一个 Float 的情况
             return IRType.FloatTy;
         }
@@ -899,7 +900,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return visitRelExp(ctx.relExp());
         }
 
-        final var lhs = visitRelExp(ctx.relExp());
+        final var lhs = visitExp(ctx.exp());
         final var rhs = visitRelComp(ctx.relComp());
         final var op = ctx.relCompOp().getText();
         return switch (op) {

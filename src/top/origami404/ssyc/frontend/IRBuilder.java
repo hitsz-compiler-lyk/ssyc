@@ -75,7 +75,7 @@ public class IRBuilder {
     public Instruction insertBrFCmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGt(lhs, rhs), trueBB, falseBB); }
     public Instruction insertBrFCmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGe(lhs, rhs), trueBB, falseBB); }
 
-    public BrInst insertBranch(BasicBlock nextBB) { return direct(new BrInst(nextBB)); }
+    public BrInst insertBranch(BasicBlock nextBB) { return direct(new BrInst(nextBB, currBB)); }
 
     public CallInst insertCall(Function func, List<Value> args) { return direct(new CallInst(func, args)); }
     public ReturnInst insertReturn() { return direct(new ReturnInst()); }
@@ -96,6 +96,7 @@ public class IRBuilder {
 
     public Value insertI2F(Value from) { return foldFloat(new IntToFloatInst(from));    }
     public Value insertF2I(Value from) { return foldInt(new FloatToIntInst(from));      }
+    public Value insertB2I(Value from) { return foldInt(new BoolToIntInst(from));       }
 
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
@@ -180,11 +181,11 @@ public class IRBuilder {
         // 所以干脆直接三个参数传进来, 等到不能折叠的时候再构造
         if (cond instanceof BoolConst) {
             final var targetBB = ((BoolConst) cond).getValue() ? trueBB : falseBB;
-            return direct(new BrInst(targetBB));
+            return direct(new BrInst(targetBB, currBB));
         } else if (trueBB == falseBB) {
-            return direct(new BrInst(trueBB));
+            return direct(new BrInst(trueBB, currBB));
         } else {
-            return direct(new BrCondInst(cond, trueBB, falseBB));
+            return direct(new BrCondInst(cond, trueBB, falseBB, currBB));
         }
     }
 
