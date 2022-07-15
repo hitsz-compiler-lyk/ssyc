@@ -20,6 +20,10 @@ public interface IRType {
         return new ArrayIRTy(elementNum, elementType);
     }
 
+    public static PointerIRTy createDecayType(ArrayIRTy type) {
+        return IRType.createPtrTy(type.getElementType());
+    }
+
     public static PointerIRTy createPtrTy(IRType baseType) {
         return new PointerIRTy(baseType);
     }

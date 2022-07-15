@@ -141,10 +141,8 @@ public abstract class Value {
 
     private void checkPointerAndArrayType() {
         final var type = getType();
-        if (type instanceof PointerIRTy) {
-            ensure(((PointerIRTy) type).getBaseType().canBeElement(),
-                    "Pointer's base type must be int or float or array");
-        } else if (type instanceof ArrayIRTy) {
+        // 对全局变量, 有可能出现指针的指针类型 (因为数组退化的缘故)
+        if (type instanceof ArrayIRTy) {
             ensure(((ArrayIRTy) type).getElementType().canBeElement(),
                     "Array's element type must be int or float or array");
         }

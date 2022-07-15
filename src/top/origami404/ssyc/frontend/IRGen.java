@@ -220,10 +220,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 try {
                     final var initValue = visitInitVal(ctx.initVal(), isConst, baseType, shape);
                     final var constant = justMakeArrayConst(initValue);
+                    final var decayType = IRType.createDecayType((ArrayIRTy) type);
 
                     if (constant instanceof ArrayConst) {
                         final var arrayConst = (ArrayConst) constant;
-                        final var global = GlobalVar.createGlobalArray(type, irName, arrayConst);
+                        final var global = GlobalVar.createGlobalArray(decayType, irName, arrayConst);
 
                         currModule.getVariables().put(irName, global);
                         finalInfo.newDef(variable, global);
@@ -278,7 +279,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public InitValue visitInitVal(InitValContext ctx, boolean isConst, IRType baseType, List<Integer> shape) {
         // TODO: 常量判断
         if (ctx == null) {
-            return new InitExp(getZeroElm(baseType, shape));
+            return new InitExp(getZeroByShape(baseType, shape));
         }
 
         return makeInitValue(ctx, 0, baseType, shape).value;
@@ -461,13 +462,23 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
+    /**
+     * 根据数组目前的形状, 获取对应的零元素
+     * @param baseType 数组基本类型
+     * @param shape 数组形状
+     * @return 零元素常量
+     */
     private Constant getZeroElm(IRType baseType, List<Integer> shape) {
         Log.ensure(shape.size() >= 1);
+        final var elmShape = shape.subList(1, shape.size());
+        return getZeroByShape(baseType, elmShape);
+    }
 
-        if (shape.size() == 1) {
+    private Constant getZeroByShape(IRType baseType, List<Integer> shape) {
+        if (shape.isEmpty()) {
             return Constant.getZeroByType(baseType);
         } else {
-            return Constant.createZeroArrayConst(baseType);
+            return Constant.createZeroArrayConst(createTypeByShape(baseType, shape));
         }
     }
 
@@ -1085,17 +1096,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
      */
     public static IRType createTypeForArgumentByShape(IRType baseTy, List<Integer> shape) {
         final var type = createTypeByShape(baseTy, shape);
-        if (type instanceof SimpleIRTy) {
-            // 普通类型的值直接按值传递
-            return type;
-        } else if (type instanceof PointerIRTy) {
-            // 是指针类型的话, 说明第一维被省略了, 已经被退化了, 直接原样返回
-            return type;
-        } else if (type instanceof ArrayIRTy) {
-            // 是数组类型则进行退化, 比如 [2 x [3 x i32]] --> *[3 x i32]
-            return IRType.createPtrTy(((ArrayIRTy) type).getElementType());
+        if (type instanceof ArrayIRTy) {
+            return IRType.createDecayType((ArrayIRTy) type);
         } else {
-            throw new RuntimeException("Unknown function parameter type: " + type);
+            return type;
         }
     }
 

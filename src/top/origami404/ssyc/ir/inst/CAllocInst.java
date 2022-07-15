@@ -7,7 +7,7 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class CAllocInst extends Instruction {
     public CAllocInst(ArrayIRTy allocType) {
-        super(InstKind.CAlloc, IRType.createPtrTy(allocType.getElementType()));
+        super(InstKind.CAlloc, IRType.createDecayType(allocType));
         this.allocType = allocType;
     }
 
