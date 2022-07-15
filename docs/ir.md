@@ -334,6 +334,8 @@ public class INode<E, P> {
 
 ## 笔记: Alloc, Load, Store, GEP
 
+**需要更新: 现在已采用 CAlloc**
+
 Alloc 是用来获得一块特定大小的内存的 (通过提供特定的类型, 分配该类型大小的一块内存, 其返回类型永远是一个指向该特定类型的指针).
 
 Load 解引用某个指针获得其值 (可视为去掉 `*`), Store 将某个值存放到指针所指的区域 (可视为加上 `*`).
@@ -458,61 +460,3 @@ offset = 0 * sizeof([4 x [5 x i32]]) + 1 * sizeof([5 x i32]) + 3 * sizeof(i32)
 - 全局变量验证 (GlobalVar)
     - [x] 名字必须以 `@` 开头
     - 必须都是指针类型 (它就是这么实现的)
-
-
-## 笔记: Phi
-
-定义:
-
-- (基本块 B 的) 前继: 能通过 Br/BrCond 指令直接跳转到 B 的基本块
-- (基本块 B 的) 后继: 作为 B 中存在的 Br/BrCond 的参数的基本块
-
-插入 phi 指令的根本原因是要在静态单赋值的 IR 中表达源语言里的 "值会随着控制流不同而变化的变量" 的概念. 它相当于在严格的 SSA 里给这种概念开一个小洞, 使得 SSA 得以表达这种变量的概念. 于是自然每一个 Phi 都有与其所在基本块的前继的数量相同的 incoming info. 它指示了当控制流从不同前继到达此基本块时, phi 在运行时的值应该取什么.
-
-值得注意的是, incomingValue 所在的基本块不一定就是其对应的前继. 
-
-例子: 考虑下面的 C 语言代码:
-
-```c
-int a = input();
-int b = input();
-int c = input();
-
-if (b == 0 && c == 0) {
-    a = input();
-}
-
-output(a);
-```
-
-其会被翻译为:
-
-```llvm
-entry:
-    %a_0 = call %input();
-    %b_0 = call %input();
-    %c_0 = call %input();
-    br %cond_1;
-
-cond_1:
-    %cmp_1 = icmpeq %b_0, 0;
-    br %cmp_1 %cond_2 %exit;
-cond_2:
-    %cmp_2 = icmpeq %c_0, 0;
-    br %cmp_2 %then %exit;
-    
-then:
-    %a_1 = call %input();
-    br %exit
-    
-exit:
-    %a_2 = phi [%a_0 %cond_1], [%a_0 %cond_2], [%a_1 %then];
-    call %output(%a_0);
-    halt;
-```
-
-对 `exit` 块, 它有三个前继, 分别为 `cond_1`, `cond_2`, `then`; 于是在翻译源代码中 if 后面对 `a` 的使用时, 就得在 IR 中插入一条 phi 指令. 这条 phi 指令的含义便是 "当控制流从 `cond_1`" 来的时候, 我的值就是 `a_0` 的值; 从 `cond_2` 来的时候, 我的值就是 `a_0` 的值; 从 `then` 来的时候, 我的值就是 `a_1` 的值".
-
-这个例子也可以佐证 "incomingValue 所在的基本块不一定就是其对应的前继" 这句话. 因为 `a_0` 指令实际上是 `entry` 块中的指令, 但它在 `a_2` 这条 phi 指令中对应的 incoming block 却是 `cond_1`. 
-
-从这个例子我们还可以知道, 不同 incoming block 还可能具有相同的 incoming value.
