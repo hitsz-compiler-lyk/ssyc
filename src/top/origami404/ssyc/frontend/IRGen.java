@@ -33,6 +33,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         this.scope = new ChainMap<>();
         this.builder = null;
         this.currModule = new Module();
+        this.finalInfo = new FinalInfo();
     }
 
     @Override
@@ -156,6 +157,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
+        final var irName = (inGlobal() ? "@" : "%") + name;
         final var shape = info.shape;
         final var type = createTypeByShape(baseType, shape);
 
@@ -173,8 +175,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
 
-        final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        final var versionInfo = inGlobal() ? null : builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
 
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
@@ -201,12 +202,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
                     }
 
                     // 全局变量需要做一个指针, 存到 GlobalVariable 中去
-                    final var global = GlobalVar.createGlobalVariable(type, name, (Constant) value);
-                    currModule.getVariables().put(name, global);
+                    final var global = GlobalVar.createGlobalVariable(type, irName, (Constant) value);
+                    currModule.getVariables().put(irName, global);
                     // 因为这个变量与该指针的关系是不变的, 所以丢 finalInfo
                     finalInfo.newDef(variable, global);
 
                 } else {
+                    assert versionInfo != null;
                     // 普通变量只需要加入 versionInfo 中就可以了
                     versionInfo.newDef(variable, value);
                 }
@@ -221,13 +223,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                     if (constant instanceof ArrayConst) {
                         final var arrayConst = (ArrayConst) constant;
-                        final var global = GlobalVar.createGlobalArray(type, name, arrayConst);
+                        final var global = GlobalVar.createGlobalArray(type, irName, arrayConst);
 
-                        currModule.getVariables().put(name, global);
+                        currModule.getVariables().put(irName, global);
                         finalInfo.newDef(variable, global);
 
-                        arrayConst.setName(name + "$init");
-                        currModule.getArrayConstants().put(name + "$init", arrayConst);
+                        arrayConst.setName(irName + "$init");
+                        currModule.getArrayConstants().put(irName + "$init", arrayConst);
                     } else {
                         throw new RuntimeException();
                     }
@@ -243,6 +245,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
                 Log.ensure(type instanceof ArrayIRTy);
                 final var arrPtr = new CAllocInst((ArrayIRTy) type);
+                arrPtr.setName(irName);
                 finalInfo.newDef(variable, arrPtr);
 
                 // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
@@ -259,7 +262,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 memInitInst.setInit(init);
 
                 // 把当前的初始值加入到全局常量数组中去
-                final var initName = "@" + name.substring(1) + "$init";
+                final var initName = "@" + name + "$init";
                 init.setName(initName);
                 currModule.getArrayConstants().put(initName, init);
             }
@@ -488,10 +491,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#region exp 表达式相关
     @Override
     public Value visitExp(ExpContext ctx) {
-        if (builder == null)  {
-            throw new GenExpInGlobalException(ctx);
-        }
-
         return visitExpAdd(ctx.expAdd());
     }
 
@@ -606,7 +605,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Optional<Value> findVariable(Variable variable) {
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
 
         // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
@@ -678,7 +676,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
     private Optional<Value> findArray(String name) {
         // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
         // 而那个指针指向谁永远不会变
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         return scope.get(name)
                 .map(ScopeEntry::var)
                 .flatMap(finalInfo::getArrayVar);
@@ -1128,6 +1125,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
     private ChainMap<ScopeEntry> scope; // identifier --> variable
+    private FinalInfo finalInfo;
 
     private Optional<BasicBlock> currWhileCond;
     private Optional<BasicBlock> currWhileExit;

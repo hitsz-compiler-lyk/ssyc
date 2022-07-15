@@ -141,9 +141,8 @@ public class IRBuilder {
     }
 
     private static void addInfos(BasicBlock bb) {
-        bb.addIfAbsent(InstCache.class, InstCache::new);
         bb.addIfAbsent(VersionInfo.class, VersionInfo::new);
-        bb.getParent().ifPresent(f -> f.addIfAbsent(FinalInfo.class, FinalInfo::new));
+        bb.getParent().ifPresent(f -> f.addIfAbsent(InstCache.class, InstCache::new));
     }
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {

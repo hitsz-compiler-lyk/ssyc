@@ -34,7 +34,7 @@ public class LoadInst extends Instruction {
         ensure(ptrType instanceof PointerIRTy, "Type of an argument of Load must be a pointer");
 
         assert ptrType instanceof PointerIRTy;
-        final var baseType = (PointerIRTy) ptrType;
+        final var baseType = ((PointerIRTy) ptrType).getBaseType();
         ensure(baseType.isInt() || baseType.isFloat(),
                 "Type of an argument of Load must be a pointer to Int or Float");
     }

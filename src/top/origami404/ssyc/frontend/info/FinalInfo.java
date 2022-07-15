@@ -1,5 +1,6 @@
 package top.origami404.ssyc.frontend.info;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,11 +27,11 @@ public class FinalInfo implements AnalysisInfo {
             throw new RuntimeException("Cannot redefine a final");
         }
 
-        srcConsts.put(var, val);
+        finals.put(var, val);
     }
 
     public boolean contains(Variable var) {
-        return srcConsts.containsKey(var);
+        return finals.containsKey(var);
     }
 
     public Optional<Constant> getNormalVar(Variable var) {
@@ -60,8 +61,8 @@ public class FinalInfo implements AnalysisInfo {
     }
 
     public Optional<Value> getDef(Variable var) {
-        return Optional.ofNullable(srcConsts.get(var));
+        return Optional.ofNullable(finals.get(var));
     }
 
-    private Map<Variable, Value> srcConsts;
+    private final Map<Variable, Value> finals = new HashMap<>();
 }

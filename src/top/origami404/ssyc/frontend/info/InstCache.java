@@ -43,7 +43,7 @@ public class InstCache implements AnalysisInfo {
 
     /**
      * 根据 kind 与 operands 计算一个哈希值以供参考
-     * 哈希方法来自: https://stackoverflow.com/a/113600
+     * 哈希方法来自:  <a href="https://stackoverflow.com/a/113600">SO 回答</a>
      * @param kind 指令的种类
      * @param operands 指令的参数
      * @return 哈希值
@@ -64,5 +64,5 @@ public class InstCache implements AnalysisInfo {
     }
 
     // TODO: 衡量反复装箱 int 导致的性能问题
-    private HashMap<Integer, Instruction> cache;
+    private HashMap<Integer, Instruction> cache = new HashMap<>();
 }
