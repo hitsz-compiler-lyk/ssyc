@@ -4,6 +4,7 @@ import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
+import top.origami404.ssyc.ir.constant.ArrayConst.ZeroArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
@@ -193,10 +194,15 @@ public class LLVMDumper {
 
         } else if (constant instanceof ArrayConst) {
             final var type = dumpIRType(constant.getType());
-            final var elms = ((ArrayConst) constant).getRawElements().stream()
-                .map(this::dumpConstant)
-                .collect(Collectors.joining(", "));
-            return "%s [%s]".formatted(type, elms);
+
+            if (constant instanceof ZeroArrayConst) {
+                return "%s zeroinitializer".formatted(type);
+            } else {
+                final var elms = ((ArrayConst) constant).getRawElements().stream()
+                    .map(this::dumpConstant)
+                    .collect(Collectors.joining(", "));
+                return "%s [%s]".formatted(type, elms);
+            }
 
         } else {
             throw new RuntimeException("Unknown constant type: " + constant);

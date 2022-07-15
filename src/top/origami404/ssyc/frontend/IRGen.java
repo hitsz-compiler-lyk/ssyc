@@ -33,6 +33,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         this.scope = new ChainMap<>();
         this.builder = null;
         this.currModule = new Module();
+        this.finalInfo = new FinalInfo();
     }
 
     @Override
@@ -54,7 +55,21 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var function = new Function(returnType, arguments, ctx.Ident().getText());
 
         builder = new IRBuilder(function.getEntryBBlock());
-        currModule.getFunctions().put(function.getName(), function);
+        currModule.getFunctions().put(function.getFuncName(), function);
+        pushScope();
+
+        // 将函数形参加入当前的块的 currDef 中
+        // 不能直接加入 finalInfo, 因为首先函数形参不是 Module 层面的东西, 其次形参绑定着的东西是有可能会变的
+        // 不能在解析形参的时候就加入, 因为解析形参的时候函数还没被定义, builder 还是 null
+        final var lineNo = ctx.getStart().getLine();
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        for (final var param : function.getParameters()) {
+            final var name = param.getParamName();
+            final var variable = new Variable(name, lineNo);
+
+            scope.put(name, new ScopeEntry(variable, param.getType()));
+            versionInfo.newDef(variable, param);
+        }
 
         visitBlock(ctx.block());
 
@@ -62,6 +77,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
         function.getBasicBlocks().forEach(this::fillIncompletedPhiForBlock);
 
+        popScope();
         return function;
     }
 
@@ -156,6 +172,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
+        final var irName = (inGlobal() ? "@" : "%") + name;
         final var shape = info.shape;
         final var type = createTypeByShape(baseType, shape);
 
@@ -173,8 +190,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
 
-        final var finalInfo = builder.getBasicBlock().getAnalysisInfo(FinalInfo.class);
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        final var versionInfo = inGlobal() ? null : builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
 
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
@@ -201,12 +217,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
                     }
 
                     // 全局变量需要做一个指针, 存到 GlobalVariable 中去
-                    final var global = GlobalVar.createGlobalVariable(type, name, (Constant) value);
-                    currModule.getVariables().put(name, global);
+                    final var global = GlobalVar.createGlobalVariable(type, irName, (Constant) value);
+                    currModule.getVariables().put(irName, global);
                     // 因为这个变量与该指针的关系是不变的, 所以丢 finalInfo
                     finalInfo.newDef(variable, global);
 
                 } else {
+                    assert versionInfo != null;
                     // 普通变量只需要加入 versionInfo 中就可以了
                     versionInfo.newDef(variable, value);
                 }
@@ -218,16 +235,17 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 try {
                     final var initValue = visitInitVal(ctx.initVal(), isConst, baseType, shape);
                     final var constant = justMakeArrayConst(initValue);
+                    final var decayType = IRType.createDecayType((ArrayIRTy) type);
 
                     if (constant instanceof ArrayConst) {
                         final var arrayConst = (ArrayConst) constant;
-                        final var global = GlobalVar.createGlobalArray(type, name, arrayConst);
+                        final var global = GlobalVar.createGlobalArray(decayType, irName, arrayConst);
 
-                        currModule.getVariables().put(name, global);
+                        currModule.getVariables().put(irName, global);
                         finalInfo.newDef(variable, global);
 
-                        arrayConst.setName(name + "$init");
-                        currModule.getArrayConstants().put(name + "$init", arrayConst);
+                        arrayConst.setName(irName + "$init");
+                        currModule.getArrayConstants().put(irName + "$init", arrayConst);
                     } else {
                         throw new RuntimeException();
                     }
@@ -243,6 +261,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
                 Log.ensure(type instanceof ArrayIRTy);
                 final var arrPtr = new CAllocInst((ArrayIRTy) type);
+                arrPtr.setName(irName);
                 finalInfo.newDef(variable, arrPtr);
 
                 // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
@@ -259,7 +278,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 memInitInst.setInit(init);
 
                 // 把当前的初始值加入到全局常量数组中去
-                final var initName = "@" + name.substring(1) + "$init";
+                final var initName = "@" + name + "$init";
                 init.setName(initName);
                 currModule.getArrayConstants().put(initName, init);
             }
@@ -275,7 +294,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public InitValue visitInitVal(InitValContext ctx, boolean isConst, IRType baseType, List<Integer> shape) {
         // TODO: 常量判断
         if (ctx == null) {
-            return new InitExp(getZeroElm(baseType, shape));
+            return new InitExp(getZeroByShape(baseType, shape));
         }
 
         return makeInitValue(ctx, 0, baseType, shape).value;
@@ -409,7 +428,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private ArrayConst makeArrayConstAndInsertStoreForNonConst(Value arrPtr, InitValue initValue) {
-        final var indices = new ArrayList<Integer>(); indices.add(0);
+        final var indices = new ArrayList<Integer>();
         final var constant = makeArrayConstAndInsertStoreForNonConstImpl(arrPtr, initValue, indices);
 
         if (constant instanceof ArrayConst) {
@@ -458,13 +477,23 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
+    /**
+     * 根据数组目前的形状, 获取对应的零元素
+     * @param baseType 数组基本类型
+     * @param shape 数组形状
+     * @return 零元素常量
+     */
     private Constant getZeroElm(IRType baseType, List<Integer> shape) {
         Log.ensure(shape.size() >= 1);
+        final var elmShape = shape.subList(1, shape.size());
+        return getZeroByShape(baseType, elmShape);
+    }
 
-        if (shape.size() == 1) {
+    private Constant getZeroByShape(IRType baseType, List<Integer> shape) {
+        if (shape.isEmpty()) {
             return Constant.getZeroByType(baseType);
         } else {
-            return Constant.createZeroArrayConst(baseType);
+            return Constant.createZeroArrayConst(createTypeByShape(baseType, shape));
         }
     }
 
@@ -488,10 +517,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#region exp 表达式相关
     @Override
     public Value visitExp(ExpContext ctx) {
-        if (builder == null)  {
-            throw new GenExpInGlobalException(ctx);
-        }
-
         return visitExpAdd(ctx.expAdd());
     }
 
@@ -606,7 +631,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Optional<Value> findVariable(Variable variable) {
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
         final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
 
         // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
@@ -667,21 +691,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return new LValResult(true, entry.type, entry.var, null);
 
         } else {
-            final var arrPtr = findArray(name)
+            final var arrPtr = findVariable(entry.var)
                 .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
             final var gep = builder.insertGEP(arrPtr, indices);
 
             return new LValResult(false, entry.type, entry.var, gep);
         }
-    }
-
-    private Optional<Value> findArray(String name) {
-        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
-        // 而那个指针指向谁永远不会变
-        final var finalInfo = builder.getFunction().getAnalysisInfo(FinalInfo.class);
-        return scope.get(name)
-                .map(ScopeEntry::var)
-                .flatMap(finalInfo::getArrayVar);
     }
 
     private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
@@ -813,9 +828,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Void visitBlock(BlockContext ctx) {
-        scope = new ChainMap<>(scope);
+        pushScope();
         ctx.children.forEach(this::visit);
-        scope = scope.getParent().orElseThrow(() -> new SemanticException(ctx, "Reach scope top"));
+        popScope();
         return null;
     }
 
@@ -1088,17 +1103,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
      */
     public static IRType createTypeForArgumentByShape(IRType baseTy, List<Integer> shape) {
         final var type = createTypeByShape(baseTy, shape);
-        if (type instanceof SimpleIRTy) {
-            // 普通类型的值直接按值传递
-            return type;
-        } else if (type instanceof PointerIRTy) {
-            // 是指针类型的话, 说明第一维被省略了, 已经被退化了, 直接原样返回
-            return type;
-        } else if (type instanceof ArrayIRTy) {
-            // 是数组类型则进行退化, 比如 [2 x [3 x i32]] --> *[3 x i32]
-            return IRType.createPtrTy(((ArrayIRTy) type).getElementType());
+        if (type instanceof ArrayIRTy) {
+            return IRType.createDecayType((ArrayIRTy) type);
         } else {
-            throw new RuntimeException("Unknown function parameter type: " + type);
+            return type;
         }
     }
 
@@ -1124,10 +1132,18 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return prefix + "_" + ctx.getStart().getLine();
     }
 
+    private void pushScope() {
+        scope = new ChainMap<>(scope);
+    }
+
+    private void popScope() {
+        scope = scope.getParent().orElseThrow(() -> new RuntimeException("Reach scope top"));
+    }
 
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
     private ChainMap<ScopeEntry> scope; // identifier --> variable
+    private FinalInfo finalInfo;
 
     private Optional<BasicBlock> currWhileCond;
     private Optional<BasicBlock> currWhileExit;

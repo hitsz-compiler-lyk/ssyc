@@ -1,5 +1,6 @@
 package top.origami404.ssyc.frontend.info;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -106,5 +107,5 @@ public class VersionInfo implements AnalysisInfo {
         private int version;
     }
 
-    private Map<Variable, VarVersionInfo> version;
+    private Map<Variable, VarVersionInfo> version = new HashMap<>();
 }
