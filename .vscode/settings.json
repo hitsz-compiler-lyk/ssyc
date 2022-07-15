@@ -4,6 +4,7 @@
         "m": "shellscript",
         "*.sy": "c",
         "*.s": "arm",
+        "*.llvm": "llvm",
     },
 
     "files.exclude": {

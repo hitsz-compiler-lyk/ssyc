@@ -15,7 +15,7 @@ public abstract class Instruction extends User
         super(type);
         this.kind = kind;
         this.bbNode = new INode<>(this);
-        super.setName("%" + instNo++);
+        super.setName("%_" + instNo++);
     }
 
     /**

@@ -76,6 +76,10 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             op.setLabel(key);
             numSet.add(op);
         }
+
+        public void addStackSize(int n) {
+            this.stackSize += n;
+        }
     }
 
     private String name;

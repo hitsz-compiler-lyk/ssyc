@@ -30,6 +30,11 @@ public class VersionInfo implements AnalysisInfo {
             return "%" + name + "$" + lineNo;
         }
 
+        @Override
+        public String toString() {
+            return getIRName();
+        }
+
         public final String name;
         public final int lineNo;
     }

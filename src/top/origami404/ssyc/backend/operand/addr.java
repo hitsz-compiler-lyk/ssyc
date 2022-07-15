@@ -75,12 +75,8 @@ public class addr extends Operand {
 
     @Override
     public String toString() {
-        if (StringUtils.isEmpty(label)) {
-            if (isGlobal) {
-                return "=" + label;
-            } else {
-                return label;
-            }
+        if (!StringUtils.isEmpty(label)) {
+            return label;
         }
 
         if (isGlobal) {

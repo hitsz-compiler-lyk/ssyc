@@ -1,6 +1,7 @@
 package top.origami404.ssyc.backend.codegen;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
+import top.origami404.ssyc.ir.inst.BoolToIntInst;
 import top.origami404.ssyc.ir.inst.BrCondInst;
 import top.origami404.ssyc.ir.inst.BrInst;
 import top.origami404.ssyc.ir.inst.CAllocInst;
@@ -50,6 +52,7 @@ import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.IntToFloatInst;
 import top.origami404.ssyc.ir.inst.LoadInst;
+import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
@@ -164,6 +167,12 @@ public class CodeGenManager {
                         ResolveBrCondInst((BrCondInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof CmpInst) {
                         continue;
+                    } else if (inst instanceof BoolToIntInst) {
+                        continue;
+                    } else if (inst instanceof PhiInst) {
+                        continue;
+                    } else {
+
                     }
                 }
             }
@@ -200,7 +209,7 @@ public class CodeGenManager {
     }
 
     private Operand ResolveIImmOperand(IntConst val, ArmBlock block, FunctionInfo funcinfo) {
-        if (checkEncodeIImm(val.getValue()) || checkEncodeIImm(~val.getValue())) {
+        if (checkEncodeIImm(val.getValue())) {
             return new IImm(val.getValue());
         } else {
             var vr = new IVirtualReg();
@@ -538,9 +547,10 @@ public class CodeGenManager {
     }
 
     private void ResolveCAllocInst(CAllocInst inst, ArmBlock block, FunctionInfo funcinfo) {
-        var offset = ResolveIImmOperand(inst.getAllocSize(), block, funcinfo);
+        var offset = ResolveIImmOperand(funcinfo.getStackSize(), block, funcinfo);
         var dst = ResolveOperand(inst, block, funcinfo);
         new ArmInstBinary(block, ArmInstKind.IAdd, dst, new IPhyReg("sp"), offset);
+        funcinfo.addStackSize(inst.getAllocSize());
     }
 
     private void ResolveBrInst(BrInst inst, ArmBlock block, FunctionInfo funcinfo) {
@@ -570,6 +580,12 @@ public class CodeGenManager {
         var rhs = inst.getRHS();
         var cond = condMap.get(inst.getKind());
 
+        for (var ch : Arrays.asList(lhs, rhs)) {
+            if (ch instanceof BoolToIntInst) {
+                ResolveBoolToIntInst((BoolToIntInst) ch, block, funcinfo);
+            }
+        }
+
         Operand lhsReg, rhsReg;
         if (lhs instanceof Constant) {
             lhsReg = ResolveLhsOperand(rhs, block, funcinfo);
@@ -582,6 +598,25 @@ public class CodeGenManager {
 
         new ArmInstCmp(block, lhsReg, rhsReg, cond);
         return cond;
+    }
+
+    private void ResolveBoolToIntInst(BoolToIntInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var src = inst.getFrom();
+        var dstReg = ResolveOperand(inst, block, funcinfo);
+        if (src instanceof BoolConst) {
+            var bc = (BoolConst) src;
+            if (bc.getValue()) {
+                new ArmInstMove(block, dstReg, new IImm(1));
+            } else {
+                new ArmInstMove(block, dstReg, new IImm(0));
+            }
+        } else if (src instanceof CmpInst) {
+            var cond = ResolveCmpInst((CmpInst) src, block, funcinfo);
+            new ArmInstMove(block, dstReg, new IImm(1), cond);
+            new ArmInstMove(block, dstReg, new IImm(0), cond.getOppCondType());
+        } else {
+            Log.ensure(false);
+        }
     }
 
     // code gen arm
@@ -609,19 +644,19 @@ public class CodeGenManager {
     }
 
     private String CodeGenIntConst(IntConst val) {
-        return "\t" + ".long" + "\t" + Integer.toString(val.getValue()) + "\n";
+        return "\t" + ".word" + "\t" + Integer.toString(val.getValue()) + "\n";
     }
 
     private String CodeGenIntConst(int val) {
-        return "\t" + ".long" + "\t" + Integer.toString(val) + "\n";
+        return "\t" + ".word" + "\t" + Integer.toString(val) + "\n";
     }
 
     private String CodeGenFloatConst(FloatConst val) {
-        return "\t" + ".long" + "\t" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
+        return "\t" + ".word" + "\t" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
     }
 
     private String CodeGenFloatConst(Float val) {
-        return "\t" + ".long" + "\t" + Integer.toHexString(Float.floatToIntBits(val)) + "\n";
+        return "\t" + ".word" + "\t" + Integer.toHexString(Float.floatToIntBits(val)) + "\n";
     }
 
     private String CodeGenArrayConst(ArrayConst val) {

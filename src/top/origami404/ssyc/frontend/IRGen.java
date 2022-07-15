@@ -615,18 +615,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
     @Override
     public Value visitAtomLVal(AtomLValContext ctx) {
         final var lValResult = visitLVal(ctx.lVal());
+        final var value = findVariable(lValResult.var);
 
-        if (lValResult.isVar) {
-            final var variable = lValResult.var;
-            final var type = lValResult.type;
-
-            // 如果在全局的 finalInfo 与当前块的 versionInfo 里都找不到这个变量的话
-            // 就先插入一个空白的 phi 当作定义
-            return findVariable(variable)
-                .orElseGet(() -> builder.insertEmptyPhi(type, variable));
-
+        if (value.isPresent()) {
+            return getRightValue(value.get(), lValResult.indices);
         } else {
-            return builder.insertLoad(lValResult.gep);
+            return builder.insertEmptyPhi(lValResult.type, lValResult.var);
         }
     }
 
@@ -636,16 +630,20 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
         final var finalDef = finalInfo.getDef(variable);
         final var currDef = versionInfo.getDef(variable);
-        final var def = mergeOpt(finalDef, currDef);
+        return mergeOpt(finalDef, currDef);
+    }
 
-        // 对全局变量而言, 不管是变量还是数组, 都要 Load 进来才算
-        return def.map(v -> {
-            if (v instanceof GlobalVar) {
-                return builder.insertLoad(v);
-            } else {
-                return v;
-            }
-        });
+    private Value getRightValue(Value value, List<Value> indices) {
+        if (value instanceof GlobalVar) {
+            value = builder.insertLoad(value);
+        }
+
+        if (indices.isEmpty()) {
+            return value;
+        } else {
+            final var gep = builder.insertGEP(value, indices);
+            return builder.insertLoad(gep);
+        }
     }
 
     private static int parseInt(String text) {
@@ -667,17 +665,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     static class LValResult {
-        public LValResult(boolean isVar, IRType type, Variable var, GEPInst gep) {
-            this.isVar = isVar;
+        public LValResult(final IRType type, final Variable var, final List<Value> indices) {
             this.type = type;
             this.var = var;
-            this.gep = gep;
+            this.indices = indices;
         }
 
-        final boolean isVar;
         final IRType type;
         final Variable var;
-        final GEPInst gep;
+        final List<Value> indices;
     }
 
     @Override
@@ -685,18 +681,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var name = ctx.Ident().getText();
         final var entry = scope.get(name)
             .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
-
         final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
-        if (indices.isEmpty()) {
-            return new LValResult(true, entry.type, entry.var, null);
-
-        } else {
-            final var arrPtr = findVariable(entry.var)
-                .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
-            final var gep = builder.insertGEP(arrPtr, indices);
-
-            return new LValResult(false, entry.type, entry.var, gep);
-        }
+        return new LValResult(entry.type, entry.var, indices);
     }
 
     private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
@@ -759,13 +745,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static IRType findCommonType(IRType ty1, IRType ty2) {
-        Log.ensure(ty1.isInt() || ty1.isFloat());
-        Log.ensure(ty2.isInt() || ty2.isFloat());
+        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool());
+        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool());
 
         if (ty1.equals(ty2)) {
             // 两个都是 Int 或者是两个都 Float 的情况
             return ty1; // or return ty2
         } else {
+            Log.ensure(!(ty1.isBool() || ty2.isBool()), "Bool can NOT be convert to other type");
             // 一个 Int, 一个 Float 的情况
             return IRType.FloatTy;
         }
@@ -788,21 +775,24 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.stmtPutf() != null) {
             // TODO: 似乎不需要支持 putf ?
             throw new SemanticException(ctx, "Unsupported putf now");
-        } else if (ctx.exp() != null && ctx.Return() == null) {
+        } else if (ctx.exp() != null && ctx.Return() == null && ctx.lVal() == null) {
             visitExp(ctx.exp());
         } else if (ctx.lVal() != null) {
             // 赋值语句
             final var lValResult = visitLVal(ctx.lVal());
-            final var value = visitExp(ctx.exp());
+            final var value = findVariable(lValResult.var)
+                .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + lValResult.var));
+            final var leftValue = getLeftValue(value, lValResult.indices);
+            final var newDef = visitExp(ctx.exp());
 
-            if (lValResult.isVar) {
+            if (leftValue.isEmpty()) {
                 final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-                final var variable = lValResult.var;
-
-                versionInfo.killOrNewDef(variable, value);
+                versionInfo.kill(lValResult.var, newDef);
             } else {
-                builder.insertStore(lValResult.gep, value);
+                builder.insertStore(leftValue.get(), newDef);
             }
+
+
         } else if (ctx.Break() != null) {
             final var target = currWhileExit
                 .orElseThrow(() -> new SemanticException(ctx, "Break out of while"));
@@ -824,6 +814,23 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
 
         return null;
+    }
+
+    private Optional<Value> getLeftValue(Value value, List<Value> indices) {
+        if (indices.isEmpty()) {
+            if (value instanceof GlobalVar) {
+                return Optional.of(value);
+            } else {
+                return Optional.empty();
+            }
+
+        } else {
+            if (value instanceof GlobalVar) {
+                value = builder.insertLoad(value);
+            }
+
+            return Optional.of(builder.insertGEP(value, indices));
+        }
     }
 
     @Override
@@ -893,7 +900,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return visitRelExp(ctx.relExp());
         }
 
-        final var lhs = visitRelExp(ctx.relExp());
+        final var lhs = visitExp(ctx.exp());
         final var rhs = visitRelComp(ctx.relComp());
         final var op = ctx.relCompOp().getText();
         return switch (op) {

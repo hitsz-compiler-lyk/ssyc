@@ -6,6 +6,8 @@ import java.util.Map;
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.utils.Log;
 
+// mla dst op1 op2 op3: dst = op1 * op2 + op3
+// mls dst op1 op2 op3: dst = op1 * op2 - op3
 public class ArmInstTernay extends ArmInst {
     private Operand dst, op1, op2, op3;
 
