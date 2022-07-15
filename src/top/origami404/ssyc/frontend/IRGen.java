@@ -55,7 +55,21 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var function = new Function(returnType, arguments, ctx.Ident().getText());
 
         builder = new IRBuilder(function.getEntryBBlock());
-        currModule.getFunctions().put(function.getName(), function);
+        currModule.getFunctions().put(function.getFuncName(), function);
+        pushScope();
+
+        // 将函数形参加入当前的块的 currDef 中
+        // 不能直接加入 finalInfo, 因为首先函数形参不是 Module 层面的东西, 其次形参绑定着的东西是有可能会变的
+        // 不能在解析形参的时候就加入, 因为解析形参的时候函数还没被定义, builder 还是 null
+        final var lineNo = ctx.getStart().getLine();
+        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        for (final var param : function.getParameters()) {
+            final var name = param.getParamName();
+            final var variable = new Variable(name, lineNo);
+
+            scope.put(name, new ScopeEntry(variable, param.getType()));
+            versionInfo.newDef(variable, param);
+        }
 
         visitBlock(ctx.block());
 
@@ -63,6 +77,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
         function.getBasicBlocks().forEach(this::fillIncompletedPhiForBlock);
 
+        popScope();
         return function;
     }
 
@@ -413,7 +428,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private ArrayConst makeArrayConstAndInsertStoreForNonConst(Value arrPtr, InitValue initValue) {
-        final var indices = new ArrayList<Integer>(); indices.add(0);
+        final var indices = new ArrayList<Integer>();
         final var constant = makeArrayConstAndInsertStoreForNonConstImpl(arrPtr, initValue, indices);
 
         if (constant instanceof ArrayConst) {
@@ -676,20 +691,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return new LValResult(true, entry.type, entry.var, null);
 
         } else {
-            final var arrPtr = findArray(name)
+            final var arrPtr = findVariable(entry.var)
                 .orElseThrow(() -> new SemanticException(ctx, "Not an array: " + name));
             final var gep = builder.insertGEP(arrPtr, indices);
 
             return new LValResult(false, entry.type, entry.var, gep);
         }
-    }
-
-    private Optional<Value> findArray(String name) {
-        // 数组必然是 final, 因为数组会退化成为指向基元素的指针,
-        // 而那个指针指向谁永远不会变
-        return scope.get(name)
-                .map(ScopeEntry::var)
-                .flatMap(finalInfo::getArrayVar);
     }
 
     private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
@@ -821,9 +828,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Void visitBlock(BlockContext ctx) {
-        scope = new ChainMap<>(scope);
+        pushScope();
         ctx.children.forEach(this::visit);
-        scope = scope.getParent().orElseThrow(() -> new SemanticException(ctx, "Reach scope top"));
+        popScope();
         return null;
     }
 
@@ -1125,6 +1132,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return prefix + "_" + ctx.getStart().getLine();
     }
 
+    private void pushScope() {
+        scope = new ChainMap<>(scope);
+    }
+
+    private void popScope() {
+        scope = scope.getParent().orElseThrow(() -> new RuntimeException("Reach scope top"));
+    }
 
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的

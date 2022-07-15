@@ -27,15 +27,15 @@ public class LoadInst extends Instruction {
     public void verify() throws IRVerifyException {
         super.verify();
 
-        final var type = getType();
-        ensure(type.isInt() || type.isFloat(), "Type of load must be Int or Float");
+        // final var type = getType();
+        // ensure(type.isInt() || type.isFloat(), "Type of load must be Int or Float");
 
         final var ptrType = getPtr().getType();
         ensure(ptrType instanceof PointerIRTy, "Type of an argument of Load must be a pointer");
 
-        assert ptrType instanceof PointerIRTy;
-        final var baseType = ((PointerIRTy) ptrType).getBaseType();
-        ensure(baseType.isInt() || baseType.isFloat(),
-                "Type of an argument of Load must be a pointer to Int or Float");
+        // assert ptrType instanceof PointerIRTy;
+        // final var baseType = ((PointerIRTy) ptrType).getBaseType();
+        // ensure(baseType.isInt() || baseType.isFloat(),
+        //         "Type of an argument of Load must be a pointer to Int or Float");
     }
 }
