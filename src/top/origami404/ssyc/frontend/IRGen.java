@@ -657,7 +657,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (value.isPresent()) {
             return getRightValue(value.get(), lValResult.indices);
         } else {
-            return builder.insertEmptyPhi(lValResult.type, lValResult.var);
+            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            final var phi = builder.insertEmptyPhi(lValResult.type, lValResult.var);
+
+            versionInfo.newDef(lValResult.var, phi);
+            return phi;
         }
     }
 
@@ -1080,6 +1084,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
            .collect(Collectors.toList());
         // 然后设置为这个 phi 的 incomingValue
         phi.setIncomingCO(incomingValues);
+        phi.markAsCompleted();
 
         // 随后尝试去掉这个 phi
         final var end = tryReplaceTrivialPhi(phi);
