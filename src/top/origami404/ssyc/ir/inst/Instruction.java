@@ -2,6 +2,7 @@ package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.User;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
@@ -40,7 +41,10 @@ public abstract class Instruction extends User
         ensure(getParent().isPresent(), "An instruction must have a parent");
 
         for (final var op : getOperands()) {
-            ensure(op != this, "Cannot use itself as an operand");
+            // phi 有可能引用自己, 所以这个情况要丢一个特殊的异常
+            if (op == this) {
+                throw new SelfReferenceException(this);
+            }
         }
 
         for (final var user : getUserList()) {

@@ -3,6 +3,7 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.IRTypeException;
@@ -114,9 +115,13 @@ public class PhiInst extends Instruction {
 
     @Override
     public void verify() throws IRVerifyException {
-        super.verify();
-        ensure(getIncomingValues().size() == getIncomingBlocks().size(),
-                "Phi must have the same amount of incoming variable and blocks");
+        try {
+            super.verify();
+            ensure(getIncomingValues().size() == getIncomingBlocks().size(),
+                    "Phi must have the same amount of incoming variable and blocks");
+        } catch (SelfReferenceException e) {
+            // Do nothing
+        }
     }
 
     private final Variable variable;

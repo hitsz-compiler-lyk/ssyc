@@ -149,7 +149,7 @@ public class LLVMDumper {
 
         } else if (inst instanceof BrCondInst) {
             final var br = (BrCondInst) inst;
-            ir("br <cond> <trueBB> <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
+            ir("br <cond>, <trueBB>, <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
 
         } else if (inst instanceof PhiInst) {
             final var phi = (PhiInst) inst;
