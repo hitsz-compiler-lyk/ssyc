@@ -1026,16 +1026,20 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Void visitStmtWhile(StmtWhileContext ctx) {
+        final var condBB = builder.createFreeBBlock(nameWithLine(ctx, "while_cond"));
         final var bodyBB = builder.createFreeBBlock(nameWithLine(ctx, "while_body"));
         final var exitBB = builder.createFreeBBlock(nameWithLine(ctx, "while_exit"));
 
+        builder.appendBBlock(condBB);
         visitCond(ctx.cond(), bodyBB, exitBB);
 
-        currWhileCond = Optional.of(builder.getBasicBlock());
+        currWhileCond = Optional.of(condBB);
         currWhileExit = Optional.of(exitBB);
 
         builder.appendBBlock(bodyBB);
         visitStmt(ctx.stmt());
+
+        builder.insertBranch(condBB);
 
         currWhileCond = Optional.empty();
         currWhileExit = Optional.empty();

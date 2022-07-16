@@ -1,5 +1,6 @@
 package top.origami404.ssyc.utils;
 
+import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
@@ -15,6 +16,7 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.lang.Runtime.Version;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,13 +40,22 @@ public class LLVMDumper {
             dumpGlobalVariable(global);
         }
 
+        // 先输出外部函数
         for (final var func : module.getFunctions().values()) {
             if (func.isExternal()) {
                 dumpExternalFunction(func);
-            } else {
+            }
+        }
+
+        ir(""); ir(""); // two empty line
+
+        // 再输出正常的函数
+        for (final var func : module.getFunctions().values()) {
+            if (!func.isExternal()) {
                 dumpNormalFunction(func);
             }
         }
+
     }
 
     private void dumpNormalFunction(Function function) {
@@ -52,11 +63,23 @@ public class LLVMDumper {
                 function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
 
         for (final var block : function.asElementView()) {
-            ir("<label>:", block.getLabelName());
+            final var preds = block.getPredecessors().stream()
+                .map(Value::getName)
+                .collect(Collectors.joining(", "));
+
+            ir("<label>:    ; <pred*>", block.getLabelName(), preds);
             block.asElementView().forEach(this::dumpInstruction);
+
+            for (final var entry : block.getAnalysisInfo(VersionInfo.class).getAllInfoEntry()) {
+                final var name = entry.getKey().getIRName();
+                final var def = entry.getValue().getCurrDef();
+                ir("  ; <name> -> <def>", name, def);
+            }
+            ir("");
         }
 
         ir("}");
+        ir("");
     }
 
     private void dumpExternalFunction(Function function) {
