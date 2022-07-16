@@ -3,12 +3,9 @@ package top.origami404.ssyc.ir;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import top.origami404.ssyc.ir.inst.Instruction;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public abstract class Value {
     public Value(IRType type) {
@@ -37,24 +34,25 @@ public abstract class Value {
     }
 
     public void replaceAllUseWith(Value newValue) {
-        userList.forEach(u -> u.replaceOperandCO(this, newValue));
-        newValue.userList = userList;
-        userList = new ArrayList<>();
+        final var oldUserList = new ArrayList<>(userList);
+        oldUserList.forEach(u -> u.replaceOperandCO(this, newValue));
+        // userList = new ArrayList<>();
+        ensure(userList.isEmpty(), "User list should be empty after RAUW");
     }
 
-    public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
-        final var usersInBlock = userList.stream()
-            .filter(Instruction.class::isInstance)
-            .filter(i -> i.as(Instruction.class).getParent().isPresent())
-            .collect(Collectors.toUnmodifiableList());
-
-        for (final var user : usersInBlock) {
-            user.replaceOperandCO(this, newValue);
-            newValue.addUser(user);
-        }
-
-        userList.removeAll(usersInBlock);
-    }
+    // public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
+    //     final var usersInBlock = userList.stream()
+    //         .filter(Instruction.class::isInstance)
+    //         .filter(i -> i.as(Instruction.class).getParent().isPresent())
+    //         .collect(Collectors.toUnmodifiableList());
+    //
+    //     for (final var user : usersInBlock) {
+    //         user.replaceOperandCO(this, newValue);
+    //         newValue.addUser(user);
+    //     }
+    //
+    //     userList.removeAll(usersInBlock);
+    // }
 
     public boolean isUseless() {
         return userList.isEmpty();
@@ -83,6 +81,11 @@ public abstract class Value {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return name;
     }
 
     /**

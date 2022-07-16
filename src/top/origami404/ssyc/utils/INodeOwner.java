@@ -9,6 +9,10 @@ public interface INodeOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
         return getINode().getParent().map(IList::getOwner);
     }
 
+    default void setParent(IListOwner<E, P> parent) {
+        getINode().setParent(parent.getIList());
+    }
+
     default void insertAfterCO(E nodeOwner) {
         getINode().insertAfterCO(nodeOwner.getINode());
     }

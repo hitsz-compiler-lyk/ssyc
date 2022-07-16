@@ -10,7 +10,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
     // 链表的头节点, 其为 Optional.empty() 当且仅当链表为空
     private final INode<E, P> begin;
     private int size;   // 链表大小
-    private P owner;    // 包含该链表的对象
+    private final P owner;    // 包含该链表的对象
 
     public IList(P owner) {
         // IList 在被构造时必然会知道它的 parent 是谁
@@ -35,7 +35,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
     public List<INode<E, P>> asINodeView() {
         return new INodeListView();
     }
-    
+
     void adjustSize(int offset) {
         this.size += offset;
     }
@@ -50,6 +50,19 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             curr = curr.getNext().orElseThrow(NoSuchElementException::new);
         }
         return curr;
+    }
+
+    public boolean replaceFirst(E oldElm, E newElm) {
+        final var iter = listIterator();
+        while (iter.hasNext()) {
+            final var elm = iter.next();
+            if (elm.equals(oldElm)) {
+                iter.set(newElm);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -254,6 +267,8 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             tempNode.markedAsDeleted();
             prevTemp.ifPresent(n -> n.setNextOpt(nextTemp));
             nextTemp.ifPresent(n -> n.setPrevOpt(prevTemp));
+
+            IList.this.adjustSize(-1);
         }
 
         @Override
@@ -289,6 +304,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
 
         @Override
         public void add(INode<E, P> newNode) {
+            Log.info("Add %s to %s".formatted(newNode.getValue(), IList.this.getOwner()));
             lastModified = IteratorActionKind.ADD;
 
             newNode.setPrev(prevNode);

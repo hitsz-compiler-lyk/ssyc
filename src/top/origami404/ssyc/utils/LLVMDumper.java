@@ -64,7 +64,7 @@ public class LLVMDumper {
         final var paramTypes = function.getType().getParamTypes().stream()
             .map(this::dumpIRType).collect(Collectors.joining(", "));
 
-        ir("declare dso_local <return-ty> <func-name>(<parma-type*)",
+        ir("declare dso_local <return-ty> <func-name>(<parma-type*>)",
                 returnType, function.getName(), paramTypes);
     }
 

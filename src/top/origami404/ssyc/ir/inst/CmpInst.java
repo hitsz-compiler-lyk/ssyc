@@ -28,11 +28,10 @@ public class CmpInst extends Instruction {
 
         ensure(thisType.isBool(),
                 "Type of a CmpInst must be Bool");
-        ensure((getKind().isInt() && thisType.isInt()) || (getKind().isFloat()) && thisType.isFloat(),
-                "Type of a CmpInst must match its kind");
-        ensure(thisType.equals(lhsType) && thisType.equals(rhsType),
-                "Type of LHS/RHS must be the same with the CmpInst");
         ensure(getKind().isCmp(), "Unmatched kind");
+        ensure(lhsType.equals(rhsType), "Type of LHS/RHS must be the same with the CmpInst");
+        ensure((getKind().isInt() && lhsType.isInt()) || (getKind().isFloat() && lhsType.isFloat()),
+                "Type of a CmpInst must match its kind");
 
         ensureNot(lhs instanceof Constant && rhs instanceof Constant,
                 "A CmpInst shouldn't have two constants as its arguments");

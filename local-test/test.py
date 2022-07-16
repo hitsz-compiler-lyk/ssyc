@@ -61,7 +61,7 @@ def build(subdir: str):
 
 def ssyc(option: str) -> Callable[[str, str], None]:
     def do(src: str, dst: str):
-        sh(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst}')
+        sh(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
     return do
 
 ssyc_llvm = one_pass('ssyc', '.sy', '.llvm')(ssyc('llvm'))

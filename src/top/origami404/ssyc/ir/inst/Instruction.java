@@ -3,10 +3,12 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.User;
+import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IListException;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
+import top.origami404.ssyc.utils.Log;
 
 public abstract class Instruction extends User
     implements INodeOwner<Instruction, BasicBlock>
@@ -53,6 +55,24 @@ public abstract class Instruction extends User
         } catch (IListException e) {
             throw new IRVerifyException(this, "INode exception", e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return getKind() + ":" + getName() + "|" + getParent().map(Value::toString).orElse("?");
+    }
+
+    @Override
+    public void replaceAllUseWith(final Value newValue) {
+        super.replaceAllUseWith(newValue);
+        getParent().ifPresentOrElse(block -> {
+            if (newValue instanceof Instruction) {
+                block.getIList().replaceFirst(this, (Instruction) newValue);
+            } else {
+                block.getIList().remove(this);
+            }
+
+        }, () -> Log.info("RAUW on free instruction"));
     }
 
     private static int instNo = 0;

@@ -20,15 +20,17 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
+import top.origami404.ssyc.utils.Log;
 
 public class IRBuilder {
-    public IRBuilder(BasicBlock currentBasicBlock) {
-        this(currentBasicBlock, getLastINodeItr(currentBasicBlock));
-    }
+    // public IRBuilder(BasicBlock currentBasicBlock) {
+    //     this(currentBasicBlock, getLastINodeItr(currentBasicBlock));
+    // }
 
-    public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
+    // public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
+    public IRBuilder(BasicBlock currentBasicBlock) {
         this.currBB = currentBasicBlock;
-        this.pos = position;
+        // this.pos = position;
         this.currFunc = currentBasicBlock.getParent()
             .orElseThrow(() -> new RuntimeException("Cannot use free blocks as builder's argument"));
         addInfos(currBB);
@@ -62,18 +64,18 @@ public class IRBuilder {
 
     public Instruction insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { return foldBr(cond, trueBB, falseBB); }
 
-    public Instruction insertBrICmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpEq(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrICmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpNe(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrICmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLt(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrICmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLe(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrICmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGt(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrICmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGe(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpEq(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpNe(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLt(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLe(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGt(lhs, rhs), trueBB, falseBB); }
-    public Instruction insertBrFCmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpEq(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpNe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLt(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGt(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrICmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpEq(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpNe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLt(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLe(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGt(lhs, rhs), trueBB, falseBB); }
+    // public Instruction insertBrFCmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGe(lhs, rhs), trueBB, falseBB); }
 
     public BrInst insertBranch(BasicBlock nextBB) { return direct(new BrInst(nextBB, currBB)); }
 
@@ -127,6 +129,7 @@ public class IRBuilder {
             insertBranch(newBB);
         }
         changeBasicBlock(newBB);
+        currFunc.getIList().add(newBB);
     }
 
     public BasicBlock createAndAppendBBlock(String name) {
@@ -137,7 +140,7 @@ public class IRBuilder {
 
     public void changeBasicBlock(BasicBlock newBB) {
         currBB = newBB;
-        pos = getLastINodeItr(newBB);
+        // pos = getLastINodeItr(newBB);
         addInfos(newBB);
     }
 
@@ -148,6 +151,60 @@ public class IRBuilder {
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
         return bb.asINodeView().listIterator(bb.getInstructionCount());
+    }
+
+    /**
+     * 注意: 不会更新 currDef !!!!!!!!!!!!!!!
+     * @param val
+     * @return
+     */
+    public static void refold(Instruction val) {
+        if (val instanceof BrCondInst) {
+            final var br = (BrCondInst) val;
+            final var cond = (br.getCond());
+
+            if (cond instanceof BoolConst) {
+                final var value = ((BoolConst) cond).getValue();
+                final var currBB = br.getParent().orElseThrow();
+                final var nextBB = value ? br.getTrueBB() : br.getFalseBB();
+                final var fakeBB = value ? br.getFalseBB() : br.getTrueBB();
+
+                fakeBB.removePredecessorWithPhiUpdated(currBB);
+
+                final var directBr = new BrInst(nextBB, currBB);
+                val.replaceAllUseWith(directBr);
+            }
+
+        } else {
+            final var exp = foldExp(val);
+            if (exp != val) {
+                val.replaceAllUseWith(exp);
+            }
+        }
+    }
+
+    private static Value foldExp(Instruction val) {
+        final var type = val.getType();
+        if (type.isInt() && IntConstantFolder.canFold(val)) {
+            return IntConstantFolder.foldConst(val);
+        } else if (type.isFloat() && FloatConstantFolder.canFold(val)) {
+            return FloatConstantFolder.foldConst(val);
+        } else if (type.isBool()) {
+            return foldCond(val);
+        }
+
+        return val;
+    }
+
+    private static Value foldCond(Value cond) {
+        if (cond instanceof CmpInst) {
+            final var cmp = (CmpInst) cond;
+            if (CondFolder.canFold(cmp)) {
+                return CondFolder.foldConst(cmp);
+            }
+        }
+
+        return cond;
     }
 
     private Value foldInt(Instruction val) {
@@ -201,7 +258,7 @@ public class IRBuilder {
     }
 
     private<T extends Instruction> void insert(T inst) {
-        pos.add(inst.getINode());
+        currBB.getIList().add(inst);
     }
 
     @SuppressWarnings("unchecked")
@@ -212,5 +269,5 @@ public class IRBuilder {
 
     private Function currFunc;
     private BasicBlock currBB;
-    private ListIterator<INode<Instruction, BasicBlock>> pos;
+    // private ListIterator<INode<Instruction, BasicBlock>> pos;
 }

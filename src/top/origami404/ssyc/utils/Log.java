@@ -27,12 +27,14 @@ public class Log {
         // From: https://stackoverflow.com/a/31128774
         // 0 -- getStackTrace
         // 1 -- ensure (curr method)
-        // 2 -- the caller
-        final var callerStackTrace = Thread.currentThread().getStackTrace()[2];
+        // 2 -- the wrapper (info/debug)
+        // 3 -- the caller
+        final var callerStackTrace = Thread.currentThread().getStackTrace()[3];
         final var lineNo = callerStackTrace.getLineNumber();
         final var filename = callerStackTrace.getFileName();
+        final var basename = filename.replace(".java", "");
 
-        return "[%s][%s:%d] | %s".formatted(level, filename, lineNo, message);
+        return "[%5s][%15s:%4d] | %s".formatted(level, basename, lineNo, message);
     }
 
     private static PrintStream out = System.err;

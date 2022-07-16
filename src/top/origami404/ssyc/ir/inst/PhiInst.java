@@ -19,23 +19,14 @@ public class PhiInst extends Instruction {
         this.incompleted = true;
     }
 
-    @Override
-    public void addOperandCO(Value operand) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
-    }
-
-    @Override
-    public Value removeOperandCO(int index) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
-    }
-
     public void setIncomingCO(List<Value> incomingValues) {
         if (incomingValues.size() != getIncomingBlocks().size()) {
             throw new IRVerifyException(this, "Phi must have the same amount of incoming variable and blocks");
         }
 
         if (getIncomingSize() != 0) {
-            clearIncomingCO();
+            throw new IRVerifyException(this, "Phi could only set incoming once");
+            // clearIncomingCO();
         }
 
         super.addAllOperandsCO(incomingValues);
@@ -43,7 +34,7 @@ public class PhiInst extends Instruction {
 
     public void clearIncomingCO() {
         final var size = getIncomingSize();
-        for (int i = 0; i < size; i++) {
+        for (int i = size - 1; i >= 0; i--) {
             removeOperandCO(i);
         }
     }

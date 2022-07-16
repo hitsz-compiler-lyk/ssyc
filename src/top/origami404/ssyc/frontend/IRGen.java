@@ -106,6 +106,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
         function.getBasicBlocks().forEach(this::fillIncompletedPhiForBlock);
 
+        for (final var block : function.getBasicBlocks()) {
+            for (final var inst : block.allInst()) {
+                IRBuilder.refold(inst);
+            }
+        }
+
+        // TODO: 重新尝试删除在常量折叠里变得无用的 phi
+
         popScope();
         return function;
     }
@@ -1049,11 +1057,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 continue;
             }
 
+            Log.ensure(!phi.getINode().isDeleted(), "Could NOT iter over deleted node");
+
             fillIncompletedPhi(phi, bblock);
         }
+
+        bblock.adjustPhiEnd();
     }
 
-    public void fillIncompletedPhi(PhiInst phi, BasicBlock block) {
+    public Value fillIncompletedPhi(PhiInst phi, BasicBlock block) {
         final var type = phi.getType();
         final var variable = phi.getVariable();
 
@@ -1076,6 +1088,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
             // 然后将其所有出现都替换为 end
             phi.replaceAllUseWith(end);
         }
+
+        return end;
     }
 
     private Value tryReplaceTrivialPhi(PhiInst phi) {
@@ -1084,7 +1098,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         incoming.remove(phi);
 
         if (incoming.size() == 0) {
-            throw new RuntimeException("Phi for undefined: " + phi.getVariable().getIRName());
+            throw new RuntimeException("Phi for undefined: " + phi);
         } else if (incoming.size() == 1) {
             // 如果去重后只有一个, 那么这个 Phi 是可以去掉的
             return incoming.iterator().next();
@@ -1103,16 +1117,16 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         // 没有定义的话, 就要往上递归去找
         final var phi = new PhiInst(type, variable);
+        phi.setParent(bblock);
         // 为了防止递归无限循环, 得先插一个空 phi 在这里作为定义
         versionInfo.newDef(variable, phi);
         // 然后尝试去填充这个空 phi
-        fillIncompletedPhi(phi, bblock);
+        final var end = fillIncompletedPhi(phi, bblock);
 
         // 填充完之后看看这个 phi 是否可以被替代
-        final var end = tryReplaceTrivialPhi(phi);
         if (end != phi) {
             // 可以的话就直接清空 phi 的 incoming
-            phi.clearIncomingCO();
+            // phi.clearIncomingCO();
             // 然后将其定义替换为 end
             versionInfo.kill(variable, end);
         } else {
