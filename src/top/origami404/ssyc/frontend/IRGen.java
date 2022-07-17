@@ -59,7 +59,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         addExternalFunc("putint", Void, Int);
         addExternalFunc("putch", Void, Int);
-        addExternalFunc("putarray", Void, Int, PtrFloat);
+        addExternalFunc("putarray", Void, Int, PtrInt);
         addExternalFunc("putfloat", Void, Float);
         addExternalFunc("putfarray", Void, Int, PtrFloat);
     }
@@ -83,7 +83,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var arguments = visitFuncParamList(ctx.funcParamList());
         final var function = new Function(returnType, arguments, ctx.Ident().getText());
 
-        builder = new IRBuilder(function.getEntryBBlock());
+        builder.changeBasicBlock(function.getEntryBBlock());
         currModule.getFunctions().put(function.getFuncName(), function);
         pushScope();
 
@@ -136,6 +136,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // TODO: 重新尝试删除在常量折叠里变得无用的 phi
 
         popScope();
+        builder.switchToGlobal(); // return to global
         return function;
     }
 
@@ -700,8 +701,19 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (indices.isEmpty()) {
             return value;
         } else {
-            final var gep = builder.insertGEP(value, indices);
-            return builder.insertLoad(gep);
+            final var resultType = GEPInst.calcResultType(value.getType(), indices.size());
+            if (resultType.getBaseType() instanceof SimpleIRTy) {
+                final var gep = builder.insertGEP(value, indices);
+                return builder.insertLoad(gep);
+            } else {
+                // 对类似 int a[2][3][4], 求值 a[1][0] 的这种情况,
+                // 如果还是 GEP %a 1, 0 的话, 只能拿到 *[4 x i32] 的值
+                // 所以需要手动加多一个 0, 变成 GEP %a 1, 0, 0, 就可以模拟出数组退化
+                // 拿到 *i32 类型的值了
+                final var newIndices = new ArrayList<>(indices);
+                newIndices.add(Constant.INT_0);
+                return builder.insertGEP(value, newIndices); // TODO: 考虑基于 GEP 折叠的优雅方案?
+            }
         }
     }
 
@@ -1053,7 +1065,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
         builder.appendBBlock(bodyBB);
         visitStmt(ctx.stmt());
 
-        builder.insertBranch(condBB);
+        if (!builder.getBasicBlock().isTerminated()) {
+            // 考虑样例 73, while 里的 if 里面直接加个 break , 然后就是循环末尾的情况
+            // 这时候生成完的循环体的基本块很可能已经有了 Terminator, 就不用再加一条了
+            // 或者, 在每次循环体生成完之后, 再加一个基本块, 再来一次跳转也可, 不过这样太浪费了
+            builder.insertBranch(condBB);
+        }
 
         currWhileCond = Optional.empty();
         currWhileExit = Optional.empty();

@@ -41,7 +41,7 @@ public class GEPInst extends Instruction {
         }
     }
 
-    private static IRType calcResultType(IRType originalType, int indexCount) {
+    public static PointerIRTy calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
             if (originalType instanceof ArrayIRTy) {
                 final var arrayType = (ArrayIRTy) originalType;
@@ -91,8 +91,10 @@ public class GEPInst extends Instruction {
             }
         }
 
-        ensure(currType.isInt() || currType.isFloat(),
-                "Shape of ptr of GEP must match the length of indices");
+        // functional/61_sort_test7.sy:43
+        // 存在将数组的一部分传给函数的情况!
+        // ensure(currType.isInt() || currType.isFloat(),
+        //         "Shape of ptr of GEP must match the length of indices");
         ensure(currType.equals(getType().getBaseType()), "The final baseType of ptr must match the type of GEP");
     }
 }

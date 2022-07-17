@@ -151,6 +151,11 @@ public class IRBuilder {
         addInfos(newBB);
     }
 
+    public void switchToGlobal() {
+        this.currBB = null;
+        this.currFunc = null;
+    }
+
     private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(VersionInfo.class, VersionInfo::new);
         bb.getParent().ifPresent(f -> f.addIfAbsent(InstCache.class, InstCache::new));
