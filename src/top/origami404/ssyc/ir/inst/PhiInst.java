@@ -3,6 +3,7 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.IRTypeException;
@@ -19,23 +20,14 @@ public class PhiInst extends Instruction {
         this.incompleted = true;
     }
 
-    @Override
-    public void addOperandCO(Value operand) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
-    }
-
-    @Override
-    public Value removeOperandCO(int index) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
-    }
-
     public void setIncomingCO(List<Value> incomingValues) {
         if (incomingValues.size() != getIncomingBlocks().size()) {
             throw new IRVerifyException(this, "Phi must have the same amount of incoming variable and blocks");
         }
 
         if (getIncomingSize() != 0) {
-            clearIncomingCO();
+            throw new IRVerifyException(this, "Phi could only set incoming once");
+            // clearIncomingCO();
         }
 
         super.addAllOperandsCO(incomingValues);
@@ -43,7 +35,7 @@ public class PhiInst extends Instruction {
 
     public void clearIncomingCO() {
         final var size = getIncomingSize();
-        for (int i = 0; i < size; i++) {
+        for (int i = size - 1; i >= 0; i--) {
             removeOperandCO(i);
         }
     }
@@ -123,9 +115,13 @@ public class PhiInst extends Instruction {
 
     @Override
     public void verify() throws IRVerifyException {
-        super.verify();
-        ensure(getIncomingValues().size() == getIncomingBlocks().size(),
-                "Phi must have the same amount of incoming variable and blocks");
+        try {
+            super.verify();
+            ensure(getIncomingValues().size() == getIncomingBlocks().size(),
+                    "Phi must have the same amount of incoming variable and blocks");
+        } catch (SelfReferenceException e) {
+            // Do nothing
+        }
     }
 
     private final Variable variable;

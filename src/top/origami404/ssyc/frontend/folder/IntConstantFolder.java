@@ -1,9 +1,11 @@
 package top.origami404.ssyc.frontend.folder;
 
 import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.BoolConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
+import top.origami404.ssyc.ir.inst.BoolToIntInst;
 import top.origami404.ssyc.ir.inst.FloatToIntInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
 
@@ -50,6 +52,10 @@ public class IntConstantFolder {
             final var f2i = (FloatToIntInst) value;
             final var from = FloatConstantFolder.foldFloat(f2i);
             return (int) from; // 若超出 int 范围, SysY 行为未定义, 就直接用 Java 的行为了
+        } else if (value instanceof BoolToIntInst) {
+            final var from = ((BoolToIntInst) value).getFrom();
+            final var bool = ((BoolConst) from).getValue();
+            return bool ? 1 : 0;
         } else {
             throw new RuntimeException("Unfoldable value");
         }
@@ -67,6 +73,8 @@ public class IntConstantFolder {
         } else if (value instanceof FloatToIntInst) {
             final var inst = (FloatToIntInst) value;
             return FloatConstantFolder.canFold(inst.getFrom());
+        } else if (value instanceof BoolToIntInst) {
+            return ((BoolToIntInst) value).getFrom() instanceof BoolConst;
         } else {
             return false;
         }

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.Log;
 
 public class User extends Value {
     public User(IRType type) {
@@ -30,6 +31,7 @@ public class User extends Value {
 
     public Value replaceOperandCO(int index, Value newValue) {
         final var oldValue = operandList.get(index);
+        Log.info("Replace %s to %s".formatted(oldValue, newValue));
         oldValue.removeUser(this);
 
         operandList.set(index, newValue);
@@ -58,6 +60,7 @@ public class User extends Value {
     // 所以这些方法是 protected 的
 
     protected void addOperandCO(Value operand) {
+        Log.info("Add %s to %s".formatted(operand, this));
         operandList.add(operand);
         operand.addUser(this);
     }
@@ -69,6 +72,7 @@ public class User extends Value {
 
     protected Value removeOperandCO(int index) {
         final var oldValue = operandList.remove(index);
+        Log.info("Remove %s from %s".formatted(oldValue, this));
         oldValue.removeUser(this);
         return oldValue;
     }

@@ -1,6 +1,6 @@
 package top.origami404.ssyc.utils;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.info.VersionInfo;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
@@ -16,6 +16,7 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.lang.Runtime.Version;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,21 +40,55 @@ public class LLVMDumper {
             dumpGlobalVariable(global);
         }
 
+        // 先输出外部函数
         for (final var func : module.getFunctions().values()) {
-            dumpFunction(func);
+            if (func.isExternal()) {
+                dumpExternalFunction(func);
+            }
         }
+
+        ir(""); ir(""); // two empty line
+
+        // 再输出正常的函数
+        for (final var func : module.getFunctions().values()) {
+            if (!func.isExternal()) {
+                dumpNormalFunction(func);
+            }
+        }
+
     }
 
-    private void dumpFunction(Function function) {
+    private void dumpNormalFunction(Function function) {
         ir("define dso_local global <return-ty> <func-name>(<param*>) {",
                 function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
 
         for (final var block : function.asElementView()) {
-            ir("<label>:", block.getLabelName());
+            final var preds = block.getPredecessors().stream()
+                .map(Value::getName)
+                .collect(Collectors.joining(", "));
+
+            ir("<label>:    ; <pred*>", block.getLabelName(), preds);
             block.asElementView().forEach(this::dumpInstruction);
+
+            for (final var entry : block.getAnalysisInfo(VersionInfo.class).getAllInfoEntry()) {
+                final var name = entry.getKey().getIRName();
+                final var def = entry.getValue().getCurrDef();
+                ir("  ; <name> -> <def>", name, def);
+            }
+            ir("");
         }
 
         ir("}");
+        ir("");
+    }
+
+    private void dumpExternalFunction(Function function) {
+        final var returnType = function.getType().getReturnType();
+        final var paramTypes = function.getType().getParamTypes().stream()
+            .map(this::dumpIRType).collect(Collectors.joining(", "));
+
+        ir("declare dso_local <return-ty> <func-name>(<parma-type*>)",
+                returnType, function.getName(), paramTypes);
     }
 
     private void dumpGlobalVariable(GlobalVar gv) {
@@ -101,6 +136,9 @@ public class LLVMDumper {
         } else if (inst instanceof FloatToIntInst) {
             ir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
 
+        } else if (inst instanceof BoolToIntInst) {
+            ir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
+
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
             ir("<cmpop> <ty> <lhs-name>, <rhs-name>",
@@ -111,7 +149,7 @@ public class LLVMDumper {
 
         } else if (inst instanceof BrCondInst) {
             final var br = (BrCondInst) inst;
-            ir("br <cond> <trueBB> <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
+            ir("br <cond>, <trueBB>, <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
 
         } else if (inst instanceof PhiInst) {
             final var phi = (PhiInst) inst;
@@ -221,6 +259,7 @@ public class LLVMDumper {
             case Int -> "i32";
             case Bool -> "i1";
             case Float -> "float";
+            case Void -> "void";
             case Pointer -> dumpIRType(((PointerIRTy) type).getBaseType()) + "*";
             case Array -> {
                 final var array = (ArrayIRTy) type;
@@ -230,7 +269,6 @@ public class LLVMDumper {
             case BBlock -> "label";
             case Parameter -> dumpIRType(((Parameter) type).getParamType());
 
-            case Void -> throw new RuntimeException("Void can't be used.");
             case Function -> throw new RuntimeException("Function type needn't be used.");
             default -> throw new RuntimeException("Unknown IRType kind: " + kind);
         };

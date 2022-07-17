@@ -2,7 +2,9 @@ package top.origami404.ssyc.frontend.info;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
@@ -72,6 +74,10 @@ public class VersionInfo implements AnalysisInfo {
 
     public Optional<VarVersionInfo> getInfo(Variable var) {
         return Optional.ofNullable(version.get(var));
+    }
+
+    public Set<Entry<Variable, VarVersionInfo>> getAllInfoEntry() {
+        return version.entrySet();
     }
 
     public static class VarVersionInfo {

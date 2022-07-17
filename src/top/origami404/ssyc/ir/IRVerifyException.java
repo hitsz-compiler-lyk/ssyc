@@ -19,6 +19,12 @@ public class IRVerifyException extends RuntimeException {
         return message;
     }
 
+    public static class SelfReferenceException extends IRVerifyException {
+        public SelfReferenceException(Value value) {
+            super(value, "Cannot use itself as an operand");
+        }
+    }
+
     private final Value value;
     private final String message;
 }

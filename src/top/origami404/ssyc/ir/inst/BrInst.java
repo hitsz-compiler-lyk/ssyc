@@ -3,15 +3,22 @@ package top.origami404.ssyc.ir.inst;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.Log;
 
 public class BrInst extends Instruction {
-    public BrInst(BasicBlock nextBB) {
+    public BrInst(BasicBlock nextBB, BasicBlock currBlock) {
         super(InstKind.Br, IRType.VoidTy);
         super.addOperandCO(nextBB);
 
-        final var currBlock = this.getParent()
-            .orElseThrow(() -> new RuntimeException("Free br instruction"));
-        nextBB.addPredecessor(currBlock);
+        insertPredecessor(nextBB, currBlock);
+    }
+
+    private static void insertPredecessor(final BasicBlock toBB, final BasicBlock currBlock) {
+        if (!toBB.getPredecessors().contains(currBlock)) {
+            toBB.addPredecessor(currBlock);
+        } else {
+            Log.info("CurrBB %s already in %s".formatted(currBlock, toBB));
+        }
     }
 
     public BasicBlock getNextBB() {

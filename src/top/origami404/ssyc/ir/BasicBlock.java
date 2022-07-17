@@ -130,8 +130,32 @@ public class BasicBlock extends Value
         predecessors.add(predecessor);
     }
 
+    public void removePredecessorWithPhiUpdated(BasicBlock predecessorToBeRemoved) {
+        final var index = predecessors.indexOf(predecessorToBeRemoved);
+
+        ensure(index >= 0, "BBlock %s is NOT the predecessor of %s".formatted(predecessorToBeRemoved, this));
+
+        predecessors.remove(index);
+        for (final var phi : phis()) {
+            phi.removeOperandCO(index);
+        }
+
+        if (predecessors.size() == 0) {
+            Log.info("Eliminate BBlock " + this);
+        }
+    }
+
     public boolean isTerminated() {
         return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
+    }
+
+    @Override
+    public void replaceAllUseWith(final Value newValue) {
+        super.replaceAllUseWith(newValue);
+
+        final var func = getParent().orElseThrow(() -> new IRVerifyException(this, "Free block"));
+        ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
+        func.getIList().replaceFirst(this, (BasicBlock) newValue);
     }
 
     @Override
@@ -196,4 +220,13 @@ public class BasicBlock extends Value
     private INode<BasicBlock, Function> inode;
     private Map<String, AnalysisInfo> analysisInfos;
     private List<BasicBlock> predecessors;
+
+    public void adjustPhiEnd() {
+        int i = 0;
+        while (instructions.get(i).is(PhiInst.class)) {
+            i += 1;
+        }
+
+        phiEnd = instructions.listIterator(i);
+    }
 }

@@ -2,11 +2,14 @@ package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.User;
+import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IListException;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
+import top.origami404.ssyc.utils.Log;
 
 public abstract class Instruction extends User
     implements INodeOwner<Instruction, BasicBlock>
@@ -38,7 +41,10 @@ public abstract class Instruction extends User
         ensure(getParent().isPresent(), "An instruction must have a parent");
 
         for (final var op : getOperands()) {
-            ensure(op != this, "Cannot use itself as an operand");
+            // phi 有可能引用自己, 所以这个情况要丢一个特殊的异常
+            if (op == this) {
+                throw new SelfReferenceException(this);
+            }
         }
 
         for (final var user : getUserList()) {
@@ -53,6 +59,24 @@ public abstract class Instruction extends User
         } catch (IListException e) {
             throw new IRVerifyException(this, "INode exception", e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return getKind() + ":" + getName() + "|" + getParent().map(Value::toString).orElse("?");
+    }
+
+    @Override
+    public void replaceAllUseWith(final Value newValue) {
+        super.replaceAllUseWith(newValue);
+        getParent().ifPresentOrElse(block -> {
+            if (newValue instanceof Instruction) {
+                block.getIList().replaceFirst(this, (Instruction) newValue);
+            } else {
+                block.getIList().remove(this);
+            }
+
+        }, () -> Log.info("RAUW on free instruction"));
     }
 
     private static int instNo = 0;
