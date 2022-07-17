@@ -68,31 +68,18 @@ public class IRBuilder {
     public Value insertFCmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGt, lhs, rhs)); }
     public Value insertFCmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGe, lhs, rhs)); }
 
-    public Instruction insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { return foldBr(cond, trueBB, falseBB); }
+    public void insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { foldBr(cond, trueBB, falseBB); }
 
-    // public Instruction insertBrICmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpEq(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrICmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpNe(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrICmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLt(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrICmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpLe(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrICmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGt(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrICmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertICmpGe(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpEq(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpEq(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpNe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpNe(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpLt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLt(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpLe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpLe(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpGt(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGt(lhs, rhs), trueBB, falseBB); }
-    // public Instruction insertBrFCmpGe(Value lhs, Value rhs, BasicBlock trueBB, BasicBlock falseBB) { return insertBrCond(insertFCmpGe(lhs, rhs), trueBB, falseBB); }
-
-    public BrInst insertBranch(BasicBlock nextBB) { return direct(new BrInst(nextBB, currBB)); }
+    public void insertBranch(BasicBlock nextBB) { direct(new BrInst(nextBB, currBB)); }
 
     public CallInst insertCall(Function func, List<Value> args) { return direct(new CallInst(func, args)); }
-    public ReturnInst insertReturn() { return direct(new ReturnInst()); }
-    public ReturnInst insertReturn(Value returnVal) { return direct(new ReturnInst(returnVal)); }
+    public void insertReturn() { direct(new ReturnInst()); }
+    public void insertReturn(Value returnVal) { direct(new ReturnInst(returnVal)); }
 
     public CAllocInst insertCAlloc(ArrayIRTy allocBaseType) { return direct(new CAllocInst(allocBaseType)); }
 
     public LoadInst insertLoad(Value ptr) { return direct(new LoadInst(ptr)); }
-    public StoreInst insertStore(Value ptr, Value val) { return direct(new StoreInst(ptr, val)); }
+    public void insertStore(Value ptr, Value val) { direct(new StoreInst(ptr, val)); }
 
     // GEP 指令是需要被加进 Cache 里的, 因为底层的指针偏移运算肯定是可复用并且越少越好的
     public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return cache(new GEPInst(ptr, indices)); }
@@ -167,8 +154,6 @@ public class IRBuilder {
 
     /**
      * 注意: 不会更新 currDef !!!!!!!!!!!!!!!
-     * @param val
-     * @return
      */
     public static void refold(Instruction val) {
         if (val instanceof BrCondInst) {
@@ -243,18 +228,18 @@ public class IRBuilder {
         }
     }
 
-    private Instruction foldBr(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+    private void foldBr(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
         // 不可以先生成一条 BrCondInst 进来再折叠
         // 因为 BrCondInst 的构造函数必须是一致的, 它会往 tureBB/falseBB 里加入当前块作为前继
         // 而如果构造 BrCondInst 之后再折叠的话, 还要去另一个块里把前继删掉, 太麻烦了
         // 所以干脆直接三个参数传进来, 等到不能折叠的时候再构造
         if (cond instanceof BoolConst) {
             final var targetBB = ((BoolConst) cond).getValue() ? trueBB : falseBB;
-            return direct(new BrInst(targetBB, currBB));
+            direct(new BrInst(targetBB, currBB));
         } else if (trueBB == falseBB) {
-            return direct(new BrInst(trueBB, currBB));
+            direct(new BrInst(trueBB, currBB));
         } else {
-            return direct(new BrCondInst(cond, trueBB, falseBB, currBB));
+            direct(new BrCondInst(cond, trueBB, falseBB, currBB));
         }
     }
 
