@@ -6,10 +6,13 @@ import java.util.Map;
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.utils.Log;
 
-// mla dst op1 op2 op3: dst = op1 * op2 + op3
-// mls dst op1 op2 op3: dst = op1 * op2 - op3
+// mla dst op1 op2 op3: dst = op3 + op1 * op2
+// mls dst op1 op2 op3: dst = op3 - op1 * op2
+// 0: dst RegDef
+// 1: op1 RegUse
+// 2: op2 RegUse
+// 2: op3 RegUse
 public class ArmInstTernay extends ArmInst {
-    private Operand dst, op1, op2, op3;
 
     private static final Map<ArmInstKind, String> ternayMap = new HashMap<ArmInstKind, String>() {
         {
@@ -26,39 +29,40 @@ public class ArmInstTernay extends ArmInst {
 
     public ArmInstTernay(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
         super(inst);
-        this.dst = dst;
-        this.op1 = op1;
-        this.op2 = op2;
-        this.op3 = op3;
         block.asElementView().add(this);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.op1);
-        this.addRegUse(this.op2);
-        this.addRegUse(this.op3);
+        this.initOperands(dst, op1, op2, op3);
     }
 
     public ArmInstTernay(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3,
             ArmCondType cond) {
         super(inst);
-        this.dst = dst;
-        this.op1 = op1;
-        this.op2 = op2;
-        this.op3 = op3;
         block.asElementView().add(this);
         this.setCond(cond);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.op1);
-        this.addRegUse(this.op2);
-        this.addRegUse(this.op3);
+        this.initOperands(dst, op1, op2, op3);
+    }
+
+    public Operand getDst() {
+        return this.getOperand(0);
+    }
+
+    public Operand getOp1() {
+        return this.getOperand(1);
+    }
+
+    public Operand getOp2() {
+        return this.getOperand(2);
+    }
+
+    public Operand getOp3() {
+        return this.getOperand(3);
     }
 
     @Override
     public String toString() {
         String op = ternayMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + dst.toString() + ",\t" + op1.toString() + ",\t"
-                + op2.toString() + ",\t"
-                + op3.toString() + "\n";
+        String ret = "\t" + op + getCond().toString() + "\t" + getDst().toString() + ",\t" + getOp1().toString() + ",\t"
+                + getOp2().toString() + ",\t" + getOp3().toString() + "\n";
         return ret;
     }
 

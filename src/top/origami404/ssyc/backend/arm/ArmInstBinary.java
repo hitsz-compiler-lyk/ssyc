@@ -6,9 +6,10 @@ import java.util.Map;
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.utils.Log;
 
+// 0: dst RegDef
+// 1: lhs RegUse
+// 2: rhs RegUse
 public class ArmInstBinary extends ArmInst {
-    private Operand dst, lhs, rhs;
-
     private static final Map<ArmInstKind, String> binaryMap = new HashMap<ArmInstKind, String>() {
         {
             put(ArmInstKind.IAdd, "add");
@@ -29,54 +30,46 @@ public class ArmInstBinary extends ArmInst {
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
-        this.dst = dst;
-        this.lhs = lhs;
-        this.rhs = rhs;
         block.asElementView().add(this);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.lhs);
-        this.addRegUse(this.rhs);
+        this.initOperands(dst, lhs, rhs);
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
         super(inst);
-        this.dst = dst;
-        this.lhs = lhs;
-        this.rhs = rhs;
         block.asElementView().add(this);
         this.setCond(cond);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.lhs);
-        this.addRegUse(this.rhs);
+        this.initOperands(dst, lhs, rhs);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
-        this.dst = dst;
-        this.lhs = lhs;
-        this.rhs = rhs;
-        this.addRegDef(this.dst);
-        this.addRegUse(this.lhs);
-        this.addRegUse(this.rhs);
+        this.initOperands(dst, lhs, rhs);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
         super(inst);
-        this.dst = dst;
-        this.lhs = lhs;
-        this.rhs = rhs;
         this.setCond(cond);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.lhs);
-        this.addRegUse(this.rhs);
+        this.initOperands(dst, lhs, rhs);
+    }
+
+    public Operand getDst() {
+        return this.getOperand(0);
+    }
+
+    public Operand getLhs() {
+        return this.getOperand(1);
+    }
+
+    public Operand getRhs() {
+        return this.getOperand(2);
     }
 
     @Override
     public String toString() {
         String op = binaryMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + dst.toString() + ",\t" + lhs.toString() + ",\t"
-                + rhs.toString() + "\n";
+        String ret = "\t" + op + getCond().toString() + "\t" + getDst().toString() + ",\t" + getLhs().toString() + ",\t"
+                + getRhs().toString() + "\n";
         return ret;
     }
 }

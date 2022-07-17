@@ -1,38 +1,23 @@
 package top.origami404.ssyc.backend.arm;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-import top.origami404.ssyc.backend.operand.Operand;
-import top.origami404.ssyc.backend.operand.addr;
 import top.origami404.ssyc.ir.Parameter;
-import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.utils.IList;
 import top.origami404.ssyc.utils.IListOwner;
 
 public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     public static class FunctionInfo {
-        private Map<Value, Operand> varMap;
         private int stackSize;
         private ArmBlock startBlock, endBlock;
         private ArmFunction func;
         private List<Parameter> parameter;
-        private Set<addr> numSet;
 
         public FunctionInfo(ArmFunction func) {
             this.func = func;
-            this.varMap = new HashMap<>();
             this.stackSize = 0;
             this.startBlock = new ArmBlock(func, "." + func.name + ".startBlock");
             this.endBlock = new ArmBlock("." + func.name + ".endBlock");
-            this.numSet = new HashSet<>();
-        }
-
-        public Map<Value, Operand> getVarMap() {
-            return varMap;
         }
 
         public int getStackSize() {
@@ -55,10 +40,6 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             return parameter;
         }
 
-        public Set<addr> getNumSet() {
-            return numSet;
-        }
-
         public void setStartBlock(ArmBlock startBlock) {
             this.startBlock = startBlock;
         }
@@ -69,12 +50,6 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
 
         public void setParameter(List<Parameter> parameter) {
             this.parameter = parameter;
-        }
-
-        public void addAddr(addr op) {
-            var key = ".LCPI_" + func.name + "_" + Integer.toString(numSet.size());
-            op.setLabel(key);
-            numSet.add(op);
         }
 
         public void addStackSize(int n) {
@@ -104,6 +79,14 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
 
     public FunctionInfo getFuncInfo() {
         return funcInfo;
+    }
+
+    public int getStackSize() {
+        return this.funcInfo.getStackSize();
+    }
+
+    public void addStackSize(int n) {
+        this.funcInfo.addStackSize(n);
     }
 
     public ArmFunction(String name) {

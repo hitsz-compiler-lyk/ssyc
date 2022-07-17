@@ -7,7 +7,6 @@ import top.origami404.ssyc.utils.Log;
 
 public class IPhyReg extends Reg {
     private String name;
-    private int id;
 
     private static final Map<Integer, String> idNameMap = new HashMap<Integer, String>() {
         {
@@ -38,8 +37,7 @@ public class IPhyReg extends Reg {
     }
 
     public IPhyReg(int n) {
-        super(opType.IPhy);
-        this.id = n;
+        super(opType.IPhy, n);
         this.name = idNameMap.get(n);
         Log.ensure(this.name != null);
     }
@@ -47,12 +45,8 @@ public class IPhyReg extends Reg {
     public IPhyReg(String name) {
         super(opType.IPhy);
         Log.ensure(nameIdMap.get(name) != null);
-        this.id = nameIdMap.get(name);
+        this.setId(nameIdMap.get(name));
         this.name = name;
-    }
-
-    public int getId() {
-        return id;
     }
 
     @Override

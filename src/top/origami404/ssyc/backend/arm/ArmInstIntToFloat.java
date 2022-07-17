@@ -2,8 +2,9 @@ package top.origami404.ssyc.backend.arm;
 
 import top.origami404.ssyc.backend.operand.Operand;
 
+// 0: dst RegDef
+// 1: drc RegUse
 public class ArmInstIntToFloat extends ArmInst {
-    private Operand dst, src;
 
     public ArmInstIntToFloat(ArmInstKind inst) {
         super(inst);
@@ -11,16 +12,21 @@ public class ArmInstIntToFloat extends ArmInst {
 
     public ArmInstIntToFloat(ArmBlock block, Operand dst, Operand src) {
         super(ArmInstKind.IntToFloat);
-        this.dst = dst;
-        this.src = src;
         block.asElementView().add(this);
-        this.addRegDef(this.dst);
-        this.addRegUse(this.src);
+        this.initOperands(dst, src);
+    }
+
+    public Operand getDst() {
+        return this.getOperand(0);
+    }
+
+    public Operand getSrc() {
+        return this.getOperand(1);
     }
 
     @Override
     public String toString() {
-        return "\t" + "vcvt.f32.s32" + "\t" + dst.toString() + "\t" + src.toString();
+        return "\t" + "vcvt.f32.s32" + "\t" + getDst().toString() + "\t" + getSrc().toString();
     }
 
 }

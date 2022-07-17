@@ -1,17 +1,25 @@
 package top.origami404.ssyc.backend.operand;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import top.origami404.ssyc.utils.Log;
 
 public class FPhyReg extends Reg {
     private String name;
-    private int id;
 
-    private static final HashMap<Integer, String> nameMap = new HashMap<Integer, String>() {
+    private static final Map<Integer, String> nameMap = new HashMap<Integer, String>() {
         {
-            for (int i = 0; i <= 7; i++) {
+            for (int i = 0; i <= 31; i++) {
                 put(i, "s" + Integer.toString(i));
+            }
+        }
+    };
+
+    private static final Map<String, Integer> nameIdMap = new HashMap<String, Integer>() {
+        {
+            for (int i = 0; i <= 31; i++) {
+                put("s" + Integer.toString(i), i);
             }
         }
     };
@@ -21,20 +29,21 @@ public class FPhyReg extends Reg {
     }
 
     public FPhyReg(int n) {
-        super(opType.FPhy);
-        this.id = n;
+        super(opType.FPhy, n);
         this.name = nameMap.get(n);
         Log.ensure(this.name != null);
     }
 
-    public int getId() {
-        return id;
+    public FPhyReg(String name) {
+        super(opType.FPhy);
+        Log.ensure(nameIdMap.get(name) != null);
+        this.setId(nameIdMap.get(name));
+        this.name = name;
     }
 
     @Override
     public String toString() {
         return name;
     }
-
 
 }

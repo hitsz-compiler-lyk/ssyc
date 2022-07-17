@@ -1,5 +1,7 @@
 package top.origami404.ssyc.backend.operand;
 
+import java.util.Objects;
+
 public abstract class Operand {
     public enum opType {
         IVirtual,
@@ -81,19 +83,51 @@ public abstract class Operand {
         if (((Operand) obj).getState() != this.s) {
             return false;
         }
-        if (this.getState() == opType.IImm) {
-            return ((IImm) obj).getImm() == ((IImm) this).getImm();
+        switch (this.getState()) {
+            case IImm: {
+                return ((IImm) obj).getImm() == ((IImm) this).getImm();
+            }
+            case FImm: {
+                return ((FImm) obj).getImm() == ((FImm) this).getImm();
+            }
+            case Addr: {
+                return ((Addr) obj).getLabel().equals(((Addr) this).getLabel()) &&
+                        ((Addr) obj).isGlobal() == ((Addr) this).isGlobal();
+            }
+            case IPhy:
+            case FPhy:
+            case IVirtual:
+            case FVirtual: {
+                return ((Reg) obj).getId() == ((Reg) this).getId();
+            }
+            default: {
+                return this.equals(obj);
+            }
         }
-        if (this.getState() == opType.FImm) {
-            return ((FImm) obj).getImm() == ((FImm) this).getImm();
+    }
+
+    @Override
+    public int hashCode() {
+        switch (this.getState()) {
+            case IImm: {
+                return Objects.hash(s, ((IImm) this).getImm());
+            }
+            case FImm: {
+                return Objects.hash(s, ((FImm) this).getImm());
+            }
+            case Addr: {
+                return Objects.hash(s, ((Addr) this).getLabel(), ((Addr) this).isGlobal());
+            }
+            case IPhy:
+            case FPhy:
+            case IVirtual:
+            case FVirtual: {
+                return Objects.hash(s, ((Reg) this).getId());
+            }
+            default: {
+                return super.hashCode();
+            }
         }
-        if (this.getState() == opType.IPhy) {
-            return ((IPhyReg) obj).getId() == ((IPhyReg) this).getId();
-        }
-        if (this.getState() == opType.FPhy) {
-            return ((FPhyReg) obj).getId() == ((FPhyReg) this).getId();
-        }
-        return this.equals(obj);
     }
 
     public abstract String toString();
