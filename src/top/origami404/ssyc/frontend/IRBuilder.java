@@ -27,6 +27,12 @@ public class IRBuilder {
     //     this(currentBasicBlock, getLastINodeItr(currentBasicBlock));
     // }
 
+    public IRBuilder() {
+        // TODO: 再次认真考虑要不要为了支持全局常量表达式求值而引入这个 null
+        this.currBB = null;
+        this.currFunc = null;
+    }
+
     // public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
     public IRBuilder(BasicBlock currentBasicBlock) {
         this.currBB = currentBasicBlock;
@@ -140,6 +146,7 @@ public class IRBuilder {
 
     public void changeBasicBlock(BasicBlock newBB) {
         currBB = newBB;
+        newBB.getParent().ifPresentOrElse(func -> currFunc = func, () -> newBB.setParent(currFunc));
         // pos = getLastINodeItr(newBB);
         addInfos(newBB);
     }

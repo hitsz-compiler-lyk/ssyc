@@ -2,6 +2,7 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.Optional;
 
+import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
@@ -27,8 +28,9 @@ public class LoadInst extends Instruction {
     public void verify() throws IRVerifyException {
         super.verify();
 
-        // final var type = getType();
-        // ensure(type.isInt() || type.isFloat(), "Type of load must be Int or Float");
+        final var type = getType();
+        ensure(type.isInt() || type.isFloat() || getPtr() instanceof GlobalVar,
+                "Type of load must be Int or Float, or it load a GlobalVar");
 
         final var ptrType = getPtr().getType();
         ensure(ptrType instanceof PointerIRTy, "Type of an argument of Load must be a pointer");

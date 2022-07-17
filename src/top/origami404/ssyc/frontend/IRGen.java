@@ -31,7 +31,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {
         super();
         this.scope = new ChainMap<>();
-        this.builder = null;
+        this.builder = new IRBuilder();
         this.currModule = new Module();
         this.finalInfo = new FinalInfo();
     }
@@ -91,16 +91,34 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 不能直接加入 finalInfo, 因为首先函数形参不是 Module 层面的东西, 其次形参绑定着的东西是有可能会变的
         // 不能在解析形参的时候就加入, 因为解析形参的时候函数还没被定义, builder 还是 null
         final var lineNo = ctx.getStart().getLine();
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        final var versionInfo = getVersionInfo();
         for (final var param : function.getParameters()) {
             final var name = param.getParamName();
+            final var type = param.getType();
             final var variable = new Variable(name, lineNo);
 
-            scope.put(name, new ScopeEntry(variable, param.getType()));
-            versionInfo.newDef(variable, param);
+            scope.put(name, new ScopeEntry(variable, type));
+            if (type instanceof PointerIRTy) { // array parameter
+                // 数组一定要放在 finalInfo 里面
+                // 因为 getRightValue 假设了不存在于 finalInfo 的都是变量
+                finalInfo.newDef(variable, param);
+            } else {
+                versionInfo.newDef(variable, param);
+            }
         }
 
         visitBlock(ctx.block());
+
+        if (!builder.getBasicBlock().isTerminated()) {
+            if (returnType.isVoid()) {
+                builder.insertReturn();
+            } else {
+                Log.info("Non-void function do NOT have a return stmt at the end");
+                builder.insertReturn(Constant.getZeroByType(returnType));
+            }
+        }
+
+        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
 
         // 翻译完所有基本块之后再填充翻译过程中遗留下来的空白 phi
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
@@ -111,6 +129,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 IRBuilder.refold(inst);
             }
         }
+
+        // TODO: 死代码消除
+        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
 
         // TODO: 重新尝试删除在常量折叠里变得无用的 phi
 
@@ -196,14 +217,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
             也总是需要更新 variable 与其当前的定义的关系
             (不过是要在不同的表中, 有的情况是 finalInfo, 有的情况是 versionInfo)
 
-            全局常量: 更新 scope, 加入 finalInfo, 加入 globalConst
+            全局常量: 更新 scope, 加入 finalInfo
             局部常量: 更新 scope, 加入 finalInfo
             全局变量: 更新 scope, (以指针形式) 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
             局部变量: 更新 scope, 加入 versionInfo (绑定0/初始值)
             全局数组: 更新 scope, 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
-                有非空初始值的情况下, 初始值加入 globalConst
+                有非空初始值的情况下, 初始值加入 arrayConst
             局部数组: 更新 scope, 加入 finalInfo
-                有非空初始值的情况下, 插入 MemInit, 初始值加入 globalConst
+                有非空初始值的情况下, 插入 MemInit, 初始值加入 arrayConst
          */
 
 
@@ -227,7 +248,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
 
-        final var versionInfo = inGlobal() ? null : builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+        final var versionInfo = inGlobal() ? null : getVersionInfo();
 
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
@@ -657,7 +678,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (value.isPresent()) {
             return getRightValue(value.get(), lValResult.indices);
         } else {
-            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            final var versionInfo = getVersionInfo();
             final var phi = builder.insertEmptyPhi(lValResult.type, lValResult.var);
 
             versionInfo.newDef(lValResult.var, phi);
@@ -666,12 +687,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Optional<Value> findVariable(Variable variable) {
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-
+        // 先去 finalInfo 中找, 因为在查找全局常量的时候可能 basic block 还是 null
         // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
-        final var finalDef = finalInfo.getDef(variable);
-        final var currDef = versionInfo.getDef(variable);
-        return mergeOpt(finalDef, currDef);
+        return finalInfo.getDef(variable).or(() -> getVersionInfo().getDef(variable));
     }
 
     private Value getRightValue(Value value, List<Value> indices) {
@@ -726,14 +744,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return new LValResult(entry.type, entry.var, indices);
     }
 
-    private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
-        if (first.isPresent()) {
-            return first;
-        } else {
-            return second;
-        }
-    }
-
     private static class LogNotAsUnaryExpException extends RuntimeException {
         LogNotAsUnaryExpException(Value arg) {
             super("LogNot exist in UnaryExp");
@@ -786,8 +796,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static IRType findCommonType(IRType ty1, IRType ty2) {
-        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool());
-        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool());
+        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool(), "Except ty1 is Int/Float/Bool, given: " + ty1);
+        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool(), "Except ty2 is Int/Float/Bool, given: " + ty2);
 
         if (ty1.equals(ty2)) {
             // 两个都是 Int 或者是两个都 Float 的情况
@@ -825,7 +835,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             final var valueOpt = findVariable(lValResult.var);
 
             if (valueOpt.isEmpty()) {
-                final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+                final var versionInfo = getVersionInfo();
                 versionInfo.newDef(lValResult.var, newDef);
 
             } else {
@@ -833,7 +843,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 final var leftValue = getLeftValue(value, lValResult.indices);
 
                 if (leftValue.isEmpty()) {
-                    final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+                    final var versionInfo = getVersionInfo();
                     versionInfo.kill(lValResult.var, newDef);
                 } else {
                     builder.insertStore(leftValue.get(), newDef);
@@ -858,7 +868,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             }
         } else {
             /* 空语句, 啥也不干 */
-            throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
+            // throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
         }
 
         return null;
@@ -1106,7 +1116,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var incoming = new HashSet<>(phi.getIncomingValues());
         incoming.remove(phi);
 
-        if (incoming.size() == 0) {
+        final var isDeadBlock = phi.getParent().orElseThrow().getPredecessors().size() == 0;
+        if (incoming.size() == 0 && !isDeadBlock) {
+            // 暂时让死代码中的 phi 可以有零个参数
             throw new RuntimeException("Phi for undefined: " + phi);
         } else if (incoming.size() == 1) {
             // 如果去重后只有一个, 那么这个 Phi 是可以去掉的
@@ -1149,6 +1161,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#endregion
 
     //#region 辅助函数
+    private VersionInfo getVersionInfo() {
+        return builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+    }
+
     private static IRType toIRType(String bType) {
         return switch (bType) {
             case "int" -> IRType.IntTy;

@@ -304,7 +304,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
 
         @Override
         public void add(INode<E, P> newNode) {
-            Log.info("Add %s to %s".formatted(newNode.getValue(), IList.this.getOwner()));
+            Log.debug("Add %s to %s".formatted(newNode.getValue(), IList.this.getOwner()));
             lastModified = IteratorActionKind.ADD;
 
             newNode.setPrev(prevNode);

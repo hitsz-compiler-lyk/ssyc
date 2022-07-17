@@ -222,6 +222,7 @@ public class BasicBlock extends Value
     private List<BasicBlock> predecessors;
 
     public void adjustPhiEnd() {
+        // 不可能一条指令都没有, 因为还要有最后的 terminator
         int i = 0;
         while (instructions.get(i).is(PhiInst.class)) {
             i += 1;
