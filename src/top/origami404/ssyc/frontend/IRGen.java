@@ -34,6 +34,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         this.builder = new IRBuilder();
         this.currModule = new Module();
         this.finalInfo = new FinalInfo();
+        this.whileInfo = new Stack<>();
     }
 
     @Override
@@ -864,13 +865,21 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
 
         } else if (ctx.Break() != null) {
-            final var target = currWhileExit
-                .orElseThrow(() -> new SemanticException(ctx, "Break out of while"));
-            builder.insertBranch(target);
+            try {
+                final var target = whileInfo.peek().exitBlock;
+                builder.insertBranch(target);
+            } catch (EmptyStackException e) {
+                throw new SemanticException(ctx, "Break out of while");
+            }
+
         } else if (ctx.Continue() != null) {
-            final var target = currWhileCond
-                .orElseThrow(() -> new SemanticException(ctx, "Continue out of while"));
-            builder.insertBranch(target);
+            try {
+                final var target = whileInfo.peek().condBlock;
+                builder.insertBranch(target);
+            } catch (EmptyStackException e) {
+                throw new SemanticException(ctx, "Continue out of while");
+            }
+
         } else if (ctx.Return() != null) {
             if (ctx.exp() != null) {
                 final var val = visitExp(ctx.exp());
@@ -1059,8 +1068,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         builder.appendBBlock(condBB);
         visitCond(ctx.cond(), bodyBB, exitBB);
 
-        currWhileCond = Optional.of(condBB);
-        currWhileExit = Optional.of(exitBB);
+        whileInfo.push(new WhileBBInfo(condBB, exitBB));
 
         builder.appendBBlock(bodyBB);
         visitStmt(ctx.stmt());
@@ -1072,9 +1080,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             builder.insertBranch(condBB);
         }
 
-        currWhileCond = Optional.empty();
-        currWhileExit = Optional.empty();
-
+        whileInfo.pop();
         builder.appendBBlock(exitBB);
         return null;
     }
@@ -1276,13 +1282,24 @@ public class IRGen extends SysYBaseVisitor<Object> {
         scope = scope.getParent().orElseThrow(() -> new RuntimeException("Reach scope top"));
     }
 
+    private static class WhileBBInfo {
+        public WhileBBInfo(final BasicBlock condBlock, final BasicBlock exitBlock) {
+            this.condBlock = condBlock;
+            this.exitBlock = exitBlock;
+        }
+
+        final BasicBlock condBlock;
+        final BasicBlock exitBlock;
+    }
+
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
     private ChainMap<ScopeEntry> scope; // identifier --> variable
+    private Stack<WhileBBInfo> whileInfo;
     private FinalInfo finalInfo;
 
-    private Optional<BasicBlock> currWhileCond;
-    private Optional<BasicBlock> currWhileExit;
+    // private Optional<BasicBlock> currWhileCond;
+    // private Optional<BasicBlock> currWhileExit;
 
     // flags
     private boolean inGlobal() {
