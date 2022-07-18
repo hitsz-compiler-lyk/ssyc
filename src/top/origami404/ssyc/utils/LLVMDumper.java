@@ -16,7 +16,6 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.lang.Runtime.Version;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,6 +46,8 @@ public class LLVMDumper {
             }
         }
 
+        ir("declare void @llvm.memcpy.p0i8.p0i8.i32(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i32, i1 immarg)");
+
         ir(""); ir(""); // two empty line
 
         // 再输出正常的函数
@@ -59,7 +60,7 @@ public class LLVMDumper {
     }
 
     private void dumpNormalFunction(Function function) {
-        ir("define dso_local global <return-ty> <func-name>(<param*>) {",
+        ir("define dso_local <return-ty> <func-name>(<param*>) {",
                 function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
 
         for (final var block : function.asElementView()) {
@@ -97,8 +98,8 @@ public class LLVMDumper {
         final var baseType = gv.getType().getBaseType();
 
         if (baseType instanceof PointerIRTy) { // array
-            ir("<name>$addr = dso_local global <arr-ptr-type> getelementptr inbounds (<base-type>, <init>, i32 0, i32 0), align 4",
-                    name, baseType, init.getType(), init);
+            ir("<name> = dso_local global <arr-ptr-type> getelementptr inbounds (<base-type>, <init-ty>* <init-name>, i32 0, i32 0), align 4",
+                    name, baseType, init.getType(), init.getType(), init.getName());
 
         } else { // variable
             ir("<name> = dso_local global <init>, align 4", name, init);
@@ -142,7 +143,7 @@ public class LLVMDumper {
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
             ir("<cmpop> <ty> <lhs-name>, <rhs-name>",
-                    getCmpOpName(cmp), cmp.getType(), cmp.getLHS().getName(), cmp.getRHS().getName());
+                    getCmpOpName(cmp), cmp.getLHS().getType(), cmp.getLHS().getName(), cmp.getRHS().getName());
 
         } else if (inst instanceof BrInst) {
             ir("br <nextBB>", ((BrInst) inst).getNextBB());
@@ -182,32 +183,41 @@ public class LLVMDumper {
         } else if (inst instanceof CAllocInst) {
             final var calloc = (CAllocInst) inst;
             ir("<calloc-name>$alloca = alloca <base-type>, align 8", calloc.getName(), calloc.getAllocType());
-            ir("<calloc-name> = getelementptr <base-type> <calloc-name>$alloca i32 0, i32 0",
-                    calloc.getName(), calloc.getAllocType(), calloc.getName());
+            ir("  <calloc-name> = getelementptr <base-type>, <calloc-type>* <calloc-name>$alloca, i32 0, i32 0",
+                    calloc.getName(), calloc.getAllocType(), calloc.getAllocType(), calloc.getName());
 
         } else if (inst instanceof GEPInst) {
             final var gep = (GEPInst) inst;
-            ir("getelementptr <base-type> <ptr> <index*>",
+            ir("getelementptr <base-type>, <ptr>, <index*>",
                     ((PointerIRTy) gep.getPtr().getType()).getBaseType(),
                     gep.getPtr(),
                     joinWithRef(gep.getIndices()));
 
         } else if (inst instanceof LoadInst) {
             final var load = (LoadInst) inst;
-            ir("load <ty> <ptr>", load.getType(), load.getPtr());
+            ir("load <ty>, <ptr>", load.getType(), load.getPtr());
             
         } else if (inst instanceof StoreInst) {
             final var store = (StoreInst) inst;
-            ir("store <val> <ptr>", store.getVal(), store.getPtr());
+            ir("store <val>, <ptr>", store.getVal(), store.getPtr());
 
         } else if (inst instanceof MemInitInst) {
             final var meminit = (MemInitInst) inst;
-            final var size = ((PointerIRTy) meminit.getArrayPtr().getType()).getBaseType().getSize();
-            final var fmt = "call void @llvm.memcpy.p0i8.p0i8.i32("
-                          + "i8* align 4 bitcast (<src> to i8*), "
-                          + "i8* align 4 bitcast (<dst> to i8*), "
+            final var init = meminit.getInit();
+            final var arrPtr = meminit.getArrayPtr();
+
+            final var size = init.getType().getSize();
+            final var srcName = arrPtr.getName() + "$memsrc";
+            final var dstName = "%" + init.getName().substring(1) + "$memdst";
+
+            ir("<name> = bitcast <src> to i8*", srcName, arrPtr);
+            ir("  <name> = bitcast <init-type>* <init-name> to i8*", dstName, init.getType(), init.getName());
+
+            final var fmt = "  call void @llvm.memcpy.p0i8.p0i8.i32("
+                          + "i8* align 4 <src-name>, "
+                          + "i8* align 4 <dst-name>, "
                           + "i32 <size>, i1 false)";
-            ir(fmt, meminit.getArrayPtr(), meminit.getInit(), size);
+            ir(fmt, srcName, dstName, size);
 
         } else {
             throw new RuntimeException("Unknown instruction type: " + inst.getKind());

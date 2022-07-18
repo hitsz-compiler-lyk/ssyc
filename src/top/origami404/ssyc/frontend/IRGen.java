@@ -7,6 +7,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RuleContext;
 import top.origami404.ssyc.frontend.SemanticException.GenExpInGlobalException;
 import top.origami404.ssyc.frontend.SysYParser.*;
 import top.origami404.ssyc.frontend.info.FinalInfo;
@@ -320,7 +321,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 分配数组空间, 并且定义数组;
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
                 Log.ensure(type instanceof ArrayIRTy);
-                final var arrPtr = new CAllocInst((ArrayIRTy) type);
+                final var arrPtr = builder.insertCAlloc((ArrayIRTy) type);
                 arrPtr.setName(irName);
                 finalInfo.newDef(variable, arrPtr);
 
@@ -390,6 +391,25 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final InitValue value;
     }
 
+    private Value genCastTo(IRType type, Value exp, ParserRuleContext ctx) {
+        final var expType = exp.getType();
+        if (type.equals(expType)) {
+            return exp;
+
+        } else if (type.isInt() && expType.isFloat()) {
+            return builder.insertF2I(exp);
+
+        } else if (type.isInt() && expType.isBool()) {
+            return builder.insertB2I(exp);
+
+        } else if (type.isFloat() && expType.isInt()) {
+            return builder.insertI2F(exp);
+
+        } else {
+            throw new SemanticException(ctx, "Cannot preform cast from %s to %s".formatted(expType, type));
+        }
+    }
+
     /**
      * 递归处理数组初始化器, 将其翻译为树状的, 完整的 (补上了 0 的) Value 列表
      * @param ctx 当前处理中的语法上下文
@@ -408,7 +428,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             ensureInitValIsExp(target);
 
             try {
-                final var value = new InitExp(visitExp(target.exp()));
+                final var exp = visitExp(target.exp());
+                final var afterCast = genCastTo(baseType, exp, ctx);
+                final var value = new InitExp(afterCast);
                 return new MakeInitValueResult(1, value); // 消耗了一个 ctx 中的元素, 返回 1
 
             } catch (GenExpInGlobalException e) {
@@ -647,8 +669,20 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 throw new SemanticException(ctx, "Unknown func: " + funcName);
             }
 
-            // TODO: 函数参数的语义检查
-            return builder.insertCall(func, visitFuncArgList(ctx.funcArgList()));
+            final var args = visitFuncArgList(ctx.funcArgList());
+            final var paramTypes = func.getType().getParamTypes();
+
+            if (args.size() != paramTypes.size()) {
+                throw new SemanticException(ctx, "Amount of arguments do NOT match parameters");
+            }
+
+            for (int i = 0; i < args.size(); i++) {
+                final var type = paramTypes.get(i);
+                final var arg = args.get(i);
+                args.set(i, genCastTo(type, arg, ctx));
+            }
+
+            return builder.insertCall(func, args);
         }
     }
 
@@ -883,7 +917,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.Return() != null) {
             if (ctx.exp() != null) {
                 final var val = visitExp(ctx.exp());
-                builder.insertReturn(val);
+                final var afterCast = genCastTo(builder.getFunction().getType().getReturnType(), val, ctx);
+                builder.insertReturn(afterCast);
             } else {
                 builder.insertReturn();
             }

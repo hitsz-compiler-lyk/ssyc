@@ -81,7 +81,11 @@ def clang_llvm(src: str, dst: str):
 
 @one_pass('llc', '.llvm', '.s')
 def llc(src: str, dst: str):
-    sh(f'llvm-as {src} -o - | llc -o {dst}')
+    bc = src.removesuffix('.llvm') + '.bc'
+
+    sh(f'llvm-as {src} -o {bc}')
+    sh(f'llc -o {dst} {bc}')
+    os.remove(bc)
 
 
 ssyc_asm = one_pass('ssyc', '.sy', '.s')(ssyc('asm'))
