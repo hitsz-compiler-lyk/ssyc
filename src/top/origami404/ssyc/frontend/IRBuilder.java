@@ -8,9 +8,7 @@ import top.origami404.ssyc.frontend.folder.CondFolder;
 import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
 import top.origami404.ssyc.frontend.folder.IntConstantFolder;
 import top.origami404.ssyc.frontend.info.InstCache;
-import top.origami404.ssyc.frontend.info.FinalInfo;
-import top.origami404.ssyc.frontend.info.VersionInfo;
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
@@ -20,7 +18,6 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
-import top.origami404.ssyc.utils.Log;
 
 public class IRBuilder {
     // public IRBuilder(BasicBlock currentBasicBlock) {
@@ -95,7 +92,7 @@ public class IRBuilder {
 
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
-    public PhiInst insertEmptyPhi(IRType type, Variable variable) {
+    public PhiInst insertEmptyPhi(IRType type, SourceCodeSymbol variable) {
         final var phi = new PhiInst(type, variable);
         currBB.addPhi(phi);
         return phi;
@@ -144,7 +141,7 @@ public class IRBuilder {
     }
 
     private static void addInfos(BasicBlock bb) {
-        bb.addIfAbsent(VersionInfo.class, VersionInfo::new);
+        bb.addIfAbsent(CurrDefInfo.class, CurrDefInfo::new);
         bb.getParent().ifPresent(f -> f.addIfAbsent(InstCache.class, InstCache::new));
     }
 

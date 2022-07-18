@@ -1,18 +1,17 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.ir.type.IRTypeException;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class PhiInst extends Instruction {
-    public PhiInst(IRType type, Variable variable) {
+    public PhiInst(IRType type, SourceCodeSymbol variable) {
         super(InstKind.Phi, type);
         // super.setName(variable.getIRName());
 
@@ -48,7 +47,7 @@ public class PhiInst extends Instruction {
         this.incompleted = false;
     }
 
-    public Variable getVariable() {
+    public SourceCodeSymbol getVariable() {
         return variable;
     }
 
@@ -124,6 +123,6 @@ public class PhiInst extends Instruction {
         }
     }
 
-    private final Variable variable;
+    private final SourceCodeSymbol variable;
     private boolean incompleted;
 }

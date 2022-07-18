@@ -1,6 +1,6 @@
 package top.origami404.ssyc.utils;
 
-import top.origami404.ssyc.frontend.info.VersionInfo;
+import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
@@ -71,8 +71,8 @@ public class LLVMDumper {
             ir("<label>:    ; <pred*>", block.getLabelName(), preds);
             block.asElementView().forEach(this::dumpInstruction);
 
-            for (final var entry : block.getAnalysisInfo(VersionInfo.class).getAllInfoEntry()) {
-                final var name = entry.getKey().getIRName();
+            for (final var entry : block.getAnalysisInfo(CurrDefInfo.class).getAllEntries()) {
+                final var name = entry.getKey().getLLVMIdentifier();
                 final var def = entry.getValue().getCurrDef();
                 ir("  ; <name> -> <def>", name, def);
             }

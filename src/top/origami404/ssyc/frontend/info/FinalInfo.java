@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
@@ -22,20 +22,20 @@ import top.origami404.ssyc.ir.inst.CAllocInst;
 // 那它必然是一个 int const 之类的, 绑定到 IR Constant 的东西
 // 若其为数组类型, 那么它才有可能在绑定不变的情况下, 绑定到一个 Value (AllocInst)
 public class FinalInfo implements AnalysisInfo {
-    public void newDef(Variable var, Value val) {
-        if (contains(var)) {
+    public void newDef(SourceCodeSymbol symbol, Value value) {
+        if (hasDef(symbol)) {
             throw new RuntimeException("Cannot redefine a final");
         }
 
-        finals.put(var, val);
+        finals.put(symbol, value);
     }
 
-    public boolean contains(Variable var) {
+    public boolean hasDef(SourceCodeSymbol var) {
         return finals.containsKey(var);
     }
 
-    public Optional<Constant> getNormalVar(Variable var) {
-        final var opt = getDef(var);
+    public Optional<Constant> getNormalVar(SourceCodeSymbol var) {
+        final var opt = getDefOpt(var);
         opt.ifPresent(v -> {
             if (!(v instanceof Constant)) {
                 throw new RuntimeException("A normal final var must bind to a constant");
@@ -44,8 +44,8 @@ public class FinalInfo implements AnalysisInfo {
         return opt.map(Constant.class::cast);
     }
 
-    public Optional<Value> getArrayVar(Variable var) {
-        final var opt = getDef(var);
+    public Optional<Value> getArrayVar(SourceCodeSymbol var) {
+        final var opt = getDefOpt(var);
         opt.ifPresent(v -> {
             final var isCAlloc = v instanceof CAllocInst;
             final var isGlobalPtr = v instanceof GlobalVar && v.getType().isPtr();
@@ -60,9 +60,13 @@ public class FinalInfo implements AnalysisInfo {
         return opt;
     }
 
-    public Optional<Value> getDef(Variable var) {
+    public Optional<Value> getDefOpt(SourceCodeSymbol var) {
         return Optional.ofNullable(finals.get(var));
     }
 
-    private final Map<Variable, Value> finals = new HashMap<>();
+    public Value getDef(SourceCodeSymbol symbol) {
+        return getDefOpt(symbol).orElseThrow(() -> new RuntimeException("Symbol not found: " + symbol));
+    }
+
+    private final Map<SourceCodeSymbol, Value> finals = new HashMap<>();
 }
