@@ -233,7 +233,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
-        final var irName = (inGlobal() ? "@" : "%") + name;
         final var shape = info.shape;
         final var type = createTypeByShape(baseType, shape);
 
@@ -251,6 +250,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 再放入
         scope.put(name, new ScopeEntry(variable, type));
 
+        final var irName = (inGlobal() ? "@" : "%") + variable.getIRName().substring(1);
         final var versionInfo = inGlobal() ? null : getVersionInfo();
 
         if (shape.isEmpty()) {
@@ -339,7 +339,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 memInitInst.setInit(init);
 
                 // 把当前的初始值加入到全局常量数组中去
-                final var initName = "@" + name + "$init";
+                final var initName = "@" + irName.substring(1) + "$init";
                 init.setName(initName);
                 currModule.getArrayConstants().put(initName, init);
             }
@@ -1164,6 +1164,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             block.getIList().remove(phi);
             // 然后将其所有出现都替换为 end
             phi.replaceAllUseWith(end);
+            // 更新这个块的 currDef, 防止后面的块找回来时用了这个已经删除了 phi 作为定义
+            // 不能用 getVersionInfo, 因为那个是从 builder 里拿, 而我们需要更新的是 block 的 currDef
+            block.getAnalysisInfo(VersionInfo.class).kill(variable, end);
         }
 
         return end;
@@ -1205,6 +1208,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         // 填充完之后看看这个 phi 是否可以被替代
         if (end != phi) {
             // 可以的话就直接清空 phi 的 incoming
+            // 在 fillIncompletedPhi 中已经清空了, 故注释
             // phi.clearIncomingCO();
             // 然后将其定义替换为 end
             versionInfo.kill(variable, end);

@@ -14,7 +14,7 @@ import java.util.List;
 public class PhiInst extends Instruction {
     public PhiInst(IRType type, Variable variable) {
         super(InstKind.Phi, type);
-        super.setName(variable.getIRName());
+        // super.setName(variable.getIRName());
 
         this.variable = variable;
         this.incompleted = true;

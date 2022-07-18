@@ -6,9 +6,10 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import top.origami404.ssyc.ir.User;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
-import top.origami404.ssyc.ir.inst.Instruction;
+import top.origami404.ssyc.ir.type.IRType;
 
 /**
  * <p>  保存翻译时块中 "源语言变量" --> "当前对应的版本" 的信息
@@ -80,25 +81,28 @@ public class VersionInfo implements AnalysisInfo {
         return version.entrySet();
     }
 
-    public static class VarVersionInfo {
+    public static class VarVersionInfo extends User {
         VarVersionInfo(Variable variable, Value initVal) {
+            super(IRType.VoidTy);
+            super.addOperandCO(initVal);
             this.variable = variable;
-            this.currDef = initVal;
+            // this.currDef = initVal;
             this.version = 0;
         }
 
         public Value getCurrDef() {
-            return currDef;
+            return getOperand(0);
         }
 
         public void kill(Value newDef) {
-            this.currDef = newDef;
+            // this.currDef = newDef;
+            super.replaceOperandCO(0, newDef);
             this.version += 1;
 
-            if (newDef instanceof Instruction) {
-            final var inst = (Instruction) newDef;
-                inst.setName(variable.getIRName() + "_" + version);
-            }
+            // if (newDef instanceof Instruction) {
+            // final var inst = (Instruction) newDef;
+            //     inst.setName(variable.getIRName() + "_" + version);
+            // }
         }
 
         public int getVersion() {
@@ -114,7 +118,7 @@ public class VersionInfo implements AnalysisInfo {
         }
 
         private final Variable variable;
-        private Value currDef;
+        // private Value currDef;
         private int version;
     }
 

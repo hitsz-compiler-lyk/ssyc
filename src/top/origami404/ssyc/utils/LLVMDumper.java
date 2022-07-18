@@ -154,6 +154,20 @@ public class LLVMDumper {
 
         } else if (inst instanceof PhiInst) {
             final var phi = (PhiInst) inst;
+
+            if (phi.getIncomingSize() == 0) {
+                final var type = phi.getType();
+                // final var zero = Constant.getZeroByType(type);
+                if (type.isInt()) {
+                    ir("add i32 0, 0 ; non-incoming phi");
+                } else if (type.isFloat()) {
+                    ir("fadd float 0, 0");
+                } else {
+                    throw new RuntimeException("Unknown type of empty phi: " + type);
+                }
+                return;
+            }
+
             final var incomingStrings = new ArrayList<String>();
             for (final var info : phi.getIncomingInfos()) {
                 final var str = "[ %s, %s ]".formatted(info.getValue().getName(), info.getBlock().getName());
@@ -285,15 +299,39 @@ public class LLVMDumper {
     }
 
     private String getBinOpName(BinaryOpInst bop) {
-        final var kindName = bop.getKind().toString().toLowerCase();
-        return bop.getKind().isInt() ? kindName.substring(1) : kindName;
+        // final var kindName = bop.getKind().toString().toLowerCase();
+        return switch (bop.getKind()) {
+            case IAdd -> "add";
+            case ISub -> "sub";
+            case IMul -> "mul";
+            case IDiv -> "sdiv";
+            case IMod -> "srem";
+            case FAdd -> "fadd";
+            case FSub -> "fsub";
+            case FMul -> "fmul";
+            case FDiv -> "fdiv";
+            default -> throw new RuntimeException("Unknown bop kind: " + bop.getKind());
+        };
     }
 
     private String getCmpOpName(CmpInst cmp) {
-        final var str = cmp.getKind().toString().toLowerCase();
-        final var name = str.substring(0, 4);
-        final var kind = str.substring(4);
-        return name + " " + kind;
+        return switch (cmp.getKind()) {
+            // For icmp, see: https://llvm.org/docs/LangRef.html#icmp-instruction
+            case ICmpEq -> "icmp eq";
+            case ICmpNe -> "icmp ne";
+            case ICmpGt -> "icmp sgt";
+            case ICmpGe -> "icmp sge";
+            case ICmpLt -> "icmp slt";
+            case ICmpLe -> "icmp sle";
+            // For fcmp, see: https://llvm.org/docs/LangRef.html#fcmp-instruction
+            case FCmpEq -> "fcmp ueq";
+            case FCmpNe -> "fcmp une";
+            case FCmpGt -> "fcmp ugt";
+            case FCmpGe -> "fcmp uge";
+            case FCmpLt -> "fcmp ult";
+            case FCmpLe -> "fcmp ule";
+            default -> throw new RuntimeException("Unknown cmp kind: " + cmp.getKind());
+        };
     }
 
     /**
