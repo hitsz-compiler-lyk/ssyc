@@ -15,6 +15,7 @@ public class PhiInst extends Instruction {
         super(block, InstKind.Phi, type);
         super.setSymbol(symbol);
 
+        this.waitFor = symbol;
         this.incompleted = true;
     }
 
@@ -91,11 +92,6 @@ public class PhiInst extends Instruction {
     }
 
     public int getIncomingSize() {
-        // 不需要每次都检查了 (检查代价比较高)
-//        if (getOperandSize() != getIncomingBlocks().size()) {
-//            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
-//        }
-//
         return getOperandSize();
     }
 
@@ -118,5 +114,15 @@ public class PhiInst extends Instruction {
         }
     }
 
+    public SourceCodeSymbol getWaitFor() {
+        return waitFor;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + "(for " + getWaitFor() + ")";
+    }
+
+    private final SourceCodeSymbol waitFor;
     private boolean incompleted;
 }

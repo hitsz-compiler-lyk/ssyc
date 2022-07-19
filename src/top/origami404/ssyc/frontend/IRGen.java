@@ -38,6 +38,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         currModule = new Module();
         addExternalFunctions();
         ctx.children.forEach(this::visit);
+
+        for (final var entry : finalInfo.getAllEntries()) {
+            Log.debug("%s -> %s".formatted(entry.getKey(), entry.getValue()));
+        }
+
         return currModule;
     }
 
@@ -256,6 +261,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 .flatMap(n -> Optional.ofNullable(n.exp()))
                 // 如果其初始化器需要运行时求值, 那么 visitExp 会将对应的求值指令插入到当前块中
                 .map(this::visitExp)
+                .map(e -> genCastTo(type, e, ctx))
                 .orElse(Constant.getZeroByType(type));
 
             if (isConst) {
@@ -1136,7 +1142,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     public Value fillIncompletedPhi(PhiInst phi, BasicBlock block) {
         final var type = phi.getType();
-        final var symbol = phi.getSymbol();
+        final var symbol = phi.getWaitFor();
 
         // 对每一个前继, 都要获得一个 value
         // 即对每个前继问: "当控制流从它这里来的时候这个 phi 要取什么 Value"

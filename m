@@ -74,7 +74,7 @@ case $subcommand in
     install) download_dependence ;;
     clean) cleanup ;;
     build) compile ;;
-    run) run $@;;
+    run) run ${@:2};;
     jar) make_jar ;;
     jar-run) run_jar ;;
     build_test) build_test_image ;;

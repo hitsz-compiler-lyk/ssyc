@@ -194,9 +194,9 @@ public class LLVMDumper {
                 final var type = phi.getType();
                 // final var zero = Constant.getZeroByType(type);
                 if (type.isInt()) {
-                    pir("add i32 0, 0 ; non-incoming phi");
+                    pir("add i32 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else if (type.isFloat()) {
-                    pir("fadd float 0, 0");
+                    pir("fadd float 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else {
                     throw new RuntimeException("Unknown type of empty phi: " + type);
                 }
