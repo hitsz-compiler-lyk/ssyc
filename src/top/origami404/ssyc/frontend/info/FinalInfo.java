@@ -27,6 +27,7 @@ public class FinalInfo implements AnalysisInfo {
             throw new RuntimeException("Cannot redefine a final");
         }
 
+        value.setSymbol(symbol);
         finals.put(symbol, value);
     }
 

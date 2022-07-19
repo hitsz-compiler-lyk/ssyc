@@ -69,9 +69,11 @@ public class CurrDefInfo implements AnalysisInfo {
     public static class Entry extends User {
         Entry(SourceCodeSymbol symbol, Value initVal) {
             super(IRType.VoidTy);
+            super.setSymbol(symbol);
             super.addOperandCO(initVal);
-            this.symbol = symbol;
             this.version = 0;
+
+            initVal.setSymbol(symbol);
         }
 
         public Value getCurrDef() {
@@ -81,17 +83,14 @@ public class CurrDefInfo implements AnalysisInfo {
         public void kill(Value newDef) {
             super.replaceOperandCO(0, newDef);
             this.version += 1;
+
+            newDef.setSymbol(getSymbol());
         }
 
         public int getVersion() {
             return version;
         }
 
-        public SourceCodeSymbol getSymbol() {
-            return symbol;
-        }
-
-        private final SourceCodeSymbol symbol;
         private int version;
     }
 

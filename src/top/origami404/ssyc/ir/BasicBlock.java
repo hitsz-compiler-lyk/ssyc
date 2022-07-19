@@ -2,37 +2,33 @@ package top.origami404.ssyc.ir;
 
 import java.util.*;
 
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.*;
-import top.origami404.ssyc.utils.IList.IListElementIterator;
 
 public class BasicBlock extends Value
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public static BasicBlock createFreeBBlock(Function func, String labelName) {
-        return new BasicBlock(func, labelName);
+    public static BasicBlock createFreeBBlock(Function func, SourceCodeSymbol symbol) {
+        return new BasicBlock(func, symbol);
     }
 
-    public static BasicBlock createBBlockCO(Function func, String labelName) {
-        final var bb = createFreeBBlock(func, labelName);
+    public static BasicBlock createBBlockCO(Function func, SourceCodeSymbol symbol) {
+        final var bb = createFreeBBlock(func, symbol);
         func.getIList().add(bb);
         return bb;
     }
 
-    public BasicBlock(Function func, String labelName) {
-        // 在生成 while 或者是 if 的时候, bblock 经常会有自己的带独特前缀的名字
-        // 比如 _cond_1, _if_23 之类的
-        // 所以对 BasicBlock 保留带 name 的构造函数
-
+    public BasicBlock(Function func, SourceCodeSymbol symbol) {
         super(IRType.BBlockTy);
-        super.setName("%" + labelName);
+        super.setSymbol(symbol);
 
         this.instructions = new IList<>(this);
-        this.inode = new INode<>(this);
+        this.inode = new INode<>(this, func);
         // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
         // func.getIList().add(this);
 
@@ -153,7 +149,7 @@ public class BasicBlock extends Value
     public void replaceAllUseWith(final Value newValue) {
         super.replaceAllUseWith(newValue);
 
-        final var func = getParent().orElseThrow(() -> new IRVerifyException(this, "Free block"));
+        final var func = getParentOpt().orElseThrow(() -> new IRVerifyException(this, "Free block"));
         ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
         func.getIList().replaceFirst(this, (BasicBlock) newValue);
     }
@@ -161,8 +157,8 @@ public class BasicBlock extends Value
     @Override
     public void verify() throws IRVerifyException {
         super.verify();
-        ensure(getName().charAt(0) == '%', "Name of basic block must begin with '@'");
-        ensure(getParent().isPresent(), "Basic block must have parent");
+        ensure(getSymbolOpt().isPresent(), "A basic block must own a symbol");
+        ensure(getParentOpt().isPresent(), "Basic block must have parent");
 
         // 指令检查
         // 条数: 至少一条 (Terminator)
@@ -170,6 +166,7 @@ public class BasicBlock extends Value
         // Phi 必须在最前面
         for (final var phi : phis()) {
             // 啥也不干: 在消耗 phis() 迭代器的过程中检查就做完了
+            assert phi != null;
         }
         // Phi 跟 Terminator 不能在中间
         for (final var inst : nonPhiAndTerminator()) {
@@ -212,14 +209,14 @@ public class BasicBlock extends Value
 
     public String getLabelName() {
         // 去除最前面的 '%'
-        return getName().substring(1);
+        return getSymbol().getName();
     }
 
-    private IList<Instruction, BasicBlock> instructions;
+    private final IList<Instruction, BasicBlock> instructions;
     private IList<Instruction, BasicBlock>.IListElementIterator phiEnd;
-    private INode<BasicBlock, Function> inode;
-    private Map<String, AnalysisInfo> analysisInfos;
-    private List<BasicBlock> predecessors;
+    private final INode<BasicBlock, Function> inode;
+    private final Map<String, AnalysisInfo> analysisInfos;
+    private final List<BasicBlock> predecessors;
 
     public void adjustPhiEnd() {
         // 不可能一条指令都没有, 因为还要有最后的 terminator

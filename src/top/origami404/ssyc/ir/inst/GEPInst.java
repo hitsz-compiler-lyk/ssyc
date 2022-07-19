@@ -3,6 +3,7 @@ package top.origami404.ssyc.ir.inst;
 import java.awt.*;
 import java.util.List;
 
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
@@ -14,8 +15,8 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class GEPInst extends Instruction {
     // indices: index 的复数形式
-    public GEPInst(Value ptr, List<? extends Value> indices) {
-        super(InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
+    public GEPInst(BasicBlock block, Value ptr, List<? extends Value> indices) {
+    super(block, InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
 
         super.addOperandCO(ptr);
         super.addAllOperandsCO(indices);

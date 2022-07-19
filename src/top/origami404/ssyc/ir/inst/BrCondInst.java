@@ -8,8 +8,8 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.Log;
 
 public class BrCondInst extends Instruction {
-    public BrCondInst(Value cond, BasicBlock trueBB, BasicBlock falseBB, BasicBlock currBlock) {
-        super(InstKind.BrCond, IRType.VoidTy);
+    public BrCondInst(BasicBlock currBlock, Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+        super(currBlock, InstKind.BrCond, IRType.VoidTy);
 
         super.addOperandCO(cond);
         super.addOperandCO(trueBB);
@@ -42,7 +42,7 @@ public class BrCondInst extends Instruction {
     public void verify() throws IRVerifyException {
         super.verify();
 
-        final var block = getParent().orElseThrow();
+        final var block = getParentOpt().orElseThrow();
         final var trueBB = getTrueBB();
         final var falseBB = getFalseBB();
 

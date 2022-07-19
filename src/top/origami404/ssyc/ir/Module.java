@@ -1,44 +1,40 @@
 package top.origami404.ssyc.ir;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import top.origami404.ssyc.ir.constant.ArrayConst;
 
 public class Module {
-    public Module() {
-        this.functions = new HashMap<>();
-        this.variables = new HashMap<>();
-        this.arrayConst = new HashMap<>();
-    }
-
-    public Map<String, Function> getFunctions() {
+    public Set<Function> getFunctions() {
         return functions;
     }
 
-    public Map<String, ArrayConst> getArrayConstants() {
+    public Set<ArrayConst> getArrayConstants() {
         return arrayConst;
     }
 
-    public Map<String, GlobalVar> getVariables() {
+    public Set<GlobalVar> getVariables() {
         return variables;
     }
 
     public void verifyAll() {
-        for (final var func : functions.values()) {
+        for (final var func : functions) {
             func.verifyAll();
         }
 
-        for (final var global : variables.values()) {
+        for (final var global : variables) {
             global.verifyAll();
         }
 
-        for (final var constant : arrayConst.values()) {
+        for (final var constant : arrayConst) {
             constant.verifyAll();
         }
     }
 
-    private final Map<String, Function> functions;
-    private final Map<String, GlobalVar> variables;
-    private final Map<String, ArrayConst> arrayConst;
+    private final Set<Function> functions = new HashSet<>();
+    private final Set<GlobalVar> variables = new HashSet<>();
+    private final Set<ArrayConst> arrayConst = new HashSet<>();
 }

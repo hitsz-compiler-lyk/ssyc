@@ -2,14 +2,15 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.List;
 
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.FunctionIRTy;
 
 public class CallInst extends Instruction {
-    public CallInst(Function callee, List<Value> args) {
-        super(InstKind.Call, callee.getType().getReturnType());
+    public CallInst(BasicBlock block, Function callee, List<Value> args) {
+        super(block, InstKind.Call, callee.getType().getReturnType());
 
         super.addOperandCO(callee);
         super.addAllOperandsCO(args);
@@ -38,7 +39,7 @@ public class CallInst extends Instruction {
         for (var i = 0; i < argCnt; i++) {
             ensure(getArg(i).getType().equals(funcType.getParamType(i)),
                     "Type of argument must match type of parameter (Dismatch %s at %d)"
-                            .formatted(getCallee().getName(), i));
+                            .formatted(getCallee().getFunctionSourceName(), i));
         }
     }
 }

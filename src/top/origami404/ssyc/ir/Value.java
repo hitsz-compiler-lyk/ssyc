@@ -3,7 +3,9 @@ package top.origami404.ssyc.ir;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 
@@ -11,7 +13,7 @@ public abstract class Value {
     public Value(IRType type) {
         this.type = type;
         this.userList = new ArrayList<>();
-        this.name = null;
+        this.symbol = Optional.empty();
     }
 
     /**
@@ -58,34 +60,21 @@ public abstract class Value {
         return userList.isEmpty();
     }
 
-    /**
-     * <p>
-     * 获得一个在 LLVM IR 里可以作为其他指令的参数的名字,
-     * 比如说全局数组常量会是 @ 开头的字符串,
-     * 基本块, 指令, 参数的名字会是 % 开头的字符串.
-     * </p>
-     * <p>
-     * 如果需要获得其他种类的名字, 比如基本块的用作 label 的名字,
-     * 则需要强转到对应类型再调用对应的方法.
-     * </p>
-     *
-     * @return 名字
-     */
-    public String getName() {
-        if (name == null) {
-            throw new RuntimeException("This value has no name! " + this);
-        }
-
-        return name;
+    public Optional<SourceCodeSymbol> getSymbolOpt() {
+        return symbol;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public SourceCodeSymbol getSymbol() {
+        return getSymbolOpt().orElseThrow(() -> new RuntimeException("This value do NOT have a symbol with it"));
+    }
+
+    public void setSymbol(SourceCodeSymbol symbol) {
+        this.symbol = Optional.of(symbol);
     }
 
     @Override
     public String toString() {
-        return name;
+        return symbol.map(SourceCodeSymbol::toString).orElseGet(() -> this.getClass().getSimpleName());
     }
 
     /**
@@ -95,8 +84,6 @@ public abstract class Value {
      * @throws IRVerifyException IR 不合法
      */
     public void verify() throws IRVerifyException {
-        ensure(name != null, "A value must have name");
-        ensure(name.length() > 1, "A value's name must longer than 1");
         checkPointerAndArrayType();
 
         for (final var user : userList) {
@@ -125,7 +112,7 @@ public abstract class Value {
 
     private IRType type;
     private List<User> userList;
-    private String name;
+    private Optional<SourceCodeSymbol> symbol;
 
     // 用于验证 IR 的方法
     protected void ensure(boolean cond, String message) {

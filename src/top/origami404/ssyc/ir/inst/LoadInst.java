@@ -2,6 +2,7 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.Optional;
 
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
@@ -9,8 +10,9 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class LoadInst extends Instruction {
-    public LoadInst(Value ptr) {
+    public LoadInst(BasicBlock block, Value ptr) {
         super(
+            block,
             InstKind.Load,
             Optional.ofNullable((PointerIRTy) ptr.getType())
                 .map(PointerIRTy::getBaseType)

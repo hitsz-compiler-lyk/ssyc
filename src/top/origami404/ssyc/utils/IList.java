@@ -4,7 +4,6 @@ import java.util.AbstractSequentialList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 
 public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> extends AbstractSequentialList<E> {
     // 链表的头节点, 其为 Optional.empty() 当且仅当链表为空
@@ -74,7 +73,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         if (owner == null) { throw new IListException("Owner of IList shouldn't be null"); }
 
         for (final var node : asINodeView()) {
-            if (!node.getParent().map(this::equals).orElse(false)) {
+            if (!node.getParentOpt().map(this::equals).orElse(false)) {
                 throw new IListException("Node in IList, but the parent isn't itself");
             }
         }

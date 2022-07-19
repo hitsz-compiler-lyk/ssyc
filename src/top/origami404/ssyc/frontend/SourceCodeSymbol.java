@@ -1,5 +1,7 @@
 package top.origami404.ssyc.frontend;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 /**
@@ -11,11 +13,19 @@ public class SourceCodeSymbol {
     private final int column;
 
     public SourceCodeSymbol(TerminalNode terminalNode) {
-        this(terminalNode.getText(), terminalNode);
+        this(terminalNode.getSymbol());
     }
 
-    public SourceCodeSymbol(String name, TerminalNode terminalNode) {
-        this(name, terminalNode.getSymbol().getLine(), terminalNode.getSourceInterval().a);
+    public SourceCodeSymbol(Token token) {
+        this(token.getText(), token);
+    }
+
+    public SourceCodeSymbol(String name, ParserRuleContext ctx) {
+        this(name, ctx.getStart());
+    }
+
+    public SourceCodeSymbol(String name, Token token) {
+        this(name, token.getLine(), token.getStartIndex());
     }
 
     public SourceCodeSymbol(String name, int line, int column) {
@@ -34,8 +44,15 @@ public class SourceCodeSymbol {
     /**
      * @return "%名字$行号$列号"
      */
-    public String getLLVMIdentifier() {
+    public String getLLVMLocal() {
         return "%%%s$%d$%d".formatted(name, line, column);
+    }
+
+    /**
+     * @return "@名字$行号$列号"
+     */
+    public String getLLVMGlobal() {
+        return "@%s$%d$%d".formatted(name, line, column);
     }
 
     public String getName() {
