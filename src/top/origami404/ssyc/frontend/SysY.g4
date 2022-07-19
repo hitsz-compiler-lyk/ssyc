@@ -85,12 +85,12 @@ exp
     ;
 
 logOr
-    : logAnd '||' logOr
+    : logOr '||' logAnd
     | logAnd
     ;
 
 logAnd
-    : logRel '&&' logAnd
+    : logAnd '&&' logRel
     | logRel
     ;
 
@@ -98,13 +98,13 @@ logRel: relEq ;
 
 relEqOp: '==' | '!=' ;
 relEq
-    : relComp relEqOp relEq
+    : relEq relEqOp relComp
     | relComp
     ;
 
 relCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : relExp relCompOp relComp
+    : relComp relCompOp relExp
     | relExp
     ;
 
@@ -112,13 +112,13 @@ relExp: exp;
 
 expAddOp: '+' | '-' ;
 expAdd
-    : expMul expAddOp expAdd
+    : expAdd expAddOp expMul
     | expMul
     ;
 
 expMulOp: '*' | '/' | '%' ;
 expMul
-    : expUnary expMulOp expMul
+    : expMul expMulOp expUnary
     | expUnary
     ;
 

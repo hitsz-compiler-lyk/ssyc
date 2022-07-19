@@ -173,7 +173,7 @@ public class LLVMDumper {
             pir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
 
         } else if (inst instanceof BoolToIntInst) {
-            pir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
+            pir("zext <from> to i32", ((BoolToIntInst) inst).getFrom());
 
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
