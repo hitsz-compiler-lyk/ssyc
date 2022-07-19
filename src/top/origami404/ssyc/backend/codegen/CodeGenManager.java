@@ -67,7 +67,7 @@ public class CodeGenManager {
     private Map<Function, ArmFunction> funcMap;
     private Map<BasicBlock, ArmBlock> blockMap;
     private Map<String, GlobalVar> globalvars;
-    private static final Map<InstKind, ArmCondType> condMap = new HashMap<InstKind, ArmCondType>() {
+    private static final Map<InstKind, ArmCondType> condMap = new HashMap<>() {
         {
             put(InstKind.ICmpEq, ArmCondType.Eq);
             put(InstKind.ICmpNe, ArmCondType.Ne);
@@ -85,10 +85,10 @@ public class CodeGenManager {
     };
 
     public CodeGenManager() {
-        functions = new ArrayList<ArmFunction>();
+        functions = new ArrayList<>();
         valMap = new HashMap<>();
-        funcMap = new HashMap<Function, ArmFunction>();
-        blockMap = new HashMap<BasicBlock, ArmBlock>();
+        funcMap = new HashMap<>();
+        blockMap = new HashMap<>();
     }
 
     public List<ArmFunction> getFunctions() {
@@ -100,20 +100,24 @@ public class CodeGenManager {
     }
 
     public void genArm(Module irModule) {
-        globalvars = irModule.getVariables();
-        // 添加Global信息
-        for (var val : globalvars.values()) {
-            valMap.put(val, new Addr(val.getName(), true));
+        globalvars = new HashMap<>();
+        for (final var gv : irModule.getVariables()) {
+            globalvars.put(gv.getSymbol().getName(), gv);
         }
 
-        for (var func : irModule.getFunctions().values()) {
-            var armFunc = new ArmFunction(func.getName());
+        // 添加Global信息
+        for (var val : globalvars.values()) {
+            valMap.put(val, new Addr(val.getSymbol().getName(), true));
+        }
+
+        for (var func : irModule.getFunctions()) {
+            var armFunc = new ArmFunction(func.getFunctionSourceName());
             armFunc.getFuncInfo().setParameter(func.getParameters());
             functions.add(armFunc);
             funcMap.put(func, armFunc);
 
             for (var block : func.asElementView()) {
-                var armblock = new ArmBlock(armFunc, block.getName());
+                var armblock = new ArmBlock(armFunc, block.getLabelName());
                 blockMap.put(block, armblock);
             }
 
@@ -761,11 +765,11 @@ public class CodeGenManager {
     }
 
     private String codeGenIntConst(IntConst val) {
-        return "\t" + ".word" + "\t" + Integer.toString(val.getValue()) + "\n";
+        return "\t" + ".word" + "\t" + val + "\n";
     }
 
     private String codeGenFloatConst(FloatConst val) {
-        return "\t" + ".word" + "\t" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
+        return "\t" + ".word" + "\t" + val + "\n";
     }
 
     private String codeGenArrayConst(ArrayConst val) {
@@ -798,10 +802,9 @@ public class CodeGenManager {
                     sb.append(codeGenIntConst(val));
                 } else if (cnt > 1) {
                     if (val.getValue() == 0) {
-                        sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                        sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
                     } else {
-                        sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
-                                + Integer.toString(val.getValue()) + "\n");
+                        sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
                     }
                 }
                 cnt = 1;
@@ -812,10 +815,10 @@ public class CodeGenManager {
             sb.append(codeGenIntConst(val));
         } else if (cnt > 1) {
             if (val.getValue() == 0) {
-                sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
             } else {
-                sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
-                        + Integer.toString(val.getValue()) + "\n");
+                sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t"
+                        + val + "\n");
             }
         }
         return sb.toString();
@@ -835,10 +838,9 @@ public class CodeGenManager {
                     sb.append(codeGenFloatConst(val));
                 } else if (cnt > 1) {
                     if (val.getValue() == 0) {
-                        sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                        sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
                     } else {
-                        sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
-                                + Float.toString(val.getValue()) + "\n");
+                        sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
                     }
                 }
                 cnt = 1;
@@ -849,10 +851,9 @@ public class CodeGenManager {
             sb.append(codeGenFloatConst(val));
         } else if (cnt > 1) {
             if (val.getValue() == 0) {
-                sb.append("\t" + ".zero" + "\t" + Integer.toString(4 * cnt) + "\n");
+                sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
             } else {
-                sb.append("\t" + ".fill" + "\t" + Integer.toString(cnt) + ",\t4,\t"
-                        + Float.toString(val.getValue()) + "\n");
+                sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
             }
         }
         return sb.toString();
