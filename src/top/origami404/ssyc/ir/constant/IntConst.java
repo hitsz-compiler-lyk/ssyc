@@ -6,7 +6,6 @@ import top.origami404.ssyc.ir.type.IRType;
 public class IntConst extends Constant {
     IntConst(int value) {
         super(IRType.IntTy);
-        super.setName(Integer.toString(value));
         this.value = value;
     }
 

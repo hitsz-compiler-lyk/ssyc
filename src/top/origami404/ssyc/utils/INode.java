@@ -13,7 +13,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     public INode(E value, P parent) {
-        this(Optional.of(parent.getIList()), Optional.empty(), Optional.empty(), value);
+        this(Optional.ofNullable(parent).map(P::getIList), Optional.empty(), Optional.empty(), value);
     }
 
     public INode(
@@ -144,7 +144,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             if (!l.asINodeView().contains(this)) {
                 throw new IListException("INode not in parent");
             }
-        }, () -> { Log.info("Free node, owner: " + value); });
+        }, () -> Log.info("Free node, owner: " + value));
 
         prev.ifPresentOrElse(n -> {
             // 如果一个 Node 的 prev 非空, 那 prev 的 next 必须是自己

@@ -87,7 +87,7 @@ public class Function extends Value
 
         final var blockList = bblocks;
         final var labels = blockList.stream()
-            .map(BasicBlock::getLabelName)
+            .map(BasicBlock::getSymbol)
             .collect(Collectors.toList());
         ensure(IteratorTools.isUnique(labels), "Labels of blocks must be unique");
         ensure(IteratorTools.isUnique(blockList), "Blocks in function must be unique");

@@ -46,7 +46,7 @@ public class ArrayConst extends Constant {
         return IRType.createArrayTy(elms.size(), elmType);
     }
 
-    private List<Constant> elements;
+    private final List<Constant> elements;
 
     public List<Constant> getRawElements() {
         return elements;
@@ -78,9 +78,6 @@ public class ArrayConst extends Constant {
     // Only for subclass
     protected ArrayConst(IRType type) {
         super(type);
-        super.setName("@ac_" + arrayConstCount++);
         this.elements = List.of();
     }
-
-    private static int arrayConstCount = 0;
 }

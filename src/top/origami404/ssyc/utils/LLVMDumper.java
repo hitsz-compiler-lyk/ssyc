@@ -1,5 +1,6 @@
 package top.origami404.ssyc.utils;
 
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
@@ -16,14 +17,13 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class LLVMDumper {
     public LLVMDumper(OutputStream outStream) {
         this.writer = new PrintWriter(outStream);
+        this.nameMap = new ChainMap<>();
     }
 
     public void close() {
@@ -31,16 +31,23 @@ public class LLVMDumper {
     }
 
     public void dump(Module module) {
-        for (final var arrayConst : module.getArrayConstants().values()) {
+        ir("target datalayout = \"e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64\"");
+        ir("target triple = \"armv7-unknown-linux-gnueabihf\"");
+        newline();
+
+        for (final var arrayConst : module.getArrayConstants()) {
+            recordGlobal(arrayConst);
             dumpGlobalConstant(arrayConst);
         }
 
-        for (final var global : module.getVariables().values()) {
+        for (final var global : module.getVariables()) {
+            recordGlobal(global);
             dumpGlobalVariable(global);
         }
 
         // 先输出外部函数
-        for (final var func : module.getFunctions().values()) {
+        for (final var func : module.getFunctions()) {
+            nameMap.put(func, func.getSymbol().getLLVMExternal());
             if (func.isExternal()) {
                 dumpExternalFunction(func);
             }
@@ -48,10 +55,11 @@ public class LLVMDumper {
 
         ir("declare void @llvm.memcpy.p0i8.p0i8.i32(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i32, i1 immarg)");
 
-        ir(""); ir(""); // two empty line
+        newline(); newline(); // two empty line
 
         // 再输出正常的函数
-        for (final var func : module.getFunctions().values()) {
+        for (final var func : module.getFunctions()) {
+            nameMap.put(func, func.getSymbol().getLLVMExternal());
             if (!func.isExternal()) {
                 dumpNormalFunction(func);
             }
@@ -60,97 +68,124 @@ public class LLVMDumper {
     }
 
     private void dumpNormalFunction(Function function) {
+        inFunction();
+
+        for (final var param : function.getParameters()) {
+            recordLocal(param);
+        }
+
+        for (final var block : function.getBasicBlocks()) {
+            recordLocal(block);
+            for (final var inst : block.allInst()) {
+                if (!inst.getType().isVoid()) {
+                    recordLocal(inst);
+                }
+            }
+        }
+
         ir("define dso_local <return-ty> <func-name>(<param*>) {",
-                function.getType().getReturnType(), function.getName(), joinWithRef(function.getParameters()));
+                function.getType().getReturnType(), function.getSymbol().getLLVMExternal(), joinWithRef(function.getParameters()));
+
+        for (final var param : function.getParameters()) {
+            ir("; <param-name> : <param-ir-name>", param.getParamName(), param);
+        }
 
         for (final var block : function.asElementView()) {
-            final var preds = block.getPredecessors().stream()
-                .map(Value::getName)
-                .collect(Collectors.joining(", "));
+            final var preds = commaSplitList(block.getPredecessors(), b -> b.getSymbol().getVSCodeDescriptor());
+            ir("<label>:    ; <label-name> : <pred*>", toName(block).substring(1), block.getSymbol().getVSCodeDescriptor(), preds);
 
-            ir("<label>:    ; <pred*>", block.getLabelName(), preds);
+            indent += 2;
             block.asElementView().forEach(this::dumpInstruction);
+            indent -= 2;
 
             for (final var entry : block.getAnalysisInfo(CurrDefInfo.class).getAllEntries()) {
-                final var name = entry.getKey().getLLVMIdentifier();
+                final var name = entry.getKey().getLLVMLocal();
                 final var def = entry.getValue().getCurrDef();
                 ir("  ; <name> -> <def>", name, def);
             }
-            ir("");
+            newline();
         }
 
         ir("}");
+        newline();
+
+        outFunction();
+    }
+
+    private void newline() {
         ir("");
     }
 
     private void dumpExternalFunction(Function function) {
         final var returnType = function.getType().getReturnType();
-        final var paramTypes = function.getType().getParamTypes().stream()
-            .map(this::dumpIRType).collect(Collectors.joining(", "));
+        final var paramTypes = commaSplitList(function.getType().getParamTypes(), this::dumpIRType);
 
         ir("declare dso_local <return-ty> <func-name>(<parma-type*>)",
-                returnType, function.getName(), paramTypes);
+                returnType, function.getSymbol().getLLVMExternal(), paramTypes);
     }
 
     private void dumpGlobalVariable(GlobalVar gv) {
-        final var name = gv.getName();
+        final var name = toName(gv);
         final var init = gv.getInit();
         final var baseType = gv.getType().getBaseType();
 
         if (baseType instanceof PointerIRTy) { // array
             ir("<name> = dso_local global <arr-ptr-type> getelementptr inbounds (<base-type>, <init-ty>* <init-name>, i32 0, i32 0), align 4",
-                    name, baseType, init.getType(), init.getType(), init.getName());
+                    name, baseType, init.getType(), init.getType(), toName(init));
 
         } else { // variable
             ir("<name> = dso_local global <init>, align 4", name, init);
         }
+        ir("; global: <symbol>", gv.getSymbol());
     }
 
     private void dumpInstruction(Instruction inst) {
-        writer.print("  "); // indent
+        if (!(inst instanceof MemInitInst || inst instanceof CAllocInst)) {
+            pir(" ".repeat(indent));
 
-        // 因为 CAlloc 与 LLVM IR 中的 Alloc 的不同之处, CAlloc 语句虽然不是 VoidType, 也不能直接写成 %n = xxx 的形式
-        if (!inst.getType().isVoid() && !(inst instanceof CAllocInst)) {
-            writer.print(inst.getName() + " = "); // "%1 = "
+            // 因为 CAlloc 与 LLVM IR 中的 Alloc 的不同之处, CAlloc 语句虽然不是 VoidType, 也不能直接写成 %n = xxx 的形式
+            if (!inst.getType().isVoid()) {
+                pir("<inst-name> = ", toName(inst)); // "%1 = "
+            }
         }
 
         if (inst instanceof BinaryOpInst) {
             final var bop = (BinaryOpInst) inst;
-            ir("<binop> <ty> <lhs-name>, <rhs-name>",
-                    getBinOpName(bop), bop.getType(), bop.getLHS().getName(), bop.getRHS().getName());
+            pir("<binop> <ty> <lhs-name>, <rhs-name>",
+                    getBinOpName(bop), bop.getType(), toName(bop.getLHS()), toName(bop.getRHS()));
 
         } else if (inst instanceof UnaryOpInst) {
             final var uop = (UnaryOpInst) inst;
             final var kind = uop.getKind();
 
             if (kind.isInt()) {
-                ir("sub i32 0, <op-name>", uop.getArg().getName());
+                pir("sub i32 0, <op-name>", toName(uop.getArg()) );
             } else if (kind.isFloat()) {
-                ir("fneg <val>", uop.getArg());
+                pir("fneg <val>", uop.getArg());
             } else {
                 throw new RuntimeException("Unknown UnaryOp kind: " + kind);
             }
 
         } else if (inst instanceof IntToFloatInst) {
-            ir("sitofp <from> to float", ((IntToFloatInst) inst).getFrom());
+            pir("sitofp <from> to float", ((IntToFloatInst) inst).getFrom());
 
         } else if (inst instanceof FloatToIntInst) {
-            ir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
+            pir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
 
         } else if (inst instanceof BoolToIntInst) {
-            ir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
+            pir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
 
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
-            ir("<cmpop> <ty> <lhs-name>, <rhs-name>",
-                    getCmpOpName(cmp), cmp.getLHS().getType(), cmp.getLHS().getName(), cmp.getRHS().getName());
+            pir("<cmpop> <ty> <lhs-name>, <rhs-name>",
+                    getCmpOpName(cmp), cmp.getLHS().getType(), toName(cmp.getLHS()), toName(cmp.getRHS()));
 
         } else if (inst instanceof BrInst) {
-            ir("br <nextBB>", ((BrInst) inst).getNextBB());
+            pir("br <nextBB>", ((BrInst) inst).getNextBB());
 
         } else if (inst instanceof BrCondInst) {
             final var br = (BrCondInst) inst;
-            ir("br <cond>, <trueBB>, <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
+            pir("br <cond>, <trueBB>, <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
 
         } else if (inst instanceof PhiInst) {
             final var phi = (PhiInst) inst;
@@ -159,22 +194,23 @@ public class LLVMDumper {
                 final var type = phi.getType();
                 // final var zero = Constant.getZeroByType(type);
                 if (type.isInt()) {
-                    ir("add i32 0, 0 ; non-incoming phi");
+                    pir("add i32 0, 0 ; non-incoming phi");
                 } else if (type.isFloat()) {
-                    ir("fadd float 0, 0");
+                    pir("fadd float 0, 0");
                 } else {
                     throw new RuntimeException("Unknown type of empty phi: " + type);
                 }
+                newline();
                 return;
             }
 
             final var incomingStrings = new ArrayList<String>();
             for (final var info : phi.getIncomingInfos()) {
-                final var str = "[ %s, %s ]".formatted(info.getValue().getName(), info.getBlock().getName());
+                final var str = "[ %s, %s ]".formatted(toName(info.getValue()), toName(info.getBlock()));
                 incomingStrings.add(str);
             }
 
-            ir("phi <incoming-type> <incoming*>",
+            pir("phi <incoming-type> <incoming*>",
                     phi.getType(),
                     String.join(", ", incomingStrings));
 
@@ -182,38 +218,41 @@ public class LLVMDumper {
             final var returnVal = ((ReturnInst) inst).getReturnValue();
 
             if (returnVal.isPresent()) {
-                ir("ret <val>", returnVal.get());
+                pir("ret <val>", returnVal.get());
             } else {
-                ir("ret void");
+                pir("ret void");
             }
 
         } else if (inst instanceof CallInst) {
             final var call = (CallInst) inst;
-            ir("call <ret-ty> <func-name>(<arg*>)",
+            pir("call <ret-ty> <func-name>(<arg*>)",
                 inst.getType(),
-                call.getCallee().getName(),
+                toName(call.getCallee()),
                 joinWithRef(call.getArgList()));
-
-        } else if (inst instanceof CAllocInst) {
-            final var calloc = (CAllocInst) inst;
-            ir("<calloc-name>$alloca = alloca <base-type>, align 8", calloc.getName(), calloc.getAllocType());
-            ir("  <calloc-name> = getelementptr <base-type>, <calloc-type>* <calloc-name>$alloca, i32 0, i32 0",
-                    calloc.getName(), calloc.getAllocType(), calloc.getAllocType(), calloc.getName());
 
         } else if (inst instanceof GEPInst) {
             final var gep = (GEPInst) inst;
-            ir("getelementptr <base-type>, <ptr>, <index*>",
+            pir("getelementptr <base-type>, <ptr>, <index*>",
                     ((PointerIRTy) gep.getPtr().getType()).getBaseType(),
                     gep.getPtr(),
                     joinWithRef(gep.getIndices()));
 
         } else if (inst instanceof LoadInst) {
             final var load = (LoadInst) inst;
-            ir("load <ty>, <ptr>", load.getType(), load.getPtr());
+            pir("load <ty>, <ptr>", load.getType(), load.getPtr());
             
         } else if (inst instanceof StoreInst) {
             final var store = (StoreInst) inst;
-            ir("store <val>, <ptr>", store.getVal(), store.getPtr());
+            pir("store <val>, <ptr>", store.getVal(), store.getPtr());
+
+        } else if (inst instanceof CAllocInst) {
+            final var calloc = (CAllocInst) inst;
+            final var allocaTemp = tempLocal();
+
+            ir("<alloca-temp> = alloca <base-type>, align 8", allocaTemp, calloc.getAllocType());
+            ir("<calloc-name> = getelementptr <base-type>, <calloc-type>* <alloca-temp>, i32 0, i32 0",
+                toName(calloc), calloc.getAllocType(), calloc.getAllocType(), allocaTemp);
+            ir("; <symbol>", calloc.getSymbol());
 
         } else if (inst instanceof MemInitInst) {
             final var meminit = (MemInitInst) inst;
@@ -221,27 +260,34 @@ public class LLVMDumper {
             final var arrPtr = meminit.getArrayPtr();
 
             final var size = init.getType().getSize();
-            final var srcName = arrPtr.getName() + "$memsrc";
-            final var dstName = "%" + init.getName().substring(1) + "$memdst";
+            final var srcName = tempLocal();
+            final var dstName = tempLocal();
 
             ir("<name> = bitcast <src> to i8*", srcName, arrPtr);
-            ir("  <name> = bitcast <init-type>* <init-name> to i8*", dstName, init.getType(), init.getName());
+            ir("<name> = bitcast <init-type>* <init-name> to i8*", dstName, init.getType(), toName(init));
 
-            final var fmt = "  call void @llvm.memcpy.p0i8.p0i8.i32("
+            final var fmt = "call void @llvm.memcpy.p0i8.p0i8.i32("
                           + "i8* align 4 <src-name>, "
                           + "i8* align 4 <dst-name>, "
                           + "i32 <size>, i1 false)";
             ir(fmt, srcName, dstName, size);
+            ir("; <symbol>", meminit.getArrayPtr().getSymbol());
 
         } else {
             throw new RuntimeException("Unknown instruction type: " + inst.getKind());
         }
 
+        if (inst.getSymbolOpt().isPresent()) {
+            pir("    ; <symbol>", inst.getSymbol());
+        }
+
+        newline();
     }
 
     private void dumpGlobalConstant(Constant constant) {
         if (constant instanceof ArrayConst) {
-            ir("<name> = dso_local global <constant>, align 4", constant.getName(), dumpConstant(constant));
+            ir("<name> = dso_local global <constant>, align 4", toName(constant), dumpConstant(constant));
+            ir("; init: <symbol>", constant.getSymbolOpt().map(SourceCodeSymbol::toString).orElse(""));
         } else {
             throw new RuntimeException("Global constant should only be array");
         }
@@ -249,10 +295,10 @@ public class LLVMDumper {
 
     private String dumpConstant(Constant constant) {
         if (constant instanceof IntConst) {
-            return getReference(constant);
+            return "i32 " + constant;
 
         } else if (constant instanceof FloatConst) {
-            return getReference(constant);
+            return "float " + constant;
 
         } else if (constant instanceof ArrayConst) {
             final var type = dumpIRType(constant.getType());
@@ -260,9 +306,7 @@ public class LLVMDumper {
             if (constant instanceof ZeroArrayConst) {
                 return "%s zeroinitializer".formatted(type);
             } else {
-                final var elms = ((ArrayConst) constant).getRawElements().stream()
-                    .map(this::dumpConstant)
-                    .collect(Collectors.joining(", "));
+                final var elms = commaSplitList(((ArrayConst) constant).getRawElements(), this::dumpConstant);
                 return "%s [%s]".formatted(type, elms);
             }
 
@@ -343,7 +387,7 @@ public class LLVMDumper {
         if (value.getType().getKind() == IRTyKind.Void) {
             return "void";
         } else {
-            return String.format("%s %s", dumpIRType(value.getType()), value.getName());
+            return String.format("%s %s", dumpIRType(value.getType()), toName(value));
         }
     }
 
@@ -361,6 +405,12 @@ public class LLVMDumper {
      * @param args 可变参数
      */
     private void ir(String fmt, Object... args) {
+        writer.print(" ".repeat(indent));
+        pir(fmt, args);
+        writer.println();
+    }
+
+    private void pir(String fmt, Object... args) {
         final var newArgs = Arrays.stream(args).map(o -> {
             if (o instanceof Value) {
                 return getReference((Value) o);
@@ -371,12 +421,51 @@ public class LLVMDumper {
             }
         }).toArray();
 
-        writer.println(fmt.replaceAll("<.*?>", "%s").formatted(newArgs));
+        writer.print(fmt.replaceAll("<.*?>", "%s").formatted(newArgs));
+    }
+
+    private <T> String commaSplitList(List<? extends T> list, java.util.function.Function<T, String> transformer) {
+        return list.stream().map(transformer).collect(Collectors.joining(", "));
     }
 
     private String joinWithRef(List<? extends Value> list) {
-        return list.stream().map(this::getReference).collect(Collectors.joining(", "));
+        return commaSplitList(list, this::getReference);
     }
 
+    private void recordLocal(Value value) {
+        final var name = "%_" + localCount++;
+        nameMap.put(value, name);
+    }
+
+    private String tempLocal() {
+        return "%_" + localCount++;
+    }
+
+    private void recordGlobal(Value value) {
+        final var name = "@_" + globalCount++;
+        nameMap.put(value, name);
+    }
+
+    private String toName(Value value) {
+        if (value instanceof IntConst || value instanceof FloatConst) {
+            return value.toString();
+        } else {
+            return nameMap.get(value).orElseThrow(() -> new RuntimeException("Value not found: " + value));
+        }
+    }
+
+    private void inFunction() {
+        nameMap = new ChainMap<>(nameMap);
+        localCount = 0;
+    }
+
+    private void outFunction() {
+        nameMap = nameMap.getParent().orElseThrow();
+    }
+
+    private int globalCount = 0;
+    private int localCount = 0;
+    private ChainMap<Value, String> nameMap;
     private final PrintWriter writer;
+    private int indent;
 }

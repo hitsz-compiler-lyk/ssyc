@@ -59,7 +59,7 @@ public abstract class Instruction extends User
 
     @Override
     public String toString() {
-        return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::getName).orElse("?") + "|" + getParent().getLabelName();
+        return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
     }
 
     @Override

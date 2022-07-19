@@ -111,17 +111,15 @@ public class IRBuilder {
     }
 
     public void appendBBlock(BasicBlock newBB) {
-        if (!currBB.isTerminated()) {
+        if (currBB != null && !currBB.isTerminated()) {
             insertBranch(newBB);
         }
         changeBasicBlock(newBB);
         currFunc.getIList().add(newBB);
     }
 
-    public BasicBlock createAndAppendBBlock(SourceCodeSymbol symbol) {
-        final var newBB = createFreeBBlock(symbol);
-        appendBBlock(newBB);
-        return newBB;
+    public void createAndAppendBBlock(SourceCodeSymbol symbol) {
+        appendBBlock(createFreeBBlock(symbol));
     }
 
     public void changeBasicBlock(BasicBlock newBB) {
@@ -134,6 +132,13 @@ public class IRBuilder {
     public void switchToGlobal() {
         this.currBB = null;
         this.currFunc = null;
+    }
+
+    public void switchToFunction(Function function) {
+        currFunc = function;
+        final var funcSym = function.getSymbol();
+        final var symbol = new SourceCodeSymbol(funcSym.getName() + "_entry", funcSym.getLine(), funcSym.getColumn());
+        createAndAppendBBlock(symbol);
     }
 
     private static void addInfos(BasicBlock bb) {

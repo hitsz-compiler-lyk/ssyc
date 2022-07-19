@@ -77,5 +77,5 @@ public class SymbolTable {
         final IRType type;
     }
 
-    private ChainMap<Entry> table = new ChainMap<>();
+    private ChainMap<String, Entry> table = new ChainMap<>();
 }

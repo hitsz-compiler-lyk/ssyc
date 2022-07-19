@@ -25,7 +25,7 @@ public class SourceCodeSymbol {
     }
 
     public SourceCodeSymbol(String name, Token token) {
-        this(name, token.getLine(), token.getStartIndex());
+        this(name, token.getLine(), token.getCharPositionInLine());
     }
 
     public SourceCodeSymbol(String name, int line, int column) {
@@ -53,6 +53,13 @@ public class SourceCodeSymbol {
      */
     public String getLLVMGlobal() {
         return "@%s$%d$%d".formatted(name, line, column);
+    }
+
+    /**
+     * @return "@名字"
+     */
+    public String getLLVMExternal() {
+        return "@" + name;
     }
 
     public String getName() {

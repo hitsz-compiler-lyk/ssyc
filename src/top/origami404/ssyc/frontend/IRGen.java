@@ -67,6 +67,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var func = new Function(type, symbol);
 
         currModule.getFunctions().add(func);
+        symbolTable.add(funcName, symbol, type);
         finalInfo.newDef(symbol, func);
     }
 
@@ -76,16 +77,18 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#region funcDef 函数定义相关
     @Override
     public Function visitFuncDef(FuncDefContext ctx) {
-        // 在解析函数形参的时候就要新建作用域了
-        symbolTable.pushScope();
-
         final var returnType = toIRType(ctx.BType().getText());
         final var arguments = visitFuncParamList(ctx.funcParamList());
         final var funcSymbol = new SourceCodeSymbol(ctx.Ident());
         final var function = new Function(returnType, arguments, funcSymbol);
 
-        builder.changeBasicBlock(function.getEntryBBlock());
+        builder.switchToFunction(function);
         currModule.getFunctions().add(function);
+        symbolTable.add(funcSymbol, function.getType());
+        finalInfo.newDef(funcSymbol, function);
+
+        // 在解析函数形参的时候就要新建作用域了
+        symbolTable.pushScope();
 
         // 将函数形参加入当前的块的 currDef 中
         // 不能直接加入 finalInfo, 因为首先函数形参不是 Module 层面的东西, 其次形参绑定着的东西是有可能会变的
@@ -93,8 +96,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         for (final var param : function.getParameters()) {
             final var name = param.getParamName();
             final var type = param.getType();
-            final var symbol = symbolTable.resolveSymbol(name);
+            final var symbol = param.getSymbol();
 
+            symbolTable.add(name, symbol, type);
             if (type instanceof PointerIRTy) { // array parameter
                 // 数组一定要放在 finalInfo 里面
                 // 因为 getRightValue 假设了不存在于 finalInfo 的都是变量
@@ -149,8 +153,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var type = createTypeForArgumentByShape(baseType, info.shape);
         final var symbol = new SourceCodeSymbol(ctx.lValDecl().Ident());
 
-        symbolTable.add(symbol, type);
-        return new Parameter(symbol.getLLVMLocal(), type);
+        return new Parameter(symbol, type);
     }
 
     static class LValInfo {
@@ -530,7 +533,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 虽然反之并不成立就是了... (所以对于非常量表达式这里也有可能变成常量的)
                 return (Constant) value;
             } else {
-                // TODO: Constant cache
                 final var ptr = builder.insertGEPByInts(arrPtr, indices);
                 builder.insertStore(ptr, value);
 
@@ -869,12 +871,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.lVal() != null) {
             // 赋值语句
             final var lValResult = visitLVal(ctx.lVal());
-            final var newDef = visitExp(ctx.exp());
+            final var exp = visitExp(ctx.exp());
             final var valueOpt = findVariable(lValResult.var);
 
             if (valueOpt.isEmpty()) {
                 final var versionInfo = getVersionInfo();
-                versionInfo.newDef(lValResult.var, newDef);
+                versionInfo.newDef(lValResult.var, genCastTo(lValResult.type, exp, ctx));
 
             } else {
                 final var value = valueOpt.get();
@@ -882,9 +884,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                 if (leftValue.isEmpty()) {
                     final var versionInfo = getVersionInfo();
-                    versionInfo.kill(lValResult.var, newDef);
+                    versionInfo.kill(lValResult.var, genCastTo(value.getType(), exp, ctx));
                 } else {
-                    builder.insertStore(leftValue.get(), newDef);
+                    final var baseType = ((PointerIRTy) leftValue.get().getType()).getBaseType();
+                    builder.insertStore(leftValue.get(), genCastTo(baseType, exp, ctx));
                 }
             }
 
@@ -1063,16 +1066,26 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public Void visitStmtIf(StmtIfContext ctx) {
         final var trueBB = builder.createFreeBBlock(new SourceCodeSymbol("if_then", ctx));
         final var falseBB = builder.createFreeBBlock(new SourceCodeSymbol("if_else", ctx));
+        final var exitBB = builder.createFreeBBlock(new SourceCodeSymbol("if_exit", ctx));
 
         visitCond(ctx.cond(), trueBB, falseBB);
 
         builder.appendBBlock(trueBB);
         visitStmt(ctx.s1);
+        if (!builder.getBasicBlock().isTerminated()) {
+            // 样例 22
+            builder.insertBranch(exitBB);
+        }
 
         builder.appendBBlock(falseBB);
         if (ctx.s2 != null) {
             visitStmt(ctx.s2);
         }
+        if (!builder.getBasicBlock().isTerminated()) {
+            builder.insertBranch(exitBB);
+        }
+
+        builder.appendBBlock(exitBB);
 
         return null;
     }
