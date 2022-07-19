@@ -1160,9 +1160,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
             block.getIList().remove(phi);
             // 然后将其所有出现都替换为 end
             phi.replaceAllUseWith(end);
-            // 更新这个块的 currDef, 防止后面的块找回来时用了这个已经删除了 phi 作为定义
-            // 不能用 getVersionInfo, 因为那个是从 builder 里拿, 而我们需要更新的是 block 的 currDef
-            block.getAnalysisInfo(CurrDefInfo.class).kill(symbol, end);
         }
 
         return end;
