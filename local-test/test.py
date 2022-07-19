@@ -61,7 +61,12 @@ def build(subdir: str):
 
 def ssyc(option: str) -> Callable[[str, str], None]:
     def do(src: str, dst: str):
-        sh(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
+        result = os.system(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
+        if result != 0:
+            with open('ssyc.log', 'r') as f:
+                for line in f.readlines():
+                    print(line, end='')
+            exit(1)
     return do
 
 ssyc_llvm = one_pass('ssyc', '.sy', '.llvm')(ssyc('llvm'))
@@ -76,7 +81,11 @@ def clang_llvm(src: str, dst: str):
 
 @one_pass('llc', '.llvm', '.s')
 def llc(src: str, dst: str):
-    sh(f'llvm-as {src} -o - | llc -o {dst}')
+    bc = src.removesuffix('.llvm') + '.bc'
+
+    sh(f'llvm-as {src} -o {bc}')
+    sh(f'llc -o {dst} {bc}')
+    os.remove(bc)
 
 
 ssyc_asm = one_pass('ssyc', '.sy', '.s')(ssyc('asm'))
@@ -142,14 +151,14 @@ def run(exec: str, result_file: str):
         lines.extend(f.readlines())
     for idx, line in enumerate(lines):
         if not line.endswith(b'\n'):
-            lines[idx] = line + b'\n';
+            lines[idx] = line + b'\n'
     with open(result_file, 'wb') as f:
         f.writelines(lines)
 
 
     nick_name = fill_end_space(os.path.split(base_name)[-1], 40)
     if os.system(f'diff {output_file} {result_file} > /dev/null') != 0:
-        sh(f'difft {output_file} {result_file}')
+        sh(f'difft {result_file} {output_file}')
         exit_with(f'[red bold]Fail [cyan]{nick_name} [red bold]: Wrong Answer')
     else:
         with open(pgm_stderr, 'r') as f:

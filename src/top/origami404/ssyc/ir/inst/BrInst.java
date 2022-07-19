@@ -6,8 +6,8 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.Log;
 
 public class BrInst extends Instruction {
-    public BrInst(BasicBlock nextBB, BasicBlock currBlock) {
-        super(InstKind.Br, IRType.VoidTy);
+    public BrInst(BasicBlock currBlock, BasicBlock nextBB) {
+        super(currBlock, InstKind.Br, IRType.VoidTy);
         super.addOperandCO(nextBB);
 
         insertPredecessor(nextBB, currBlock);
@@ -29,7 +29,7 @@ public class BrInst extends Instruction {
     public void verify() throws IRVerifyException {
         super.verify();
 
-        final var block = getParent().orElseThrow();
+        final var block = getParentOpt().orElseThrow();
         final var nextBB = getNextBB();
 
         ensure(block != nextBB, "Cannot jump back to itself (maybe?)");

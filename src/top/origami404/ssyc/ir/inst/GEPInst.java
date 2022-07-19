@@ -3,6 +3,7 @@ package top.origami404.ssyc.ir.inst;
 import java.awt.*;
 import java.util.List;
 
+import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
@@ -14,8 +15,8 @@ import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class GEPInst extends Instruction {
     // indices: index 的复数形式
-    public GEPInst(Value ptr, List<? extends Value> indices) {
-        super(InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
+    public GEPInst(BasicBlock block, Value ptr, List<? extends Value> indices) {
+    super(block, InstKind.GEP, calcResultType(ptr.getType(), indices.size()));
 
         super.addOperandCO(ptr);
         super.addAllOperandsCO(indices);
@@ -41,7 +42,7 @@ public class GEPInst extends Instruction {
         }
     }
 
-    private static IRType calcResultType(IRType originalType, int indexCount) {
+    public static PointerIRTy calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
             if (originalType instanceof ArrayIRTy) {
                 final var arrayType = (ArrayIRTy) originalType;
@@ -91,8 +92,10 @@ public class GEPInst extends Instruction {
             }
         }
 
-        ensure(currType.isInt() || currType.isFloat(),
-                "Shape of ptr of GEP must match the length of indices");
+        // functional/61_sort_test7.sy:43
+        // 存在将数组的一部分传给函数的情况!
+        // ensure(currType.isInt() || currType.isFloat(),
+        //         "Shape of ptr of GEP must match the length of indices");
         ensure(currType.equals(getType().getBaseType()), "The final baseType of ptr must match the type of GEP");
     }
 }

@@ -1,6 +1,5 @@
 package top.origami404.ssyc.frontend;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -10,30 +9,28 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import top.origami404.ssyc.frontend.SemanticException.GenExpInGlobalException;
 import top.origami404.ssyc.frontend.SysYParser.*;
 import top.origami404.ssyc.frontend.info.FinalInfo;
-import top.origami404.ssyc.frontend.info.VersionInfo;
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.*;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
-import top.origami404.ssyc.ir.inst.CAllocInst;
 import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.ir.type.SimpleIRTy;
-import top.origami404.ssyc.utils.ChainMap;
 import top.origami404.ssyc.utils.Log;
 
 public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {
         super();
-        this.scope = new ChainMap<>();
-        this.builder = null;
         this.currModule = new Module();
+        this.builder = new IRBuilder();
+        this.symbolTable = new SymbolTable();
         this.finalInfo = new FinalInfo();
+        this.whileInfo = new Stack<>();
     }
 
     @Override
@@ -59,18 +56,19 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         addExternalFunc("putint", Void, Int);
         addExternalFunc("putch", Void, Int);
-        addExternalFunc("putarray", Void, Int, PtrFloat);
+        addExternalFunc("putarray", Void, Int, PtrInt);
         addExternalFunc("putfloat", Void, Float);
         addExternalFunc("putfarray", Void, Int, PtrFloat);
     }
 
     private void addExternalFunc(String funcName, IRType returnType, IRType... paramTypes) {
         final var type = IRType.createFuncTy(returnType, List.of(paramTypes));
-        final var func = new Function(type, funcName);
-        // final var variable = new Variable(funcName, 0);
+        final var symbol = new SourceCodeSymbol(funcName, 0, 0);
+        final var func = new Function(type, symbol);
 
-        currModule.getFunctions().put(funcName, func);
-        // finalInfo.newDef(variable, func);
+        currModule.getFunctions().add(func);
+        symbolTable.add(funcName, symbol, type);
+        finalInfo.newDef(symbol, func);
     }
 
 //====================================================================================================================//
@@ -81,26 +79,47 @@ public class IRGen extends SysYBaseVisitor<Object> {
     public Function visitFuncDef(FuncDefContext ctx) {
         final var returnType = toIRType(ctx.BType().getText());
         final var arguments = visitFuncParamList(ctx.funcParamList());
-        final var function = new Function(returnType, arguments, ctx.Ident().getText());
+        final var funcSymbol = new SourceCodeSymbol(ctx.Ident());
+        final var function = new Function(returnType, arguments, funcSymbol);
 
-        builder = new IRBuilder(function.getEntryBBlock());
-        currModule.getFunctions().put(function.getFuncName(), function);
-        pushScope();
+        builder.switchToFunction(function);
+        currModule.getFunctions().add(function);
+        symbolTable.add(funcSymbol, function.getType());
+        finalInfo.newDef(funcSymbol, function);
+
+        // 在解析函数形参的时候就要新建作用域了
+        symbolTable.pushScope();
 
         // 将函数形参加入当前的块的 currDef 中
         // 不能直接加入 finalInfo, 因为首先函数形参不是 Module 层面的东西, 其次形参绑定着的东西是有可能会变的
         // 不能在解析形参的时候就加入, 因为解析形参的时候函数还没被定义, builder 还是 null
-        final var lineNo = ctx.getStart().getLine();
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
         for (final var param : function.getParameters()) {
             final var name = param.getParamName();
-            final var variable = new Variable(name, lineNo);
+            final var type = param.getType();
+            final var symbol = param.getSymbol();
 
-            scope.put(name, new ScopeEntry(variable, param.getType()));
-            versionInfo.newDef(variable, param);
+            symbolTable.add(name, symbol, type);
+            if (type instanceof PointerIRTy) { // array parameter
+                // 数组一定要放在 finalInfo 里面
+                // 因为 getRightValue 假设了不存在于 finalInfo 的都是变量
+                finalInfo.newDef(symbol, param);
+            } else {
+                getVersionInfo().newDef(symbol, param);
+            }
         }
 
         visitBlock(ctx.block());
+
+        if (!builder.getBasicBlock().isTerminated()) {
+            if (returnType.isVoid()) {
+                builder.insertReturn();
+            } else {
+                Log.info("Non-void function do NOT have a return stmt at the end");
+                builder.insertReturn(Constant.getZeroByType(returnType));
+            }
+        }
+
+        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
 
         // 翻译完所有基本块之后再填充翻译过程中遗留下来的空白 phi
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
@@ -112,9 +131,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
             }
         }
 
+        // TODO: 死代码消除
+        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
+
         // TODO: 重新尝试删除在常量折叠里变得无用的 phi
 
-        popScope();
+        symbolTable.popScope();
+        builder.switchToGlobal(); // return to global
         return function;
     }
 
@@ -128,8 +151,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var baseType = toIRType(ctx.BType().getText());
         final var info = visitLValDecl(ctx.lValDecl());
         final var type = createTypeForArgumentByShape(baseType, info.shape);
+        final var symbol = new SourceCodeSymbol(ctx.lValDecl().Ident());
 
-        return new Parameter(info.name, type);
+        return new Parameter(symbol, type);
     }
 
     static class LValInfo {
@@ -156,7 +180,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 final var ic = (IntConst) num;
                 shape.add(ic.getValue());
             } else {
-                throw new RuntimeException("exp in lValExp must be an integer constant");
+                throw new SemanticException(ctx, "exp in lValExp must be an integer constant");
             }
         }
 
@@ -192,43 +216,40 @@ public class IRGen extends SysYBaseVisitor<Object> {
             变量    全局变量    局部变量
             数组    全局数组    局部数组
 
-            它们总是需要将 identifier 与 variable 的对应关系加入到作用域中,
-            也总是需要更新 variable 与其当前的定义的关系
+            它们总是需要将 identifier 与 symbol 的对应关系加入到作用域中,
+            也总是需要更新 symbol 与其当前的定义的关系
             (不过是要在不同的表中, 有的情况是 finalInfo, 有的情况是 versionInfo)
 
-            全局常量: 更新 scope, 加入 finalInfo, 加入 globalConst
+            全局常量: 更新 scope, 加入 finalInfo
             局部常量: 更新 scope, 加入 finalInfo
             全局变量: 更新 scope, (以指针形式) 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
             局部变量: 更新 scope, 加入 versionInfo (绑定0/初始值)
             全局数组: 更新 scope, 加入 finalInfo, 加入 globalVariable (绑定0/初始值)
-                有非空初始值的情况下, 初始值加入 globalConst
+                有非空初始值的情况下, 初始值加入 arrayConst
             局部数组: 更新 scope, 加入 finalInfo
-                有非空初始值的情况下, 插入 MemInit, 初始值加入 globalConst
+                有非空初始值的情况下, 插入 MemInit, 初始值加入 arrayConst
          */
 
 
         final var info = visitLValDecl(ctx.lValDecl());
         final var name = info.name;
-        final var irName = (inGlobal() ? "@" : "%") + name;
         final var shape = info.shape;
         final var type = createTypeByShape(baseType, shape);
 
         // 大家都要加入 scope
         // 在当前作用域中注册该该名字为此变量
-        final var variable = new Variable(name, ctx.getStart().getLine());
-        final var originalVarOpt = scope.getInCurr(name);
+        final var symbol = new SourceCodeSymbol(ctx.lValDecl().Ident());
 
         // 先检测可能的同作用域同名定义语义错误
-        if (originalVarOpt.isPresent()) {
+        if (symbolTable.hasInScope(name)) {
+            final var old = symbolTable.resolveSymbol(name);
             throw new SemanticException(ctx,
-                "Redefined identifier: %s, old at %d, new at %d"
-                    .formatted(name, originalVarOpt.get().var.lineNo, variable.lineNo));
+                "Redefined identifier: %s, old: %s, new at %s".formatted(name, old, symbol));
         }
         // 再放入
-        scope.put(name, new ScopeEntry(variable, type));
+        symbolTable.add(symbol, type);
 
-        final var versionInfo = inGlobal() ? null : builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-
+        final var versionInfo = inGlobal() ? null : getVersionInfo();
         if (shape.isEmpty()) {
             // 对简单的变量, 只需要在有初始值的时候求值, 无初始值时默认零初始化即可
             final var value = Optional.ofNullable(ctx.initVal())
@@ -240,29 +261,29 @@ public class IRGen extends SysYBaseVisitor<Object> {
             if (isConst) {
                 // 对常量
                 if (!(value instanceof Constant)) {
-                    throw new SemanticException(ctx, "Only constant can be used to initialize a constant variable");
+                    throw new SemanticException(ctx, "Only constant can be used to initialize a constant symbol");
                 }
 
                 // 局部跟全局常量都丢到 finalInfo 中
-                finalInfo.newDef(variable, value);
+                finalInfo.newDef(symbol, value);
 
             } else {
                 if (inGlobal()) {
                     // 全局变量
                     if (!(value instanceof Constant)) {
-                        throw new SemanticException(ctx, "Only constant can be used to initialize a global variable");
+                        throw new SemanticException(ctx, "Only constant can be used to initialize a global symbol");
                     }
 
                     // 全局变量需要做一个指针, 存到 GlobalVariable 中去
-                    final var global = GlobalVar.createGlobalVariable(type, irName, (Constant) value);
-                    currModule.getVariables().put(irName, global);
+                    final var global = GlobalVar.createGlobalVariable(type, symbol, (Constant) value);
+                    currModule.getVariables().add(global);
                     // 因为这个变量与该指针的关系是不变的, 所以丢 finalInfo
-                    finalInfo.newDef(variable, global);
+                    finalInfo.newDef(symbol, global);
 
                 } else {
                     assert versionInfo != null;
                     // 普通变量只需要加入 versionInfo 中就可以了
-                    versionInfo.newDef(variable, value);
+                    versionInfo.newDef(symbol, value);
                 }
             }
 
@@ -276,13 +297,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                     if (constant instanceof ArrayConst) {
                         final var arrayConst = (ArrayConst) constant;
-                        final var global = GlobalVar.createGlobalArray(decayType, irName, arrayConst);
+                        final var global = GlobalVar.createGlobalArray(decayType, symbol, arrayConst);
 
-                        currModule.getVariables().put(irName, global);
-                        finalInfo.newDef(variable, global);
+                        currModule.getVariables().add(global);
+                        finalInfo.newDef(symbol, global);
 
-                        arrayConst.setName(irName + "$init");
-                        currModule.getArrayConstants().put(irName + "$init", arrayConst);
+                        arrayConst.setSymbol(symbol);
+                        currModule.getArrayConstants().add(arrayConst);
                     } else {
                         throw new RuntimeException();
                     }
@@ -297,9 +318,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 分配数组空间, 并且定义数组;
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
                 Log.ensure(type instanceof ArrayIRTy);
-                final var arrPtr = new CAllocInst((ArrayIRTy) type);
-                arrPtr.setName(irName);
-                finalInfo.newDef(variable, arrPtr);
+                final var arrPtr = builder.insertCAlloc((ArrayIRTy) type);
+                arrPtr.setSymbol(symbol);
+                finalInfo.newDef(symbol, arrPtr);
 
                 // 为了确保常量初始化在 Store 之前, 必须先插入初始化指令, 后面再补上 init
                 final var memInitInst = builder.insertMemInit(arrPtr);
@@ -315,9 +336,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 memInitInst.setInit(init);
 
                 // 把当前的初始值加入到全局常量数组中去
-                final var initName = "@" + name + "$init";
-                init.setName(initName);
-                currModule.getArrayConstants().put(initName, init);
+                init.setSymbol(symbol);
+                currModule.getArrayConstants().add(init);
             }
 
         }
@@ -367,6 +387,25 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final InitValue value;
     }
 
+    private Value genCastTo(IRType type, Value exp, ParserRuleContext ctx) {
+        final var expType = exp.getType();
+        if (type.equals(expType)) {
+            return exp;
+
+        } else if (type.isInt() && expType.isFloat()) {
+            return builder.insertF2I(exp);
+
+        } else if (type.isInt() && expType.isBool()) {
+            return builder.insertB2I(exp);
+
+        } else if (type.isFloat() && expType.isInt()) {
+            return builder.insertI2F(exp);
+
+        } else {
+            throw new SemanticException(ctx, "Cannot preform cast from %s to %s".formatted(expType, type));
+        }
+    }
+
     /**
      * 递归处理数组初始化器, 将其翻译为树状的, 完整的 (补上了 0 的) Value 列表
      * @param ctx 当前处理中的语法上下文
@@ -385,7 +424,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
             ensureInitValIsExp(target);
 
             try {
-                final var value = new InitExp(visitExp(target.exp()));
+                final var exp = visitExp(target.exp());
+                final var afterCast = genCastTo(baseType, exp, ctx);
+                final var value = new InitExp(afterCast);
                 return new MakeInitValueResult(1, value); // 消耗了一个 ctx 中的元素, 返回 1
 
             } catch (GenExpInGlobalException e) {
@@ -492,7 +533,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 虽然反之并不成立就是了... (所以对于非常量表达式这里也有可能变成常量的)
                 return (Constant) value;
             } else {
-                // TODO: Constant cache
                 final var ptr = builder.insertGEPByInts(arrPtr, indices);
                 builder.insertStore(ptr, value);
 
@@ -618,14 +658,25 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else {
             // function call
             final var funcName = ctx.Ident().getText();
-            final var func = currModule.getFunctions().get(funcName);
+            final var func = symbolTable.resolveSymbolOpt(funcName)
+                .flatMap(finalInfo::getDefOpt)
+                .map(Function.class::cast)
+                .orElseThrow(() ->  new SemanticException(ctx, "Unknown func: " + funcName));
 
-            if (func == null) {
-                throw new SemanticException(ctx, "Unknown func: " + funcName);
+            final var args = visitFuncArgList(ctx.funcArgList());
+            final var paramTypes = func.getType().getParamTypes();
+
+            if (args.size() != paramTypes.size()) {
+                throw new SemanticException(ctx, "Amount of arguments do NOT match parameters");
             }
 
-            // TODO: 函数参数的语义检查
-            return builder.insertCall(func, visitFuncArgList(ctx.funcArgList()));
+            for (int i = 0; i < args.size(); i++) {
+                final var type = paramTypes.get(i);
+                final var arg = args.get(i);
+                args.set(i, genCastTo(type, arg, ctx));
+            }
+
+            return builder.insertCall(func, args);
         }
     }
 
@@ -657,7 +708,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (value.isPresent()) {
             return getRightValue(value.get(), lValResult.indices);
         } else {
-            final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
+            final var versionInfo = getVersionInfo();
             final var phi = builder.insertEmptyPhi(lValResult.type, lValResult.var);
 
             versionInfo.newDef(lValResult.var, phi);
@@ -665,13 +716,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private Optional<Value> findVariable(Variable variable) {
-        final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-
+    private Optional<Value> findVariable(SourceCodeSymbol variable) {
+        // 先去 finalInfo 中找, 因为在查找全局常量的时候可能 basic block 还是 null
         // 有可能是单独的一个数组名字的出现, 所以必须使用 getDef
-        final var finalDef = finalInfo.getDef(variable);
-        final var currDef = versionInfo.getDef(variable);
-        return mergeOpt(finalDef, currDef);
+        return finalInfo.getDefOpt(variable).or(() -> getVersionInfo().getDefOpt(variable));
     }
 
     private Value getRightValue(Value value, List<Value> indices) {
@@ -682,8 +730,19 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (indices.isEmpty()) {
             return value;
         } else {
-            final var gep = builder.insertGEP(value, indices);
-            return builder.insertLoad(gep);
+            final var resultType = GEPInst.calcResultType(value.getType(), indices.size());
+            if (resultType.getBaseType() instanceof SimpleIRTy) {
+                final var gep = builder.insertGEP(value, indices);
+                return builder.insertLoad(gep);
+            } else {
+                // 对类似 int a[2][3][4], 求值 a[1][0] 的这种情况,
+                // 如果还是 GEP %a 1, 0 的话, 只能拿到 *[4 x i32] 的值
+                // 所以需要手动加多一个 0, 变成 GEP %a 1, 0, 0, 就可以模拟出数组退化
+                // 拿到 *i32 类型的值了
+                final var newIndices = new ArrayList<>(indices);
+                newIndices.add(Constant.INT_0);
+                return builder.insertGEP(value, newIndices); // TODO: 考虑基于 GEP 折叠的优雅方案?
+            }
         }
     }
 
@@ -706,32 +765,23 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     static class LValResult {
-        public LValResult(final IRType type, final Variable var, final List<Value> indices) {
+        public LValResult(final IRType type, final SourceCodeSymbol var, final List<Value> indices) {
             this.type = type;
             this.var = var;
             this.indices = indices;
         }
 
         final IRType type;
-        final Variable var;
+        final SourceCodeSymbol var;
         final List<Value> indices;
     }
 
     @Override
     public LValResult visitLVal(LValContext ctx) {
         final var name = ctx.Ident().getText();
-        final var entry = scope.get(name)
-            .orElseThrow(() -> new SemanticException(ctx, "Unknown identifier: " + name));
+        final var entry = symbolTable.resolve(name);
         final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
-        return new LValResult(entry.type, entry.var, indices);
-    }
-
-    private static <T> Optional<T> mergeOpt(Optional<T> first, Optional<T> second) {
-        if (first.isPresent()) {
-            return first;
-        } else {
-            return second;
-        }
+        return new LValResult(entry.type, entry.symbol, indices);
     }
 
     private static class LogNotAsUnaryExpException extends RuntimeException {
@@ -786,8 +836,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private static IRType findCommonType(IRType ty1, IRType ty2) {
-        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool());
-        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool());
+        Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool(), "Except ty1 is Int/Float/Bool, given: " + ty1);
+        Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool(), "Except ty2 is Int/Float/Bool, given: " + ty2);
 
         if (ty1.equals(ty2)) {
             // 两个都是 Int 或者是两个都 Float 的情况
@@ -821,44 +871,55 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (ctx.lVal() != null) {
             // 赋值语句
             final var lValResult = visitLVal(ctx.lVal());
-            final var newDef = visitExp(ctx.exp());
+            final var exp = visitExp(ctx.exp());
             final var valueOpt = findVariable(lValResult.var);
 
             if (valueOpt.isEmpty()) {
-                final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-                versionInfo.newDef(lValResult.var, newDef);
+                final var versionInfo = getVersionInfo();
+                versionInfo.newDef(lValResult.var, genCastTo(lValResult.type, exp, ctx));
 
             } else {
                 final var value = valueOpt.get();
                 final var leftValue = getLeftValue(value, lValResult.indices);
 
                 if (leftValue.isEmpty()) {
-                    final var versionInfo = builder.getBasicBlock().getAnalysisInfo(VersionInfo.class);
-                    versionInfo.kill(lValResult.var, newDef);
+                    final var versionInfo = getVersionInfo();
+                    versionInfo.kill(lValResult.var, genCastTo(value.getType(), exp, ctx));
                 } else {
-                    builder.insertStore(leftValue.get(), newDef);
+                    final var baseType = ((PointerIRTy) leftValue.get().getType()).getBaseType();
+                    builder.insertStore(leftValue.get(), genCastTo(baseType, exp, ctx));
                 }
             }
 
 
         } else if (ctx.Break() != null) {
-            final var target = currWhileExit
-                .orElseThrow(() -> new SemanticException(ctx, "Break out of while"));
-            builder.insertBranch(target);
+            try {
+                final var target = whileInfo.peek().exitBlock;
+                builder.insertBranch(target);
+            } catch (EmptyStackException e) {
+                throw new SemanticException(ctx, "Break out of while");
+            }
+
         } else if (ctx.Continue() != null) {
-            final var target = currWhileCond
-                .orElseThrow(() -> new SemanticException(ctx, "Continue out of while"));
-            builder.insertBranch(target);
+            try {
+                final var target = whileInfo.peek().condBlock;
+                builder.insertBranch(target);
+            } catch (EmptyStackException e) {
+                throw new SemanticException(ctx, "Continue out of while");
+            }
+
         } else if (ctx.Return() != null) {
             if (ctx.exp() != null) {
                 final var val = visitExp(ctx.exp());
-                builder.insertReturn(val);
+                final var afterCast = genCastTo(builder.getFunction().getType().getReturnType(), val, ctx);
+                builder.insertReturn(afterCast);
             } else {
                 builder.insertReturn();
             }
         } else {
             /* 空语句, 啥也不干 */
-            throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
+            assert true;
+            // throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
         }
 
         return null;
@@ -883,9 +944,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Void visitBlock(BlockContext ctx) {
-        pushScope();
+        symbolTable.pushScope();
         ctx.children.forEach(this::visit);
-        popScope();
+        symbolTable.popScope();
         return null;
     }
 
@@ -904,7 +965,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return;
         }
 
-        final var nextCondBB = builder.createFreeBBlock(nameWithLineAndColumn(ctx, "or_rhs"));
+        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("or_rhs", ctx.logOr()));
         visitLogAnd(ctx.logAnd(), trueBB, nextCondBB);
         builder.appendBBlock(nextCondBB);
         visitLogOr(ctx.logOr(), trueBB, falseBB);
@@ -916,7 +977,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return;
         }
 
-        final var nextCondBB = builder.createFreeBBlock(nameWithLineAndColumn(ctx, "and_rhs"));
+        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("and_rhs", ctx.logAnd()));
         visitLogRel(ctx.logRel(), nextCondBB, falseBB);
         builder.appendBBlock(nextCondBB);
         visitLogAnd(ctx.logAnd(), trueBB, falseBB);
@@ -998,56 +1059,59 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Value visitRelExp(RelExpContext ctx) {
-        // try {
-        //     final var val = visitExp(ctx.exp());
-        //     Log.ensure(val.getType().isInt());
-        //     return builder.insertICmpNe(val, IntConst.INT_0);
-        // } catch (LogNotAsUnaryExpException e) {
-        //     final var val = e.arg;
-        //     Log.ensure(val.getType().isInt());
-        //     return builder.insertICmpEq(val, IntConst.INT_0);
-        // }
         return visitExp(ctx.exp());
     }
 
     @Override
     public Void visitStmtIf(StmtIfContext ctx) {
-        final var trueBB = builder.createFreeBBlock(nameWithLine(ctx, "if_then"));
-        final var falseBB = builder.createFreeBBlock(nameWithLine(ctx, "if_else"));
+        final var trueBB = builder.createFreeBBlock(new SourceCodeSymbol("if_then", ctx));
+        final var falseBB = builder.createFreeBBlock(new SourceCodeSymbol("if_else", ctx));
+        final var exitBB = builder.createFreeBBlock(new SourceCodeSymbol("if_exit", ctx));
 
         visitCond(ctx.cond(), trueBB, falseBB);
 
         builder.appendBBlock(trueBB);
         visitStmt(ctx.s1);
+        if (!builder.getBasicBlock().isTerminated()) {
+            // 样例 22
+            builder.insertBranch(exitBB);
+        }
 
         builder.appendBBlock(falseBB);
         if (ctx.s2 != null) {
             visitStmt(ctx.s2);
         }
+        if (!builder.getBasicBlock().isTerminated()) {
+            builder.insertBranch(exitBB);
+        }
+
+        builder.appendBBlock(exitBB);
 
         return null;
     }
 
     @Override
     public Void visitStmtWhile(StmtWhileContext ctx) {
-        final var condBB = builder.createFreeBBlock(nameWithLine(ctx, "while_cond"));
-        final var bodyBB = builder.createFreeBBlock(nameWithLine(ctx, "while_body"));
-        final var exitBB = builder.createFreeBBlock(nameWithLine(ctx, "while_exit"));
+        final var condBB = builder.createFreeBBlock(new SourceCodeSymbol("while_cond", ctx));
+        final var bodyBB = builder.createFreeBBlock(new SourceCodeSymbol("while_body", ctx));
+        final var exitBB = builder.createFreeBBlock(new SourceCodeSymbol("while_exit", ctx));
 
         builder.appendBBlock(condBB);
         visitCond(ctx.cond(), bodyBB, exitBB);
 
-        currWhileCond = Optional.of(condBB);
-        currWhileExit = Optional.of(exitBB);
+        whileInfo.push(new WhileBBInfo(condBB, exitBB));
 
         builder.appendBBlock(bodyBB);
         visitStmt(ctx.stmt());
 
-        builder.insertBranch(condBB);
+        if (!builder.getBasicBlock().isTerminated()) {
+            // 考虑样例 73, while 里的 if 里面直接加个 break , 然后就是循环末尾的情况
+            // 这时候生成完的循环体的基本块很可能已经有了 Terminator, 就不用再加一条了
+            // 或者, 在每次循环体生成完之后, 再加一个基本块, 再来一次跳转也可, 不过这样太浪费了
+            builder.insertBranch(condBB);
+        }
 
-        currWhileCond = Optional.empty();
-        currWhileExit = Optional.empty();
-
+        whileInfo.pop();
         builder.appendBBlock(exitBB);
         return null;
     }
@@ -1075,12 +1139,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     public Value fillIncompletedPhi(PhiInst phi, BasicBlock block) {
         final var type = phi.getType();
-        final var variable = phi.getVariable();
+        final var symbol = phi.getSymbol();
 
         // 对每一个前继, 都要获得一个 value
         // 即对每个前继问: "当控制流从它这里来的时候这个 phi 要取什么 Value"
         final var incomingValues = block.getPredecessors().stream()
-           .map(pred -> findDefinition(pred, variable, type))
+           .map(pred -> findDefinition(pred, symbol, type))
            .collect(Collectors.toList());
         // 然后设置为这个 phi 的 incomingValue
         phi.setIncomingCO(incomingValues);
@@ -1106,7 +1170,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var incoming = new HashSet<>(phi.getIncomingValues());
         incoming.remove(phi);
 
-        if (incoming.size() == 0) {
+        final var isDeadBlock = phi.getParentOpt().orElseThrow().getPredecessors().size() == 0;
+        if (incoming.size() == 0 && !isDeadBlock) {
+            // 暂时让死代码中的 phi 可以有零个参数
             throw new RuntimeException("Phi for undefined: " + phi);
         } else if (incoming.size() == 1) {
             // 如果去重后只有一个, 那么这个 Phi 是可以去掉的
@@ -1117,27 +1183,28 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private Value findDefinition(BasicBlock bblock, Variable variable, IRType type) {
-        final var versionInfo = bblock.getAnalysisInfo(VersionInfo.class);
-        if (versionInfo.contains(variable)) {
+    private Value findDefinition(BasicBlock bblock, SourceCodeSymbol symbol, IRType type) {
+        final var versionInfo = bblock.getAnalysisInfo(CurrDefInfo.class);
+        if (versionInfo.hasDef(symbol)) {
             // 如果当前块有对它的定义, 那么就直接返回这个定义
-            return versionInfo.getDef(variable).orElseThrow();
+            return versionInfo.getDefOpt(symbol).orElseThrow();
         }
 
         // 没有定义的话, 就要往上递归去找
-        final var phi = new PhiInst(type, variable);
+        final var phi = new PhiInst(bblock, type, symbol);
         phi.setParent(bblock);
         // 为了防止递归无限循环, 得先插一个空 phi 在这里作为定义
-        versionInfo.newDef(variable, phi);
+        versionInfo.newDef(symbol, phi);
         // 然后尝试去填充这个空 phi
         final var end = fillIncompletedPhi(phi, bblock);
 
         // 填充完之后看看这个 phi 是否可以被替代
         if (end != phi) {
             // 可以的话就直接清空 phi 的 incoming
+            // 在 fillIncompletedPhi 中已经清空了, 故注释
             // phi.clearIncomingCO();
             // 然后将其定义替换为 end
-            versionInfo.kill(variable, end);
+            versionInfo.kill(symbol, end);
         } else {
             // 不可替代的话就要往基本块里加入这个 phi
             bblock.addPhi(phi);
@@ -1149,6 +1216,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
     //#endregion
 
     //#region 辅助函数
+    private CurrDefInfo getVersionInfo() {
+        return builder.getBasicBlock().getAnalysisInfo(CurrDefInfo.class);
+    }
+
     private static IRType toIRType(String bType) {
         return switch (bType) {
             case "int" -> IRType.IntTy;
@@ -1213,18 +1284,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    static class ScopeEntry {
-        public ScopeEntry(Variable var, IRType type) {
-            this.var = var;
-            this.type = type;
-        }
-
-        public Variable var() { return var; }
-
-        final Variable var;
-        final IRType type;
-    }
-
     private String nameWithLineAndColumn(ParserRuleContext ctx, String prefix) {
         final var lineNo = ctx.getStart().getLine();
         final var column = ctx.getStart().getCharPositionInLine();
@@ -1235,21 +1294,21 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return prefix + "_" + ctx.getStart().getLine();
     }
 
-    private void pushScope() {
-        scope = new ChainMap<>(scope);
-    }
+    private static class WhileBBInfo {
+        public WhileBBInfo(final BasicBlock condBlock, final BasicBlock exitBlock) {
+            this.condBlock = condBlock;
+            this.exitBlock = exitBlock;
+        }
 
-    private void popScope() {
-        scope = scope.getParent().orElseThrow(() -> new RuntimeException("Reach scope top"));
+        final BasicBlock condBlock;
+        final BasicBlock exitBlock;
     }
 
     private Module currModule;
     private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
-    private ChainMap<ScopeEntry> scope; // identifier --> variable
+    private SymbolTable symbolTable;
+    private Stack<WhileBBInfo> whileInfo;
     private FinalInfo finalInfo;
-
-    private Optional<BasicBlock> currWhileCond;
-    private Optional<BasicBlock> currWhileExit;
 
     // flags
     private boolean inGlobal() {

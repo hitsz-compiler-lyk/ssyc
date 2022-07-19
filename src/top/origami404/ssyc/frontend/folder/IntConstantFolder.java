@@ -50,7 +50,7 @@ public class IntConstantFolder {
             };
         } else if (value instanceof FloatToIntInst) {
             final var f2i = (FloatToIntInst) value;
-            final var from = FloatConstantFolder.foldFloat(f2i);
+            final var from = FloatConstantFolder.foldFloat(f2i.getFrom());
             return (int) from; // 若超出 int 范围, SysY 行为未定义, 就直接用 Java 的行为了
         } else if (value instanceof BoolToIntInst) {
             final var from = ((BoolToIntInst) value).getFrom();

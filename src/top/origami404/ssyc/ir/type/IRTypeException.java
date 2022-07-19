@@ -4,7 +4,7 @@ import top.origami404.ssyc.ir.Value;
 
 public class IRTypeException extends RuntimeException{
     public IRTypeException(Value value, String message) {
-        super(message + "(" + value.getType() + " " + value.getName() + ")");
+        super(message + "(" + value.getType() + " " + value + ")");
         this.value = value;
     }
 

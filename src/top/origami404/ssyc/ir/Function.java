@@ -3,6 +3,7 @@ package top.origami404.ssyc.ir;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.type.FunctionIRTy;
@@ -12,29 +13,29 @@ import top.origami404.ssyc.utils.*;
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner
 {
-    public Function(IRType returnType, List<Parameter> params, String funcName) {
+    public Function(IRType returnType, List<Parameter> params, SourceCodeSymbol symbol) {
         super(makeFunctionIRTypeFromParameters(returnType, params));
-        super.setName('@' + funcName);
+        super.setSymbol(symbol);
         this.isExternal = false;
 
         this.parameters = params;
 
         this.bblocks = new IList<>(this);
-        BasicBlock.createBBlockCO(this, funcName + "_entry");
+        // BasicBlock.createBBlockCO(this, funcName + "_entry");
 
         this.analysisInfos = new HashMap<>();
     }
 
-    public Function(IRType funcType, String funcName) {
+    public Function(IRType funcType, SourceCodeSymbol symbol) {
         super(funcType);
+        super.setSymbol(symbol);
         Log.ensure(super.getType() instanceof FunctionIRTy);
 
-        super.setName('@' + funcName);
         this.isExternal = true;
     }
 
-    public String getFuncName() {
-        return getName().substring(1);
+    public String getFunctionSourceName() {
+        return getSymbol().getName();
     }
 
     @Override
@@ -78,7 +79,7 @@ public class Function extends Value
     public void verify() throws IRVerifyException {
         super.verify();
 
-        ensure(getName().charAt(0) == '@', "Name of a function must begin with '@'");
+        ensure(getSymbolOpt().isPresent(), "A function must own a symbol");
 
         if (isExternal) {
             return;
@@ -86,7 +87,7 @@ public class Function extends Value
 
         final var blockList = bblocks;
         final var labels = blockList.stream()
-            .map(BasicBlock::getLabelName)
+            .map(BasicBlock::getSymbol)
             .collect(Collectors.toList());
         ensure(IteratorTools.isUnique(labels), "Labels of blocks must be unique");
         ensure(IteratorTools.isUnique(blockList), "Blocks in function must be unique");

@@ -12,6 +12,10 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         );
     }
 
+    public INode(E value, P parent) {
+        this(Optional.ofNullable(parent).map(P::getIList), Optional.empty(), Optional.empty(), value);
+    }
+
     public INode(
         Optional<IList<E, P>> parent,
         Optional<INode<E, P>> prev,
@@ -33,8 +37,12 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return next;
     }
 
-    public Optional<IList<E, P>> getParent() {
+    public Optional<IList<E, P>> getParentOpt() {
         return parent;
+    }
+
+    public IList<E, P> getParent() {
+        return parent.orElseThrow(() -> new RuntimeException("This INode do NOT have a parent: " + value));
     }
 
     public E getValue() {
@@ -136,7 +144,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             if (!l.asINodeView().contains(this)) {
                 throw new IListException("INode not in parent");
             }
-        }, () -> { Log.info("Free node, owner: " + value); });
+        }, () -> Log.info("Free node, owner: " + value));
 
         prev.ifPresentOrElse(n -> {
             // 如果一个 Node 的 prev 非空, 那 prev 的 next 必须是自己
@@ -158,7 +166,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
             if (self != this) {
                 throw new IListException("INode's next's prev isn't itself");
             }
-        }, () -> getParent().ifPresent(list -> {
+        }, () -> getParentOpt().ifPresent(list -> {
             // 如果一个 Node 的 next 是空, 那它必须是列表的末尾
             final var self = list.asINodeView().get(list.size() - 1);
             if (self != this) {
