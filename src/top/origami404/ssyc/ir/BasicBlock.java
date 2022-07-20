@@ -67,23 +67,28 @@ public class BasicBlock extends User
             });
     }
 
-    public Iterable<PhiInst> phis() {
-        return this::iterPhis;
+    public List<PhiInst> phis() {
+        return IteratorTools.iterToListView(this::iterPhis);
     }
 
-    public Iterable<Instruction> nonPhis() {
-        return () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd.clone());
+    public List<Instruction> nonPhis() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd.clone()));
     }
 
-    public Iterable<Instruction> nonTerminator() {
-        return () -> IteratorTools.iterBetweenFromBegin(instructions, lastButNoTerminator());
+    public List<Instruction> nonTerminator() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetweenFromBegin(instructions, lastButNoTerminator()));
     }
 
-    public Iterable<Instruction> nonPhiAndTerminator() {
-        return () -> IteratorTools.iterBetween(instructions, phiEnd.clone(), lastButNoTerminator());
+    public List<Instruction> nonPhiAndTerminator() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetween(instructions, phiEnd.clone(), lastButNoTerminator()));
     }
 
-    public Iterable<Instruction> allInst() { return instructions; }
+    public List<Instruction> allInst() {
+        return Collections.unmodifiableList(instructions);
+    }
 
     public Instruction getTerminator() {
         return instructions.get(getInstructionCount() - 1);
