@@ -28,9 +28,7 @@ public class BasicBlock extends Value
         super.setSymbol(symbol);
 
         this.instructions = new IList<>(this);
-        this.inode = new INode<>(this, func);
-        // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
-        // func.getIList().add(this);
+        this.inode = new INode<>(this);
 
         this.phiEnd = instructions.listIterator();
         this.predecessors = new ArrayList<>();
@@ -82,7 +80,7 @@ public class BasicBlock extends Value
     }
 
     public Iterable<Instruction> nonPhiAndTerminator() {
-        return () -> IteratorTools.iterBetween(instructions, phiEnd, lastButNoTerminator());
+        return () -> IteratorTools.iterBetween(instructions, phiEnd.clone(), lastButNoTerminator());
     }
 
     public Iterable<Instruction> allInst() { return instructions; }
@@ -151,7 +149,32 @@ public class BasicBlock extends Value
 
         final var func = getParentOpt().orElseThrow(() -> new IRVerifyException(this, "Free block"));
         ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-        func.getIList().replaceFirst(this, (BasicBlock) newValue);
+
+        final var newBlock = (BasicBlock) newValue;
+        func.getIList().replaceFirst(this, newBlock);
+
+        // TODO: 思考是否让 BasicBlock 成为 User, Operand 就是前继?
+        // TODO: 思考如果 BasicBlock 是 User, 那 Instruction 要不要作为它的 Operand
+        // TODO: 那 Function 要不要也作为 User ?
+        for (final var succ : getSuccessors()) {
+            succ.replacePredcessor(this, newBlock);
+        }
+    }
+
+    /** 不维护新前继的后继是自己 */
+    private void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
+        final var index = getPredecessors().indexOf(oldPred);
+        ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
+
+        for (final var phi : phis()) {
+            final var val = phi.getIncomingValue(index);
+            if (val instanceof Instruction) {
+                ensure(((Instruction) val).getParent() == newPred,
+                    "The incoming value (instruction) of phi is NOT in new Pred");
+            }
+        }
+
+        getPredecessors().set(index, newPred);
     }
 
     @Override

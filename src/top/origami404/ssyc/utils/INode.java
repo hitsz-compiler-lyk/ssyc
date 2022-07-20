@@ -2,20 +2,23 @@ package top.origami404.ssyc.utils;
 
 import java.util.Optional;
 
+/**
+ * 带反向引用的侵入式链表的节点
+ * @param <E> 包含列表元素的类的类型
+ * @param <P> 包含列表的类的类型
+ */
 public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
+    /** 创建一个自由的节点 */
     public INode(E value) {
         this(
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            value
+            value // 当且仅当该节点作为头部节点时它是 null 的
         );
     }
 
-    public INode(E value, P parent) {
-        this(Optional.ofNullable(parent).map(P::getIList), Optional.empty(), Optional.empty(), value);
-    }
-
+    /** 创建一个非自由节点 */
     public INode(
         Optional<IList<E, P>> parent,
         Optional<INode<E, P>> prev,
@@ -26,7 +29,6 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         this.prev = prev;
         this.next = next;
         this.value = value;
-        this.deleted = false;
     }
 
     public Optional<INode<E, P>> getPrev() {
@@ -77,67 +79,13 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return value == null;
     }
 
-    /**
-     * 在 this 的后面插入新节点
-     * prev <-> this <-> (newNext) <-> next
-     * @param newNext
-     */
-    public void insertAfterCO(INode<E, P> newNext) {
-        parent.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode")).adjustSize(+1);
-
-        final var oldNext = next;
-
-        this.setNext(newNext);
-        newNext.setPrev(this);
-
-        newNext.setNextOpt(oldNext);
-        oldNext.ifPresent(n -> n.setPrev(newNext));
-    }
-
-    /**
-     * 在 this 的前面插入新节点
-     * prev <-> (newPrev) <-> this <-> next
-     * @param newPrev
-     */
-    public void insertBeforeCO(INode<E, P> newPrev) {
-        final var oldPrev = prev.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode"));
-        parent.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode")).adjustSize(+1);
-
-        oldPrev.setNext(newPrev);
-        newPrev.setPrev(oldPrev);
-
-        newPrev.setNext(this);
-        this.setPrev(newPrev);
-    }
-
-    /**
-     * 将节点标记为 "已删除", 暂时还没什么强制力
-     */
-    public void markedAsDeleted() {
-        this.deleted = true;
-    }
-
-    /**
-     * 将已标记被删除的节点标记回 "未删除"
-     */
-    public void restore() {
-        this.deleted = false;
-    }
-
-    /**
-     * @return 返回该节点是否被标记为已删除
-     */
-    public boolean isDeleted() {
-        return deleted;
+    public boolean isFree() {
+        return parent.isEmpty();
     }
 
     public void verify() throws IListException {
         if (value == null) {
             throw new IListException("INode shouldn't have empty value/owner");
-        }
-
-        if (isDeleted() && parent.isPresent()) {
-            Log.info("Deleted node in list, owner: " + value);
         }
 
         parent.ifPresentOrElse(l -> {
@@ -180,6 +128,5 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     private Optional<INode<E, P>> prev;     // 前一个节点 (只有不在链表里的时候它才为空)
     private Optional<INode<E, P>> next;     // 下一个节点
     private Optional<IList<E, P>> parent;   // 包含该节点的链表
-    private E value;                        // 包含该节点的对象 (也就是将其作为自己的一个成员的那个对象)
-    private boolean deleted;                // 是否被删除
+    private final E value;                        // 包含该节点的对象 (也就是将其作为自己的一个成员的那个对象)
 }

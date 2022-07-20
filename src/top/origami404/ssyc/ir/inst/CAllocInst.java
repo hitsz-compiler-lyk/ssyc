@@ -1,14 +1,13 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class CAllocInst extends Instruction {
-    public CAllocInst(BasicBlock block, ArrayIRTy allocType) {
-        super(block, InstKind.CAlloc, IRType.createDecayType(allocType));
+    public CAllocInst(ArrayIRTy allocType) {
+        super(InstKind.CAlloc, IRType.createDecayType(allocType));
         this.allocType = allocType;
     }
 

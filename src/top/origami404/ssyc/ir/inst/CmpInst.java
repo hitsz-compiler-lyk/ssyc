@@ -1,14 +1,13 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class CmpInst extends Instruction {
-    public CmpInst(BasicBlock block, InstKind cmpKind, Value lhs, Value rhs) {
-    super(block, cmpKind, IRType.BoolTy);
+    public CmpInst(InstKind cmpKind, Value lhs, Value rhs) {
+    super(cmpKind, IRType.BoolTy);
         super.addOperandCO(lhs);
         super.addOperandCO(rhs);
     }

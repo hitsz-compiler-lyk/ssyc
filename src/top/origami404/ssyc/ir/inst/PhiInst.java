@@ -12,7 +12,7 @@ import java.util.List;
 
 public class PhiInst extends Instruction {
     public PhiInst(BasicBlock block, IRType type, SourceCodeSymbol symbol) {
-        super(block, InstKind.Phi, type);
+        super(InstKind.Phi, type);
         super.setSymbol(symbol);
 
         this.waitFor = symbol;

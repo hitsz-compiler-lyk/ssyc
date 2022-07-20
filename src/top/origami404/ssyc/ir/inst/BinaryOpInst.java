@@ -1,14 +1,13 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.IntConst;
 
 public class BinaryOpInst extends Instruction {
-    public BinaryOpInst(BasicBlock block, InstKind opKind, Value lhs, Value rhs) {
-        super(block, opKind, lhs.getType());
+    public BinaryOpInst(InstKind opKind, Value lhs, Value rhs) {
+        super(opKind, lhs.getType());
 
         super.addOperandCO(lhs);
         super.addOperandCO(rhs);

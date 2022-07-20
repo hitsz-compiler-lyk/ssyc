@@ -1,16 +1,15 @@
 package top.origami404.ssyc.ir.inst;
 
-import java.util.List;
-
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.FunctionIRTy;
 
+import java.util.List;
+
 public class CallInst extends Instruction {
-    public CallInst(BasicBlock block, Function callee, List<Value> args) {
-        super(block, InstKind.Call, callee.getType().getReturnType());
+    public CallInst(Function callee, List<Value> args) {
+        super(InstKind.Call, callee.getType().getReturnType());
 
         super.addOperandCO(callee);
         super.addAllOperandsCO(args);
