@@ -5,6 +5,12 @@ import top.origami404.ssyc.ir.inst.Instruction;
 import java.util.*;
 
 public class IteratorTools {
+    public static <E> List<E> iterToListView(Iterable<E> iter) {
+        final var list = new ArrayList<E>();
+        iter.forEach(list::add);
+        return Collections.unmodifiableList(list);
+    }
+
     public static <E> Iterator<E> iterBetweenFromBegin(List<E> sources, ListIterator<E> end) {
         return iterBetween(sources, sources.listIterator(), end);
     }
