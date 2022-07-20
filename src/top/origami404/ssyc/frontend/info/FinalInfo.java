@@ -1,14 +1,18 @@
 package top.origami404.ssyc.frontend.info;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.GlobalVar;
+import top.origami404.ssyc.ir.Parameter;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.inst.AllocInst;
+import top.origami404.ssyc.ir.inst.CAllocInst;
 
 // 这里的 "常量" 并非指 IR 中的 "Constant";
 // IR 中的 Constant 是指在编译期能立即得到值的东西 (本身绝大部分 IR 就已经都是不可变的了)
@@ -20,20 +24,21 @@ import top.origami404.ssyc.ir.inst.AllocInst;
 // 那它必然是一个 int const 之类的, 绑定到 IR Constant 的东西
 // 若其为数组类型, 那么它才有可能在绑定不变的情况下, 绑定到一个 Value (AllocInst)
 public class FinalInfo implements AnalysisInfo {
-    public void newDef(Variable var, Value val) {
-        if (contains(var)) {
+    public void newDef(SourceCodeSymbol symbol, Value value) {
+        if (hasDef(symbol)) {
             throw new RuntimeException("Cannot redefine a final");
         }
 
-        srcConsts.put(var, val);
+        value.setSymbol(symbol);
+        finals.put(symbol, value);
     }
 
-    public boolean contains(Variable var) {
-        return srcConsts.containsKey(var);
+    public boolean hasDef(SourceCodeSymbol var) {
+        return finals.containsKey(var);
     }
 
-    public Optional<Constant> getNormalVar(Variable var) {
-        final var opt = getDef(var);
+    public Optional<Constant> getNormalVar(SourceCodeSymbol var) {
+        final var opt = getDefOpt(var);
         opt.ifPresent(v -> {
             if (!(v instanceof Constant)) {
                 throw new RuntimeException("A normal final var must bind to a constant");
@@ -42,24 +47,33 @@ public class FinalInfo implements AnalysisInfo {
         return opt.map(Constant.class::cast);
     }
 
-    public Optional<Value> getArrayVar(Variable var) {
-        final var opt = getDef(var);
+    public Optional<Value> getArrayVar(SourceCodeSymbol var) {
+        final var opt = getDefOpt(var);
         opt.ifPresent(v -> {
-            final var isAlloc = v instanceof AllocInst;
+            final var isCAlloc = v instanceof CAllocInst;
             final var isGlobalPtr = v instanceof GlobalVar && v.getType().isPtr();
+            final var isParameter = v instanceof Parameter && v.getType().isPtr();
 
-            if (!isAlloc && !isGlobalPtr) {
+            if (!isCAlloc && !isGlobalPtr && !isParameter) {
                 throw new RuntimeException(
-                    "An array final var must bind to an AllocInst or Global variable to a pointer");
+                    "An array final var must bind to an CAllocInst or Global variable or a Parameter to a pointer");
             }
         });
 
         return opt;
     }
 
-    public Optional<Value> getDef(Variable var) {
-        return Optional.ofNullable(srcConsts.get(var));
+    public Optional<Value> getDefOpt(SourceCodeSymbol var) {
+        return Optional.ofNullable(finals.get(var));
     }
 
-    private Map<Variable, Value> srcConsts;
+    public Value getDef(SourceCodeSymbol symbol) {
+        return getDefOpt(symbol).orElseThrow(() -> new RuntimeException("Symbol not found: " + symbol));
+    }
+
+    public Set<Entry<SourceCodeSymbol, Value>> getAllEntries() {
+        return finals.entrySet();
+    }
+
+    private final Map<SourceCodeSymbol, Value> finals = new HashMap<>();
 }

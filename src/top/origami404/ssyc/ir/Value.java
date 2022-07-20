@@ -3,16 +3,17 @@ package top.origami404.ssyc.ir;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
-import top.origami404.ssyc.ir.inst.Instruction;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
+import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 
 public abstract class Value {
     public Value(IRType type) {
         this.type = type;
         this.userList = new ArrayList<>();
-        this.name = null;
+        this.symbol = Optional.empty();
     }
 
     /**
@@ -35,52 +36,69 @@ public abstract class Value {
     }
 
     public void replaceAllUseWith(Value newValue) {
-        userList.forEach(u -> u.replaceOperandCO(this, newValue));
-        newValue.userList = userList;
-        userList = new ArrayList<>();
+        final var oldUserList = new ArrayList<>(userList);
+        oldUserList.forEach(u -> u.replaceOperandCO(this, newValue));
+        // userList = new ArrayList<>();
+        ensure(userList.isEmpty(), "User list should be empty after RAUW");
     }
 
-    public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
-        final var usersInBlock = userList.stream()
-            .filter(Instruction.class::isInstance)
-            .filter(i -> i.as(Instruction.class).getParent().isPresent())
-            .collect(Collectors.toUnmodifiableList());
-
-        for (final var user : usersInBlock) {
-            user.replaceOperandCO(this, newValue);
-            newValue.addUser(user);
-        }
-
-        userList.removeAll(usersInBlock);
-    }
+    // public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
+    //     final var usersInBlock = userList.stream()
+    //         .filter(Instruction.class::isInstance)
+    //         .filter(i -> i.as(Instruction.class).getParent().isPresent())
+    //         .collect(Collectors.toUnmodifiableList());
+    //
+    //     for (final var user : usersInBlock) {
+    //         user.replaceOperandCO(this, newValue);
+    //         newValue.addUser(user);
+    //     }
+    //
+    //     userList.removeAll(usersInBlock);
+    // }
 
     public boolean isUseless() {
         return userList.isEmpty();
     }
 
-    /**
-     * <p>
-     * 获得一个在 LLVM IR 里可以作为其他指令的参数的名字,
-     * 比如说全局数组常量会是 @ 开头的字符串,
-     * 基本块, 指令, 参数的名字会是 % 开头的字符串.
-     * </p>
-     * <p>
-     * 如果需要获得其他种类的名字, 比如基本块的用作 label 的名字,
-     * 则需要强转到对应类型再调用对应的方法.
-     * </p>
-     *
-     * @return 名字
-     */
-    public String getName() {
-        if (name == null) {
-            throw new RuntimeException("This value has no name! " + this);
-        }
-
-        return name;
+    public Optional<SourceCodeSymbol> getSymbolOpt() {
+        return symbol;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public SourceCodeSymbol getSymbol() {
+        return getSymbolOpt().orElseThrow(() -> new RuntimeException("This value do NOT have a symbol with it"));
+    }
+
+    public void setSymbol(SourceCodeSymbol symbol) {
+        this.symbol = Optional.of(symbol);
+    }
+
+    @Override
+    public String toString() {
+        return symbol.map(SourceCodeSymbol::toString).orElseGet(() -> this.getClass().getSimpleName());
+    }
+
+    /**
+     * 验证 IR 的合法性.
+     * 对于那些 "包含" 其他 Value 的 Value (如 BasicBlock/Function),
+     * 这个方法不会递归调用它的其他元素
+     * @throws IRVerifyException IR 不合法
+     */
+    public void verify() throws IRVerifyException {
+        checkPointerAndArrayType();
+
+        for (final var user : userList) {
+            ensure(user.getOperands().contains(this),
+                    "An user must contains this in its operands list");
+        }
+    }
+
+    /**
+     * 验证 IR 的合法性
+     * 这个方法会递归调用它包含的其他 Value
+     * @throws IRVerifyException IR 不合法
+     */
+    public void verifyAll() throws IRVerifyException {
+        verify();
     }
 
     /**
@@ -94,5 +112,29 @@ public abstract class Value {
 
     private IRType type;
     private List<User> userList;
-    private String name;
+    private Optional<SourceCodeSymbol> symbol;
+
+    // 用于验证 IR 的方法
+    protected void ensure(boolean cond, String message) {
+        if (!cond) {
+            throw new IRVerifyException(this, message);
+        }
+    }
+
+    protected void ensureNot(boolean cond, String message) {
+        ensure(!cond, message);
+    }
+
+    protected void verifyFail(String message) {
+        ensure(false, message);
+    }
+
+    private void checkPointerAndArrayType() {
+        final var type = getType();
+        // 对全局变量, 有可能出现指针的指针类型 (因为数组退化的缘故)
+        if (type instanceof ArrayIRTy) {
+            ensure(((ArrayIRTy) type).getElementType().canBeElement(),
+                    "Array's element type must be int or float or array");
+        }
+    }
 }

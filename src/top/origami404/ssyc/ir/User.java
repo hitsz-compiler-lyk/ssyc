@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.Log;
 
 public class User extends Value {
     public User(IRType type) {
@@ -30,6 +31,7 @@ public class User extends Value {
 
     public Value replaceOperandCO(int index, Value newValue) {
         final var oldValue = operandList.get(index);
+        Log.debug("Replace %s to %s".formatted(oldValue, newValue));
         oldValue.removeUser(this);
 
         operandList.set(index, newValue);
@@ -43,6 +45,14 @@ public class User extends Value {
         return replaceOperandCO(idx, newValue);
     }
 
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+        for (final var op : operandList) {
+            ensure(op.getUserList().contains(this),
+                    "An operand must contains this in its users list");
+        }
+    }
 
     // 这些直接的修改性方法只有子类有资格调用
     // 因为对普通指令而言, 一旦构造完成, 其参数数量就不应该再改变
@@ -50,6 +60,7 @@ public class User extends Value {
     // 所以这些方法是 protected 的
 
     protected void addOperandCO(Value operand) {
+        Log.debug("Add %s to %s".formatted(operand, this));
         operandList.add(operand);
         operand.addUser(this);
     }
@@ -61,6 +72,7 @@ public class User extends Value {
 
     protected Value removeOperandCO(int index) {
         final var oldValue = operandList.remove(index);
+        Log.debug("Remove %s from %s".formatted(oldValue, this));
         oldValue.removeUser(this);
         return oldValue;
     }

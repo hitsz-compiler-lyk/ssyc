@@ -1,29 +1,30 @@
 package top.origami404.ssyc.ir.inst;
 
+import top.origami404.ssyc.ir.BasicBlock;
+import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.ArrayConst;
-import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.utils.Log;
 
 public class MemInitInst extends Instruction {
     // 由于 MemInit 的特殊性, 很多时候在它创建的时候, 初始值都还没构造好
     // 所以需要一个没有 init 的构造函数, 待会再补上 init
-    public MemInitInst(Value array) {
-        this(array, null);
+    public MemInitInst(BasicBlock block, Value arrPtr) {
+        this(block, arrPtr, null);
     }
 
-    public MemInitInst(Value array, ArrayConst init) {
-        super(InstKind.MemInit, IRType.VoidTy);
-        Log.ensure(array.getType() instanceof ArrayIRTy);
+    public MemInitInst(BasicBlock block, Value arrPtr, ArrayConst init) {
+        super(block, InstKind.MemInit, IRType.VoidTy);
 
-        super.addOperandCO(array);
+        super.addOperandCO(arrPtr);
         if (init != null) {
             super.addOperandCO(init);
         }
     }
 
-    public Value getArray() {
+    public Value getArrayPtr() {
         return getOperand(0);
     }
 
@@ -38,5 +39,18 @@ public class MemInitInst extends Instruction {
         } else {
             addOperandCO(init);
         }
+    }
+
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
+
+        final var arrPtrType = getArrayPtr().getType();
+        ensure(arrPtrType instanceof PointerIRTy, "ArrayPtr of a MemInit must be a pointer type");
+
+        final var arrPtrBaseType = ((PointerIRTy) arrPtrType).getBaseType();
+        final var initBaseType = getInit().getType().getElementType();
+        ensure(arrPtrBaseType.equals(initBaseType),
+                "Init and ArrayPtr of a MemInit must share the same base type");
     }
 }

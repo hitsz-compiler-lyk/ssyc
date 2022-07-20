@@ -1,25 +1,37 @@
 package top.origami404.ssyc.ir;
 
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.constant.ArrayConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class GlobalVar extends Value {
-    public static GlobalVar createGlobalVariable(IRType varType, String name, Constant init) {
-        return new GlobalVar(IRType.createPtrTy(varType), name, init);
+    public static GlobalVar createGlobalVariable(IRType varType, SourceCodeSymbol symbol, Constant init) {
+        return new GlobalVar(IRType.createPtrTy(varType), symbol, init);
     }
 
-    public static GlobalVar createGlobalArray(IRType arrType, String name, ArrayConst init) {
-        return new GlobalVar(arrType, name, init);
+    public static GlobalVar createGlobalArray(IRType arrPtr, SourceCodeSymbol symbol, ArrayConst init) {
+        return new GlobalVar(IRType.createPtrTy(arrPtr), symbol, init);
+    }
+
+    @Override
+    public PointerIRTy getType() {
+        return (PointerIRTy) super.getType();
     }
 
     public Constant getInit() {
         return init;
     }
 
-    GlobalVar(IRType type, String name, Constant init) {
+    @Override
+    public void verify() throws IRVerifyException {
+        ensure(getSymbolOpt().isPresent(), "Global variable must own a symbol");
+    }
+
+    GlobalVar(IRType type, SourceCodeSymbol symbol, Constant init) {
         super(type);
-        super.setName(name);
+        super.setSymbol(symbol);
         this.init = init;
     }
 

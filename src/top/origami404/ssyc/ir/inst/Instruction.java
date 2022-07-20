@@ -1,19 +1,21 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.User;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
+import top.origami404.ssyc.ir.*;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.IListException;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
+import top.origami404.ssyc.utils.Log;
 
 public abstract class Instruction extends User
     implements INodeOwner<Instruction, BasicBlock>
 {
-    Instruction(InstKind kind, IRType type) {
+    Instruction(BasicBlock block, InstKind kind, IRType type) {
         super(type);
         this.kind = kind;
-        this.bbNode = new INode<>(this);
-        super.setName("%" + instNo++);
+        this.inode = new INode<>(this, block);
     }
 
     /**
@@ -25,11 +27,54 @@ public abstract class Instruction extends User
 
     @Override
     public INode<Instruction, BasicBlock> getINode() {
-        return bbNode;
+        return inode;
     }
 
-    private static int instNo = 0;
+    @Override
+    public void verify() throws IRVerifyException {
+        super.verify();
 
-    private InstKind kind;
-    private INode<Instruction, BasicBlock> bbNode;
+        ensure(getParentOpt().isPresent(), "An instruction must have a parent");
+
+        for (final var op : getOperands()) {
+            // phi 有可能引用自己, 所以这个情况要丢一个特殊的异常
+            if (op == this) {
+                throw new SelfReferenceException(this);
+            }
+        }
+
+        for (final var user : getUserList()) {
+            ensure(user != this, "Cannot use itself");
+        }
+
+        ensureNot(getType().isVoid() && getUserList().size() != 0,
+                "Instructions of Void type must not have any user");
+
+        try {
+            getINode().verify();
+        } catch (IListException e) {
+            throw new IRVerifyException(this, "INode exception", e);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
+    }
+
+    @Override
+    public void replaceAllUseWith(final Value newValue) {
+        super.replaceAllUseWith(newValue);
+        getParentOpt().ifPresentOrElse(block -> {
+            if (newValue instanceof Instruction) {
+                block.getIList().replaceFirst(this, (Instruction) newValue);
+            } else {
+                block.getIList().remove(this);
+            }
+
+        }, () -> Log.info("RAUW on free instruction"));
+    }
+
+    private final InstKind kind;
+    private final INode<Instruction, BasicBlock> inode;
 }

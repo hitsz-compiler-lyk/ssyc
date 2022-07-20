@@ -1,40 +1,32 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.frontend.info.VersionInfo.Variable;
+import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.BasicBlock;
+import top.origami404.ssyc.ir.IRVerifyException;
+import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.ir.type.IRTypeException;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class PhiInst extends Instruction {
-    public PhiInst(IRType type, Variable variable) {
-        super(InstKind.Phi, type);
-        super.setName(variable.getIRName());
+    public PhiInst(BasicBlock block, IRType type, SourceCodeSymbol symbol) {
+        super(block, InstKind.Phi, type);
+        super.setSymbol(symbol);
 
-        this.variable = variable;
+        this.waitFor = symbol;
         this.incompleted = true;
-    }
-
-    @Override
-    public void addOperandCO(Value operand) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
-    }
-
-    @Override
-    public Value removeOperandCO(int index) {
-        throw new RuntimeException("Cannot use normal operands method for phi");
     }
 
     public void setIncomingCO(List<Value> incomingValues) {
         if (incomingValues.size() != getIncomingBlocks().size()) {
-            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
+            throw new IRVerifyException(this, "Phi must have the same amount of incoming variable and blocks");
         }
 
         if (getIncomingSize() != 0) {
-            clearIncomingCO();
+            throw new IRVerifyException(this, "Phi could only set incoming once");
+            // clearIncomingCO();
         }
 
         super.addAllOperandsCO(incomingValues);
@@ -42,7 +34,7 @@ public class PhiInst extends Instruction {
 
     public void clearIncomingCO() {
         final var size = getIncomingSize();
-        for (int i = 0; i < size; i++) {
+        for (int i = size - 1; i >= 0; i--) {
             removeOperandCO(i);
         }
     }
@@ -55,12 +47,8 @@ public class PhiInst extends Instruction {
         this.incompleted = false;
     }
 
-    public Variable getVariable() {
-        return variable;
-    }
-
     public List<BasicBlock> getIncomingBlocks() {
-        return getParent().orElseThrow().getPredecessors();
+        return getParentOpt().orElseThrow().getPredecessors();
     }
 
     public List<Value> getIncomingValues() {
@@ -104,10 +92,6 @@ public class PhiInst extends Instruction {
     }
 
     public int getIncomingSize() {
-        if (getOperandSize() != getIncomingBlocks().size()) {
-            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
-        }
-
         return getOperandSize();
     }
 
@@ -119,6 +103,26 @@ public class PhiInst extends Instruction {
         return getIncomingValues().get(index);
     }
 
-    private final Variable variable;
+    @Override
+    public void verify() throws IRVerifyException {
+        try {
+            super.verify();
+            ensure(getIncomingValues().size() == getIncomingBlocks().size(),
+                    "Phi must have the same amount of incoming variable and blocks");
+        } catch (SelfReferenceException e) {
+            // Do nothing
+        }
+    }
+
+    public SourceCodeSymbol getWaitFor() {
+        return waitFor;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + "(for " + getWaitFor() + ")";
+    }
+
+    private final SourceCodeSymbol waitFor;
     private boolean incompleted;
 }

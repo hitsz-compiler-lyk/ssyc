@@ -20,7 +20,7 @@
 ./m jar          # 将 class 文件打包为 jar
 ./m jar-run      # 执行打包后的 jar
 ./m build_test   # 构建测试用的 Docker 容器的镜像
-./m test         # 执行测试
+./m test [args]  # 执行测试
 ./m full [args]  # 一并清理, 构建与运行程序
 ```
 
@@ -49,7 +49,20 @@
 测试容器镜像构建完成后, 便可以执行下面的命令运行测试:
 
 ```
-./m test
+./m test <data-subdir> <test-item>
+```
+
+其中 `data-subdir` 指要测试 `test-data` 目录下的哪个子目录的内容, `test-item` 表示测试项目, 预计有三个:
+
+- `clang`: 使用 clang 编译并运行测试样例
+- `clang_O2`: 使用 clang -O2 编译并运行测试样例
+- (未完成) `ssyc_llvm`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例
+- (未完成) `ssyc_asm`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例
+
+一个输出的例子如下:
+
+```bash
+
 ```
 
 ## 程序本体参数说明

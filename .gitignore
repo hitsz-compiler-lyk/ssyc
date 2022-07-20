@@ -14,8 +14,14 @@ src/top/origami404/ssyc/frontend/SysY*
 _trash
 
 # compile result
-test-data/**/*.exec
+test-data/**/*.c
+test-data/**/*.stdout
+test-data/**/*.stderr
+test-data/**/*.return
+test-data/**/*.res
 test-data/**/*.s
+test-data/**/*.llvm
+test-data/**/*.exec
 
 # VSCode Antlr extension cache
 .antlr

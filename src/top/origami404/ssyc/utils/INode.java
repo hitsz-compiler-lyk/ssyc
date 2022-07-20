@@ -12,8 +12,8 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         );
     }
 
-    public INode(E value, IList<E, P> parent) {
-        this(Optional.of(parent), Optional.empty(), Optional.empty(), value);
+    public INode(E value, P parent) {
+        this(Optional.ofNullable(parent).map(P::getIList), Optional.empty(), Optional.empty(), value);
     }
 
     public INode(
@@ -37,8 +37,12 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return next;
     }
 
-    public Optional<IList<E, P>> getParent() {
+    public Optional<IList<E, P>> getParentOpt() {
         return parent;
+    }
+
+    public IList<E, P> getParent() {
+        return parent.orElseThrow(() -> new RuntimeException("This INode do NOT have a parent: " + value));
     }
 
     public E getValue() {
@@ -49,24 +53,28 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return value;
     }
 
-    public void setNext(INode<E, P> next) {
+    void setNext(INode<E, P> next) {
         this.next = Optional.ofNullable(next);
     }
 
-    public void setNextOpt(Optional<INode<E, P>> next) {
+    void setNextOpt(Optional<INode<E, P>> next) {
         this.next = next;
     }
 
-    public void setPrev(INode<E, P> prev) {
+    void setPrev(INode<E, P> prev) {
         this.prev = Optional.ofNullable(prev);
     }
 
-    public void setPrevOpt(Optional<INode<E, P>> prev) {
+    void setPrevOpt(Optional<INode<E, P>> prev) {
         this.prev = prev;
     }
 
-    public void setParent(IList<E, P> parent) {
+    void setParent(IList<E, P> parent) {
         this.parent = Optional.ofNullable(parent);
+    }
+
+    public boolean isHeader() {
+        return value == null;
     }
 
     /**
@@ -75,6 +83,8 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
      * @param newNext
      */
     public void insertAfterCO(INode<E, P> newNext) {
+        parent.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode")).adjustSize(+1);
+
         final var oldNext = next;
 
         this.setNext(newNext);
@@ -82,8 +92,6 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
         newNext.setNextOpt(oldNext);
         oldNext.ifPresent(n -> n.setPrev(newNext));
-
-        parent.ifPresent(l -> l.adjustSize(+1));
     }
 
     /**
@@ -92,18 +100,14 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
      * @param newPrev
      */
     public void insertBeforeCO(INode<E, P> newPrev) {
-        final var oldPrev = prev;
+        final var oldPrev = prev.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode"));
+        parent.orElseThrow(() -> new RuntimeException("Cannot call insert on free INode")).adjustSize(+1);
 
-        // 如果当前节点是链表的头节点, 那么当往前插入时, 还要修改链表的头节点
-        oldPrev.ifPresentOrElse(
-            n -> n.setNext(newPrev),
-            () -> parent.ifPresent(p -> p.setBegin(newPrev)));
-        newPrev.setPrevOpt(oldPrev);
+        oldPrev.setNext(newPrev);
+        newPrev.setPrev(oldPrev);
 
         newPrev.setNext(this);
         this.setPrev(newPrev);
-
-        parent.ifPresent(l -> l.adjustSize(+1));
     }
 
     /**
@@ -127,7 +131,53 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return deleted;
     }
 
-    private Optional<INode<E, P>> prev;     // 前一个节点
+    public void verify() throws IListException {
+        if (value == null) {
+            throw new IListException("INode shouldn't have empty value/owner");
+        }
+
+        if (isDeleted() && parent.isPresent()) {
+            Log.info("Deleted node in list, owner: " + value);
+        }
+
+        parent.ifPresentOrElse(l -> {
+            if (!l.asINodeView().contains(this)) {
+                throw new IListException("INode not in parent");
+            }
+        }, () -> Log.info("Free node, owner: " + value));
+
+        prev.ifPresentOrElse(n -> {
+            // 如果一个 Node 的 prev 非空, 那 prev 的 next 必须是自己
+            final var self = n.getNext()
+                .orElseThrow(() -> new IListException("INode's prev don't have a next"));
+            if (self != this) {
+                throw new IListException("INode's prev's next isn't itself");
+            }
+        }, () -> {
+            if (parent.isPresent()) {
+                throw new IListException("INode has empty prev node but has non-empty parent");
+            }
+        });
+
+        next.ifPresentOrElse(n -> {
+            // 如果一个 Node 的 next 非空, 那 next 的 prev 必须是自己
+            final var self = n.getPrev()
+                .orElseThrow(() -> new IListException("INode's next don't have a prev"));
+            if (self != this) {
+                throw new IListException("INode's next's prev isn't itself");
+            }
+        }, () -> getParentOpt().ifPresent(list -> {
+            // 如果一个 Node 的 next 是空, 那它必须是列表的末尾
+            final var self = list.asINodeView().get(list.size() - 1);
+            if (self != this) {
+                throw new IListException("INode's next is null, but isn't the end of the list");
+            }
+        }));
+
+        // 这函数太毒瘤了, 这真的不是 JavaScript 吗 (
+    }
+
+    private Optional<INode<E, P>> prev;     // 前一个节点 (只有不在链表里的时候它才为空)
     private Optional<INode<E, P>> next;     // 下一个节点
     private Optional<IList<E, P>> parent;   // 包含该节点的链表
     private E value;                        // 包含该节点的对象 (也就是将其作为自己的一个成员的那个对象)

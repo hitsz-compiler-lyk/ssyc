@@ -38,27 +38,32 @@ public class ArrayConst extends Constant {
     private static IRType getTypeFromElements(List<Constant> elms) {
         Log.ensure(elms.size() > 0);
 
-        final var type = elms.get(0).getType();
+        final var elmType = elms.get(0).getType();
 
-        Log.ensure(type.equals(IRType.IntTy) || type.equals(IRType.FloatTy));
-        Log.ensure(elms.stream().allMatch(e -> e.getType().equals(type)));
+        Log.ensure(elmType.canBeElement());
+        Log.ensure(elms.stream().allMatch(e -> e.getType().equals(elmType)));
 
-        return IRType.createArrayTy(elms.size(), type);
+        return IRType.createArrayTy(elms.size(), elmType);
     }
 
-    private List<Constant> elements;
+    private final List<Constant> elements;
 
     public List<Constant> getRawElements() {
         return elements;
     }
 
     public void addZeroTo(int targetSize) {
-        final var elmTy = ((ArrayIRTy) getType()).getElementType();
+        final var elmTy = getType().getElementType();
         final var zero = Constant.getZeroByType(elmTy);
 
         while (elements.size() < targetSize) {
             elements.add(zero);
         }
+    }
+
+    @Override
+    public ArrayIRTy getType() {
+        return (ArrayIRTy) super.getType();
     }
 
     /**
@@ -73,9 +78,6 @@ public class ArrayConst extends Constant {
     // Only for subclass
     protected ArrayConst(IRType type) {
         super(type);
-        super.setName("@ac_" + arrayConstCount++);
         this.elements = List.of();
     }
-
-    private static int arrayConstCount = 0;
 }
