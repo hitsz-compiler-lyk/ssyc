@@ -8,8 +8,8 @@ import top.origami404.ssyc.ir.type.IRTypeException;
 import top.origami404.ssyc.ir.type.PointerIRTy;
 
 public class StoreInst extends Instruction {
-    public StoreInst(BasicBlock block, Value ptr, Value val) {
-        super(block, InstKind.Store, IRType.VoidTy);
+    public StoreInst(Value ptr, Value val) {
+        super(InstKind.Store, IRType.VoidTy);
 
         super.addOperandCO(ptr);
         super.addOperandCO(val);

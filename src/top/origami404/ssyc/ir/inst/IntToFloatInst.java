@@ -8,8 +8,8 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.Log;
 
 public class IntToFloatInst extends Instruction {
-    public IntToFloatInst(BasicBlock block, Value from) {
-        super(block, InstKind.I2F, IRType.FloatTy);
+    public IntToFloatInst(Value from) {
+        super(InstKind.I2F, IRType.FloatTy);
         Log.ensure(from.getType().equals(IRType.IntTy));
 
         super.addOperandCO(from);

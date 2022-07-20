@@ -16,12 +16,4 @@ public interface INodeOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
     default void setParent(IListOwner<E, P> parent) {
         getINode().setParent(parent.getIList());
     }
-
-    default void insertAfterCO(E nodeOwner) {
-        getINode().insertAfterCO(nodeOwner.getINode());
-    }
-
-    default void insertBeforeCO(E nodeOwner) {
-        getINode().insertBeforeCO(nodeOwner.getINode());
-    }
 }

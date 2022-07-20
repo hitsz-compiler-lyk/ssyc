@@ -12,10 +12,10 @@ import top.origami404.ssyc.utils.Log;
 public abstract class Instruction extends User
     implements INodeOwner<Instruction, BasicBlock>
 {
-    Instruction(BasicBlock block, InstKind kind, IRType type) {
+    Instruction(InstKind kind, IRType type) {
         super(type);
         this.kind = kind;
-        this.inode = new INode<>(this, block);
+        this.inode = new INode<>(this);
     }
 
     /**

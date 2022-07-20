@@ -1,13 +1,12 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class BoolToIntInst extends Instruction {
-    public BoolToIntInst(BasicBlock block, Value from) {
-        super(block, InstKind.B2I, IRType.IntTy);
+    public BoolToIntInst(Value from) {
+        super(InstKind.B2I, IRType.IntTy);
 
         super.addOperandCO(from);
     }

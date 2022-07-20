@@ -1132,7 +1132,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 continue;
             }
 
-            Log.ensure(!phi.getINode().isDeleted(), "Could NOT iter over deleted node");
+            Log.ensure(!phi.getINode().isFree(), "Could NOT iter over free phi");
 
             fillIncompletedPhi(phi, bblock);
         }

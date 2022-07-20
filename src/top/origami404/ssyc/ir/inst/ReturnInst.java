@@ -2,18 +2,17 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.Optional;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;
 
 public class ReturnInst extends Instruction {
-    public ReturnInst(BasicBlock block) {
-        this(block, null);
+    public ReturnInst() {
+        this(null);
     }
 
-    public ReturnInst(BasicBlock block, Value returnVal) {
-        super(block, InstKind.Ret, IRType.VoidTy);
+    public ReturnInst(Value returnVal) {
+        super(InstKind.Ret, IRType.VoidTy);
         if (returnVal != null) {
             addOperandCO(returnVal);
         }

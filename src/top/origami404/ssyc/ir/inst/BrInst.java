@@ -7,7 +7,7 @@ import top.origami404.ssyc.utils.Log;
 
 public class BrInst extends Instruction {
     public BrInst(BasicBlock currBlock, BasicBlock nextBB) {
-        super(currBlock, InstKind.Br, IRType.VoidTy);
+        super(InstKind.Br, IRType.VoidTy);
         super.addOperandCO(nextBB);
 
         insertPredecessor(nextBB, currBlock);
