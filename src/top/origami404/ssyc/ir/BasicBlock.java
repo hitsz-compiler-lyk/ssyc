@@ -1,6 +1,7 @@
 package top.origami404.ssyc.ir;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
@@ -9,7 +10,7 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.*;
 
-public class BasicBlock extends Value
+public class BasicBlock extends User
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
@@ -31,7 +32,6 @@ public class BasicBlock extends Value
         this.inode = new INode<>(this);
 
         this.phiEnd = instructions.listIterator();
-        this.predecessors = new ArrayList<>();
 
         this.analysisInfos = new HashMap<>();
     }
@@ -117,24 +117,32 @@ public class BasicBlock extends Value
     }
 
     public List<BasicBlock> getPredecessors() {
-        return predecessors;
+        return getOperands().stream().map(BasicBlock.class::cast).collect(Collectors.toList());
     }
 
     public void addPredecessor(BasicBlock predecessor) {
-        predecessors.add(predecessor);
+        addOperandCO(predecessor);
+    }
+
+    void removePredecessor(int index) {
+        removeOperandCO(index);
+    }
+
+    public int getPredecessorSize() {
+        return getOperandSize();
     }
 
     public void removePredecessorWithPhiUpdated(BasicBlock predecessorToBeRemoved) {
-        final var index = predecessors.indexOf(predecessorToBeRemoved);
+        final var index = getPredecessors().indexOf(predecessorToBeRemoved);
 
         ensure(index >= 0, "BBlock %s is NOT the predecessor of %s".formatted(predecessorToBeRemoved, this));
 
-        predecessors.remove(index);
+        removePredecessor(index);
         for (final var phi : phis()) {
             phi.removeOperandCO(index);
         }
 
-        if (predecessors.size() == 0) {
+        if (getPredecessorSize() == 0) {
             Log.info("Eliminate BBlock " + this);
         }
     }
@@ -152,13 +160,6 @@ public class BasicBlock extends Value
 
         final var newBlock = (BasicBlock) newValue;
         func.getIList().replaceFirst(this, newBlock);
-
-        // TODO: 思考是否让 BasicBlock 成为 User, Operand 就是前继?
-        // TODO: 思考如果 BasicBlock 是 User, 那 Instruction 要不要作为它的 Operand
-        // TODO: 那 Function 要不要也作为 User ?
-        for (final var succ : getSuccessors()) {
-            succ.replacePredcessor(this, newBlock);
-        }
     }
 
     /** 不维护新前继的后继是自己 */
@@ -174,7 +175,7 @@ public class BasicBlock extends Value
             }
         }
 
-        getPredecessors().set(index, newPred);
+        replaceOperandCO(index, newPred);
     }
 
     @Override
@@ -239,7 +240,6 @@ public class BasicBlock extends Value
     private IList<Instruction, BasicBlock>.IListElementIterator phiEnd;
     private final INode<BasicBlock, Function> inode;
     private final Map<String, AnalysisInfo> analysisInfos;
-    private final List<BasicBlock> predecessors;
 
     public void adjustPhiEnd() {
         // 不可能一条指令都没有, 因为还要有最后的 terminator
