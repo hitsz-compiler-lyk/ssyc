@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.antlr.v4.runtime.*;
 
 import top.origami404.ssyc.frontend.*;
+import top.origami404.ssyc.pass.ir.IRPassManager;
 import top.origami404.ssyc.utils.LLVMDumper;
 
 public class Main {
@@ -37,6 +38,9 @@ public class Main {
             case "llvm" -> {
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
+                module.verifyAll();
+
+                IRPassManager.run(module);
                 module.verifyAll();
 
                 final var dumper = new LLVMDumper(outputStream);
