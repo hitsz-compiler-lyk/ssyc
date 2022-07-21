@@ -1,5 +1,6 @@
 package top.origami404.ssyc.pass.ir;
 
+import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
 
 import java.util.function.BooleanSupplier;
@@ -10,14 +11,23 @@ public class IRPassManager {
             if (func.isExternal()) continue;
 
             runUntilAllFalse(
-                () -> InstructionClear.clearAll(func),
-                () -> BlockClear.clearUnreachableBlock(func),
-                () -> InstructionClear.clearAll(func),
-                () -> BlockClear.mergeBlock(func),
-                () -> InstructionClear.clearAll(func),
+                () -> simpleClearAll(func),
                 IRPassManager::doNothing
             );
         }
+    }
+
+    static boolean simpleClearAll(Function func) {
+        runUntilAllFalse(
+            () -> InstructionClear.clearAll(func),
+            () -> BlockClear.clearUnreachableBlock(func),
+            () -> InstructionClear.clearAll(func),
+            () -> BlockClear.mergeBlock(func),
+            () -> InstructionClear.clearAll(func),
+            IRPassManager::doNothing
+        );
+
+        return false;
     }
 
     static boolean doNothing() {
