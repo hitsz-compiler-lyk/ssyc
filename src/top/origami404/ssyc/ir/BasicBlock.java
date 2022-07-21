@@ -168,7 +168,7 @@ public class BasicBlock extends User
     }
 
     /** 不维护新前继的后继是自己 */
-    private void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
+    public void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
         final var index = getPredecessors().indexOf(oldPred);
         ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
 
