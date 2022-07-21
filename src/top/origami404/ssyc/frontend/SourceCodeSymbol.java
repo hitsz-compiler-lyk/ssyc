@@ -74,6 +74,11 @@ public class SourceCodeSymbol {
         return column;
     }
 
+    public SourceCodeSymbol newSymbolWithSuffix(String suffix) {
+        final var newName = getName() + suffix;
+        return new SourceCodeSymbol(newName, getLine(), getColumn());
+    }
+
     @Override
     public String toString() {
         return getVSCodeDescriptor();
