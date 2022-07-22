@@ -98,10 +98,12 @@ public class LLVMDumper {
             block.asElementView().forEach(this::dumpInstruction);
             indent -= 2;
 
-            for (final var entry : block.getAnalysisInfo(CurrDefInfo.class).getAllEntries()) {
-                final var name = entry.getKey().getLLVMLocal();
-                final var def = entry.getValue().getCurrDef();
-                ir("  ; <name> -> <def>", name, def);
+            if (block.containsAnalysisInfo(CurrDefInfo.class)) {
+                for (final var entry : block.getAnalysisInfo(CurrDefInfo.class).getAllEntries()) {
+                    final var name = entry.getKey().getLLVMLocal();
+                    final var def = entry.getValue().getCurrDef();
+                    ir("  ; <name> -> <def>", name, def);
+                }
             }
             newline();
         }

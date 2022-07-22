@@ -2,6 +2,7 @@ package top.origami404.ssyc.pass.ir;
 
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.*;
+import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.visitor.InstructionVisitor;
@@ -12,8 +13,46 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class FunctionInline {
-    public static boolean run(Function function) {
-        return false;
+    public static boolean run(Function func) {
+        boolean hasChanged = false;
+        for (final var block : func.getBasicBlocks()) {
+            for (final var inst : block.nonPhiAndTerminator()) {
+                if (inst instanceof CallInst) {
+                    final var call = (CallInst) inst;
+                    final var callee = call.getCallee();
+                    if (!callee.isExternal() && isSimpleFunction(callee)) {
+                        doInline(call);
+                        hasChanged = true;
+                    }
+                }
+            }
+        }
+
+        return hasChanged;
+    }
+
+    private static boolean isSimpleFunction(Function func) {
+        for (final var block : func.getBasicBlocks()) {
+            for (final var inst : block.nonPhiAndTerminator()) {
+                if ((inst instanceof CallInst) && !((CallInst) inst).getCallee().isExternal()) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    static String randomPrefix() {
+        final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        final var rng = new Random();
+
+        final var buffer = new char[4];
+        for (int i = 0; i < 4; i++) {
+            buffer[i] = str.charAt(rng.nextInt(str.length()));
+        }
+
+        return new String(buffer);
     }
 
     static void doInline(CallInst callInst) {
@@ -50,15 +89,17 @@ public class FunctionInline {
         final var calleeFunc = callInst.getCallee();
         final var callerBBSym = callerBlock.getSymbol();
         final var callerFunc = callerBlock.getParent();
+        final var prefix = "_" + randomPrefix();
 
         final var splitResult = splitList(callerBlock.getIList(), callInst);
 
         // 处理 frontBB (该块的 Call 指令之前的指令要放的新块)
-        final var frontBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix("_inline_front"));
+        final var frontBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix(prefix + "_inline_front"));
         // 接手原基本块 CallInst 前面的所有指令
         for (final var frontInst : splitResult.front) {
             frontBB.getIList().add(frontInst);
         }
+        callerBlock.adjustPhiEnd();
         // 接手原基本块的所有前继
         final var oldPreds = new ArrayList<>(callerBlock.getPredecessors());
         for (final var pred : oldPreds) {
@@ -71,10 +112,10 @@ public class FunctionInline {
         }
 
         // 处理 backBB (该块的 Call 指令之后的指令要放的新块)
-        final var backBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix("_inline_back"));
+        final var backBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix(prefix + "_inline_back"));
         // 接手后继
         // 因为后继是通过 Br 指令获取的, 所以要在移除所有指令之前处理
-        final var oldSuccs = new ArrayList<>(backBB.getSuccessors());
+        final var oldSuccs = new ArrayList<>(callerBlock.getSuccessors());
         for (final var succ : oldSuccs) {
             // 让所有后继的前继从原本的块变成 backBB
             succ.replacePredcessor(callerBlock, backBB);
@@ -85,12 +126,16 @@ public class FunctionInline {
             backBB.getIList().add(backInst);
         }
 
+        // 要先将 call 指令从原块中移除
+        // 否则下面可能的用返回值的 phi 指令替换其的操作会把 phi 从 exitBB 移到 BB 中
+        callInst.freeFromIList();
+
         // 处理 exitBB (内联的函数的 "return" 指令要跳转到的块)
-        final var exitBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix("_inline_exit"));
+        final var exitBB = new BasicBlock(callerFunc, callerBBSym.newSymbolWithSuffix(prefix + "_inline_exit"));
         final var returnType = calleeFunc.getType().getReturnType();
         if (!returnType.isVoid()) {
             // 构造用于存返回值的 Phi
-            final var returnValueSym = new SourceCodeSymbol(calleeFunc.getFunctionSourceName() + "_inline_return", 0, 0);
+            final var returnValueSym = new SourceCodeSymbol(calleeFunc.getFunctionSourceName() + prefix + "_inline_return", 0, 0);
             final var returnValuePhi = new PhiInst(exitBB, calleeFunc.getType().getReturnType(), returnValueSym);
             exitBB.getIList().add(returnValuePhi);
             // 将对 CallInst 的引用全部换成对返回值的 Phi 的引用
@@ -111,8 +156,16 @@ public class FunctionInline {
         }
 
         // 进行拷贝
-        final var inliner = new FunctionInliner(callerFunc, calleeFunc, paramToArg, exitBB);
-        final var calleeNewBlocks = inliner.convert();
+        final var cloner = new FunctionInlineCloner(callerFunc, calleeFunc, paramToArg, exitBB, prefix);
+        final var calleeNewBlocks = cloner.convert();
+
+        // 插入从 frontBB 到内联进来的函数的 entry 块的跳转
+        frontBB.getIList().add(new BrInst(frontBB, calleeNewBlocks.get(0)));
+        // 调整各个新块的 phiEnd
+        frontBB.adjustPhiEnd();
+        backBB.adjustPhiEnd();
+        exitBB.adjustPhiEnd();
+
 
         // 整理待加入 callerFunc 的基本块列表
         final var newBlocks = new ArrayList<BasicBlock>();
@@ -153,21 +206,26 @@ public class FunctionInline {
     }
 
     /** 完成函数内联所需要的基本块和指令的复制 */
-    static class FunctionInliner implements ValueVisitor<Value> {
-        public FunctionInliner(Function caller, Function callee, Map<Parameter, Value> paramToArgs, BasicBlock exitBB) {
+    static class FunctionInlineCloner implements ValueVisitor<Value> {
+        public FunctionInlineCloner(
+            Function caller, Function callee,
+            Map<Parameter, Value> paramToArgs, BasicBlock exitBB, String prefix
+        ) {
             this.oldToNew = new HashMap<>(paramToArgs);
             this.caller = caller;
             this.callee = callee;
             this.exitBB = exitBB;
+            this.prefix = prefix;
         }
 
         public List<BasicBlock> convert() {
             for (final var block : callee.getBasicBlocks()) {
+                final var newBlock = getOrCreate(block);
                 for (final var inst : block.allInst()) {
-                    getOrCreate(inst);
+                    newBlock.getIList().add(getOrCreate(inst));
                 }
 
-                getOrCreate(block);
+                newBlock.adjustPhiEnd();
             }
 
             if (!callee.getType().getReturnType().isVoid()) {
@@ -189,7 +247,7 @@ public class FunctionInline {
                 return (BasicBlock) oldToNew.get(value);
             }
 
-            final var newBB = new BasicBlock(caller, value.getSymbol().newSymbolWithSuffix("_inline"));
+            final var newBB = new BasicBlock(caller, value.getSymbol().newSymbolWithSuffix(prefix + "_inline"));
             oldToNew.put(value, newBB);
             return newBB;
         }
@@ -207,7 +265,7 @@ public class FunctionInline {
 
         @Override
         public Value visitParameter(final Parameter value) {
-            Log.ensure(oldToNew.containsKey(value), "FunctionInliner 必须包含完整的形参映射");
+            Log.ensure(oldToNew.containsKey(value), "FunctionInlineCloner 必须包含完整的形参映射");
             return oldToNew.get(value);
         }
 
@@ -220,6 +278,7 @@ public class FunctionInline {
         private final Function caller;
         private final Function callee;
         private final BasicBlock exitBB;
+        private final String prefix;
         private final List<Value> returnValues = new ArrayList<>();
         private final InstructionCloner instructionCloner = new InstructionCloner();
 
@@ -228,6 +287,13 @@ public class FunctionInline {
          * <p>但是对 Return 指令做了特殊处理, 将其变为跳转到 exitBB 的语句 (有返回值的话还记录了返回值是什么)</p>
          */
         class InstructionCloner implements InstructionVisitor<Instruction> {
+            @Override
+            public Instruction visit(final Instruction inst) {
+                final var newInst = InstructionVisitor.super.visit(inst);
+                inst.getSymbolOpt().ifPresent(newInst::setSymbol);
+                return newInst;
+            }
+
             @Override
             public Instruction visitBinaryOpInst(final BinaryOpInst inst) {
                 final var lhs = getOrCreate(inst.getLHS());
@@ -261,7 +327,7 @@ public class FunctionInline {
             public Instruction visitCallInst(final CallInst inst) {
                 final var callee = getOrCreate(inst.getCallee());
                 final var args = inst.getArgList().stream()
-                    .map(FunctionInliner.this::getOrCreate).collect(Collectors.toList());
+                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
                 return new CallInst(callee, args);
             }
 
@@ -287,7 +353,7 @@ public class FunctionInline {
             public Instruction visitGEPInst(final GEPInst inst) {
                 final var ptr = getOrCreate(inst.getPtr());
                 final var indices = inst.getIndices().stream()
-                    .map(FunctionInliner.this::getOrCreate).collect(Collectors.toList());
+                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
                 return new GEPInst(ptr, indices);
             }
 
@@ -313,11 +379,16 @@ public class FunctionInline {
             @Override
             public Instruction visitPhiInst(final PhiInst inst) {
                 final var currBB = getOrCreate(inst.getParent());
-                final var incomingValues = inst.getIncomingValues().stream()
-                    .map(FunctionInliner.this::getOrCreate).collect(Collectors.toList());
 
+                // Phi 有可能自己引用自己, 所以必须事先插入定义
                 final var phi = new PhiInst(currBB, inst.getType(), inst.getSymbol());
-                phi.setIncomingCO(incomingValues);
+                oldToNew.put(inst, phi);
+
+                final var incomingValues = inst.getIncomingValues().stream()
+                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
+                // 此时到 exit 块的跳转还没搞好, 不能使用简单的带检查的 setIncomingCO
+                phi.setIncomingWithoutCheckIncomingBlockCO(incomingValues);
+
                 return phi;
             }
 
@@ -325,7 +396,7 @@ public class FunctionInline {
             public Instruction visitReturnInst(final ReturnInst inst) {
                 // return 换成 br
                 final var currBB = getOrCreate(inst.getParent());
-                inst.getReturnValue().map(FunctionInliner.this::getOrCreate).ifPresent(returnValues::add);
+                inst.getReturnValue().map(FunctionInlineCloner.this::getOrCreate).ifPresent(returnValues::add);
                 return new BrInst(currBB, exitBB);
             }
 

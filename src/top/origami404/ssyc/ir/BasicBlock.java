@@ -172,14 +172,6 @@ public class BasicBlock extends User
         final var index = getPredecessors().indexOf(oldPred);
         ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
 
-        for (final var phi : phis()) {
-            final var val = phi.getIncomingValue(index);
-            if (val instanceof Instruction) {
-                ensure(((Instruction) val).getParent() == newPred,
-                    "The incoming value (instruction) of phi is NOT in new Pred");
-            }
-        }
-
         replaceOperandCO(index, newPred);
     }
 

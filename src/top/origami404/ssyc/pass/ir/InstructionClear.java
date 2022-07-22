@@ -4,16 +4,19 @@ import top.origami404.ssyc.frontend.IRBuilder;
 import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.inst.PhiInst;
+import top.origami404.ssyc.pass.ir.IRPassManager.Runner;
 
 import java.util.HashSet;
 
 public class InstructionClear {
     public static boolean clearAll(Function function) {
-        IRPassManager.runUntilAllFalse(
-            () -> refoldInstruction(function),
-            () -> removeTrivialPhi(function),
-            () -> refoldInstruction(function)
-        );
+        new Runner() {
+            @Override public void run() {
+                flag = refoldInstruction(function) || flag;
+                flag = removeTrivialPhi(function) || flag;
+                flag = refoldInstruction(function) || flag;
+            }
+        }.runUntilFalse();
 
         return false;
     }

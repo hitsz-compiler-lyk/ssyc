@@ -16,4 +16,11 @@ public interface INodeOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
     default void setParent(IListOwner<E, P> parent) {
         getINode().setParent(parent.getIList());
     }
+
+    default void freeFromIList() {
+        final var inode = getINode();
+        if (!inode.isFree()) {
+            inode.getParent().remove(inode.getOwner());
+        }
+    }
 }
