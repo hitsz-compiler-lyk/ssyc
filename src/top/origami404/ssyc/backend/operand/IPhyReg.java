@@ -8,10 +8,10 @@ import top.origami404.ssyc.utils.Log;
 public class IPhyReg extends Reg {
     private String name;
 
-    private static final Map<Integer, String> idNameMap = new HashMap<Integer, String>() {
+    private static final Map<Integer, String> idNameMap = new HashMap<>() {
         {
             for (int i = 0; i <= 12; i++) {
-                put(i, "r" + Integer.toString(i));
+                put(i, "r" + i);
             }
             put(13, "sp");
             put(14, "lr");
@@ -20,10 +20,10 @@ public class IPhyReg extends Reg {
         }
     };
 
-    private static final Map<String, Integer> nameIdMap = new HashMap<String, Integer>() {
+    private static final Map<String, Integer> nameIdMap = new HashMap<>() {
         {
             for (int i = 0; i <= 15; i++) {
-                put("r" + Integer.toString(i), i);
+                put("r" + i, i);
             }
             put("sp", 13);
             put("lr", 14);

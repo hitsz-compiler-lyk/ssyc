@@ -84,10 +84,10 @@ public class ArmInstLoad extends ArmInst {
         }
 
         if (addr.IsAddr()) {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.toString() + ",\t" + addr.toString()
+            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t" + addr
                     + "\n";
         } else {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.toString() + ",\t[" + addr.toString()
+            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t[" + addr
                     + ",\t" + offset.toString() + "]\n";
         }
     }

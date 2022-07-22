@@ -38,6 +38,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         currModule = new Module();
         addExternalFunctions();
         ctx.children.forEach(this::visit);
+
+        for (final var entry : finalInfo.getAllEntries()) {
+            Log.debug("%s -> %s".formatted(entry.getKey(), entry.getValue()));
+        }
+
         return currModule;
     }
 
@@ -256,6 +261,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 .flatMap(n -> Optional.ofNullable(n.exp()))
                 // 如果其初始化器需要运行时求值, 那么 visitExp 会将对应的求值指令插入到当前块中
                 .map(this::visitExp)
+                .map(e -> genCastTo(type, e, ctx))
                 .orElse(Constant.getZeroByType(type));
 
             if (isConst) {
@@ -599,14 +605,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Value visitExpAdd(ExpAddContext ctx) {
-        final var lhs = visitExpMul(ctx.expMul());
-
-        if (ctx.expAdd() == null) {
-            return lhs; // no RHS
+        if (ctx.expAddOp() == null) {
+            return visitExpMul(ctx.expMul());
         }
 
-        final var rhs = visitExpAdd(ctx.expAdd());
-
+        final var lhs = visitExpAdd(ctx.expAdd());
+        final var rhs = visitExpMul(ctx.expMul());
         final var op = ctx.expAddOp().getText();
         return switch (op) {
             case "+" -> insertConvertForBinary(lhs, rhs, builder::insertIAdd, builder::insertFAdd);
@@ -617,14 +621,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Value visitExpMul(ExpMulContext ctx) {
-        final var lhs = visitExpUnary(ctx.expUnary());
-
-        if (ctx.expMul() == null) {
-            return lhs; // no RHS
+        if (ctx.expMulOp() == null) {
+            return visitExpUnary(ctx.expUnary());
         }
 
-        final var rhs = visitExpMul(ctx.expMul());
-
+        final var lhs = visitExpMul(ctx.expMul());
+        final var rhs = visitExpUnary(ctx.expUnary());
         final var op = ctx.expMulOp().getText();
         return switch (op) {
             case "*" -> insertConvertForBinary(lhs, rhs, builder::insertIMul, builder::insertFMul);
@@ -647,14 +649,27 @@ public class IRGen extends SysYBaseVisitor<Object> {
         if (ctx.atom() != null) {
             return visitAtom(ctx.atom());
         } else if (ctx.expUnaryOp() != null) {
-            final var arg = visitExpUnary(ctx.expUnary());
+            var arg = visitExpUnary(ctx.expUnary());
+            if (arg.getType().isBool()) {
+                arg = builder.insertB2I(arg);
+            }
+
             final var op = ctx.expUnaryOp().getText();
             return switch (op) {
                 case "+" -> arg;
                 case "-" -> insertConvertForUnaryOp(arg, builder::insertINeg, builder::insertFNeg);
-                case "!" -> throw new LogNotAsUnaryExpException(arg);
+                case "!" -> {
+                    final var argType = arg.getType();
+                    if (argType.isInt()) {
+                        yield builder.insertICmpEq(arg, Constant.INT_0);
+                    } else if (argType.isFloat()) {
+                        yield builder.insertFCmpEq(arg, Constant.FLOAT_0);
+                    }
+                    throw new SemanticException(ctx, "Unknown type for !: " + argType);
+                }
                 default -> throw new SemanticException(ctx, "Unknown expUnary op: " + op);
             };
+
         } else {
             // function call
             final var funcName = ctx.Ident().getText();
@@ -965,10 +980,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return;
         }
 
-        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("or_rhs", ctx.logOr()));
-        visitLogAnd(ctx.logAnd(), trueBB, nextCondBB);
+        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("or_rhs", ctx.logAnd()));
+        visitLogOr(ctx.logOr(), trueBB, nextCondBB);
         builder.appendBBlock(nextCondBB);
-        visitLogOr(ctx.logOr(), trueBB, falseBB);
+        visitLogAnd(ctx.logAnd(), trueBB, falseBB);
     }
 
     public void visitLogAnd(LogAndContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
@@ -977,43 +992,31 @@ public class IRGen extends SysYBaseVisitor<Object> {
             return;
         }
 
-        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("and_rhs", ctx.logAnd()));
-        visitLogRel(ctx.logRel(), nextCondBB, falseBB);
+        final var nextCondBB = builder.createFreeBBlock(new SourceCodeSymbol("and_rhs", ctx.logRel()));
+        visitLogAnd(ctx.logAnd(), nextCondBB, falseBB);
         builder.appendBBlock(nextCondBB);
-        visitLogAnd(ctx.logAnd(), trueBB, falseBB);
+        visitLogRel(ctx.logRel(), trueBB, falseBB);
     }
 
     public void visitLogRel(LogRelContext ctx, BasicBlock trueBB, BasicBlock falseBB) {
-        try {
-            var cond = visitRelEq(ctx.relEq());
-            if (!cond.getType().isBool()) {
-                cond = insertConvertForUnaryOp(cond,
-                        c -> builder.insertICmpNe(c, Constant.INT_0),
-                        c -> builder.insertFCmpNe(c, Constant.FLOAT_0));
-            }
-
-            builder.insertBrCond(cond, trueBB, falseBB);
-
-        } catch (LogNotAsUnaryExpException e) {
-            final var arg = e.arg;
-            Log.ensure(!arg.getType().isBool(), "Unary NOT for Bool is impossible");
-            final var cond = insertConvertForUnaryOp(arg,
+        var cond = visitRelEq(ctx.relEq());
+        if (!cond.getType().isBool()) {
+            cond = insertConvertForUnaryOp(cond,
                     c -> builder.insertICmpNe(c, Constant.INT_0),
                     c -> builder.insertFCmpNe(c, Constant.FLOAT_0));
-
-            builder.insertBrCond(cond, trueBB, falseBB);
-
         }
+
+        builder.insertBrCond(cond, trueBB, falseBB);
     }
 
     @Override
     public Value visitRelEq(RelEqContext ctx) {
-        if (ctx.relEq() == null) {
+        if (ctx.relEqOp() == null) {
             return visitRelComp(ctx.relComp());
         }
 
-        final var lhs = visitRelComp(ctx.relComp());
-        final var rhs = visitRelEq(ctx.relEq());
+        final var lhs = visitRelEq(ctx.relEq());
+        final var rhs = visitRelComp(ctx.relComp());
         final var op = ctx.relEqOp().getText();
         return switch (op) {
             case "==" -> insertConvertForCmp(lhs, rhs, builder::insertICmpEq, builder::insertFCmpEq);
@@ -1024,12 +1027,12 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     @Override
     public Value visitRelComp(RelCompContext ctx) {
-        if (ctx.relComp() == null) {
+        if (ctx.relCompOp() == null) {
             return visitRelExp(ctx.relExp());
         }
 
-        final var lhs = visitRelExp(ctx.relExp());
-        final var rhs = visitRelComp(ctx.relComp());
+        final var lhs = visitRelComp(ctx.relComp());
+        final var rhs = visitRelExp(ctx.relExp());
         final var op = ctx.relCompOp().getText();
         return switch (op) {
             case "<"  -> insertConvertForCmp(lhs, rhs, builder::insertICmpLt, builder::insertFCmpLt);
@@ -1129,7 +1132,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 continue;
             }
 
-            Log.ensure(!phi.getINode().isDeleted(), "Could NOT iter over deleted node");
+            Log.ensure(!phi.getINode().isFree(), "Could NOT iter over free phi");
 
             fillIncompletedPhi(phi, bblock);
         }
@@ -1139,7 +1142,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     public Value fillIncompletedPhi(PhiInst phi, BasicBlock block) {
         final var type = phi.getType();
-        final var symbol = phi.getSymbol();
+        final var symbol = phi.getWaitFor();
 
         // 对每一个前继, 都要获得一个 value
         // 即对每个前继问: "当控制流从它这里来的时候这个 phi 要取什么 Value"

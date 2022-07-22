@@ -13,6 +13,6 @@ public class IVirtualReg extends Reg {
 
     @Override
     public String toString() {
-        return "@IV" + Integer.toString(this.getId());
+        return "@IV" + this.getId();
     }
 }

@@ -91,27 +91,17 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         @Override
         public String toString() {
-            switch (this) {
-                case Any:
-                    return "";
-                default:
-                    return super.toString().toLowerCase();
-            }
+            return this == ArmCondType.Any ? "" : super.toString().toLowerCase();
         }
 
         public ArmCondType getOppCondType() {
-            switch (this) {
-                case Le:
-                    return Ge;
-                case Ge:
-                    return Le;
-                case Gt:
-                    return Lt;
-                case Lt:
-                    return Gt;
-                default:
-                    return this;
-            }
+            return switch (this) {
+                case Le -> Ge;
+                case Ge -> Le;
+                case Gt -> Lt;
+                case Lt -> Gt;
+                default -> this;
+            };
         }
     }
 
@@ -124,9 +114,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
         this.inode = new INode<>(this);
-        this.regUse = new HashSet<Reg>();
-        this.regDef = new HashSet<Reg>();
-        this.operands = new ArrayList<Operand>();
+        this.regUse = new HashSet<>();
+        this.regDef = new HashSet<>();
+        this.operands = new ArrayList<>();
         this.cond = ArmCondType.Any;
     }
 

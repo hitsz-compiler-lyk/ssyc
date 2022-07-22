@@ -61,8 +61,8 @@ public class ArmInstTernay extends ArmInst {
     public String toString() {
         String op = ternayMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + getDst().toString() + ",\t" + getOp1().toString() + ",\t"
-                + getOp2().toString() + ",\t" + getOp3().toString() + "\n";
+        String ret = "\t" + op + getCond() + "\t" + getDst() + ",\t" + getOp1() + ",\t"
+                + getOp2() + ",\t" + getOp3() + "\n";
         return ret;
     }
 

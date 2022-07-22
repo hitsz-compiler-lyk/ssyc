@@ -84,11 +84,9 @@ public class ArmInstStroe extends ArmInst {
             isVector = "v";
         }
         if (addr.IsAddr() || offset.equals(new IImm(0))) {
-            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.toString() + ",\t" + addr.toString()
-                    + "\n";
+            return "\t" + isVector + "str" + getCond() + "\t" + src + ",\t" + addr + "\n";
         } else {
-            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.toString() + ",\t[" + addr.toString()
-                    + ",\t" + offset.toString() + "]\n";
+            return "\t" + isVector + "str" + getCond() + "\t" + src + ",\t[" + addr + ",\t" + offset + "]\n";
         }
     }
 }

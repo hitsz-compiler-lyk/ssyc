@@ -8,18 +8,18 @@ import top.origami404.ssyc.utils.Log;
 public class FPhyReg extends Reg {
     private String name;
 
-    private static final Map<Integer, String> nameMap = new HashMap<Integer, String>() {
+    private static final Map<Integer, String> nameMap = new HashMap<>() {
         {
             for (int i = 0; i <= 31; i++) {
-                put(i, "s" + Integer.toString(i));
+                put(i, "s" + i);
             }
         }
     };
 
-    private static final Map<String, Integer> nameIdMap = new HashMap<String, Integer>() {
+    private static final Map<String, Integer> nameIdMap = new HashMap<>() {
         {
             for (int i = 0; i <= 31; i++) {
-                put("s" + Integer.toString(i), i);
+                put("s" + i, i);
             }
         }
     };

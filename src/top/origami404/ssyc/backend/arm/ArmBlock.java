@@ -16,10 +16,10 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         private Set<Operand> liveUse, liveDef, liveIn, liveOut;
 
         BlockLiveInfo() {
-            this.liveUse = new HashSet<Operand>();
-            this.liveDef = new HashSet<Operand>();
-            this.liveIn = new HashSet<Operand>();
-            this.liveOut = new HashSet<Operand>();
+            this.liveUse = new HashSet<>();
+            this.liveDef = new HashSet<>();
+            this.liveIn = new HashSet<>();
+            this.liveOut = new HashSet<>();
         }
 
         public Set<Operand> getLiveUse() {
@@ -128,14 +128,14 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
     public ArmBlock(ArmFunction func, String label) {
         this.label = label;
         func.asElementView().add(this);
-        this.pred = new ArrayList<ArmBlock>();
-        this.insts = new IList<ArmInst, ArmBlock>(this);
+        this.pred = new ArrayList<>();
+        this.insts = new IList<>(this);
     }
 
     public ArmBlock(String label) {
         this.label = label;
-        this.pred = new ArrayList<ArmBlock>();
-        this.insts = new IList<ArmInst, ArmBlock>(this);
+        this.pred = new ArrayList<>();
+        this.insts = new IList<>(this);
     }
 
 }
