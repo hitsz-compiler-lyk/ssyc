@@ -12,7 +12,14 @@ import top.origami404.ssyc.utils.Log;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class FunctionInline {
+public class FunctionInline implements IRPass {
+    @Override
+    public void runPass(final Module module) {
+        for (final var func : module.getNonExternalFunction()) {
+            runUntilFalse(() -> run(func));
+        }
+    }
+
     public static boolean run(Function func) {
         boolean hasChanged = false;
         for (final var block : func.getBasicBlocks()) {

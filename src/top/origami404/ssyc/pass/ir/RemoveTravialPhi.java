@@ -1,24 +1,18 @@
 package top.origami404.ssyc.pass.ir;
 
-import top.origami404.ssyc.frontend.IRBuilder;
 import top.origami404.ssyc.ir.Function;
+import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.inst.PhiInst;
-import top.origami404.ssyc.pass.ir.IRPassManager.Runner;
 
 import java.util.HashSet;
 
-public class InstructionClear {
-    public static boolean clearAll(Function function) {
-        new Runner() {
-            @Override public void run() {
-                flag = refoldInstruction(function) || flag;
-                flag = removeTrivialPhi(function) || flag;
-                flag = refoldInstruction(function) || flag;
-            }
-        }.runUntilFalse();
-
-        return false;
+public class RemoveTravialPhi implements IRPass {
+    @Override
+    public void runPass(final Module module) {
+        for (final var func : module.getNonExternalFunction()) {
+            runUntilFalse(() -> removeTrivialPhi(func));
+        }
     }
 
     public static boolean removeTrivialPhi(Function function) {
@@ -36,14 +30,6 @@ public class InstructionClear {
         }
 
         return flag;
-    }
-
-    public static boolean refoldInstruction(Function function) {
-        for (final var block : function.getBasicBlocks()) {
-            block.allInst().forEach(IRBuilder::refold);
-        }
-
-        return false;
     }
 
     public static Value tryRemovePhi(PhiInst phi) {

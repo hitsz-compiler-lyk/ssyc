@@ -1,63 +1,22 @@
 package top.origami404.ssyc.pass.ir;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
+import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.utils.Log;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
-/** <h2>清扫基本块</h2>
- */
-public class BlockClear {
-    /** 消除函数中无法到达的块 */
-    public static boolean clearUnreachableBlock(Function function) {
-        // 不可以直接清除没有前继的块
-        // 首先, 起始块是没有前继的
-        // 其次, 有些不可达的循环有可能自引用, 导致删不掉
-        // 所以要来一趟 DFS
-        final var reachableBB = (new BasicBlockDFS()).collectReachableBB(function.getEntryBBlock());
-
-        boolean hasChanged = false;
-
-        for (final var block : function.getBasicBlocks()) {
-            if (!reachableBB.contains(block)) {
-                for (final var succ : block.getSuccessors()) {
-                    succ.removePredecessorWithPhiUpdated(block);
-                }
-
-                function.getIList().remove(block);
-                hasChanged = true;
-            }
+public class MergeDirectBranch implements IRPass {
+    @Override
+    public void runPass(final Module module) {
+        for (final var func : module.getNonExternalFunction()) {
+            runUntilFalse(() -> mergeBlock(func));
         }
-
-        return hasChanged;
-    }
-
-    static class BasicBlockDFS {
-        void dfs(BasicBlock nowBB) {
-            visited.add(nowBB);
-            for (final var succ : nowBB.getSuccessors()) {
-                // 防止成环
-                if (!visited.contains(succ)) {
-                    dfs(succ);
-                }
-            }
-        }
-
-        public Set<BasicBlock> collectReachableBB(BasicBlock entry) {
-            dfs(entry);
-            return visited;
-        }
-
-        private final Set<BasicBlock> visited = new HashSet<>();
     }
 
     /** 合并两个紧密相连的块 (若 A -> B, A 的后继只有 B, B 的前继只有 A, 则它们是紧密相联的) */
     public static boolean mergeBlock(Function function) {
         final var oldBlocks = new ArrayList<>(function.getBasicBlocks());
-
         for (final var block : oldBlocks) {
             final var isUniqueSucc = block.getSuccessors().size() == 1;
             if (!isUniqueSucc) {

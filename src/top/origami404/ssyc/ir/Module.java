@@ -1,15 +1,17 @@
 package top.origami404.ssyc.ir;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.constant.ArrayConst;
 
 public class Module {
     public Set<Function> getFunctions() {
         return functions;
+    }
+
+    public Set<Function> getNonExternalFunction() {
+        return functions.stream().filter(f -> !f.isExternal()).collect(Collectors.toUnmodifiableSet());
     }
 
     public Set<ArrayConst> getArrayConstants() {
