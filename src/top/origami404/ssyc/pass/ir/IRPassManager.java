@@ -14,16 +14,19 @@ public class IRPassManager {
     }
 
     public void addDefaultPasses() {
-        addDefaultClearUpPasses();
+        addDefaultBlockClearUpPasses();
         addPass(new FunctionInline());
-        addDefaultClearUpPasses();
+        addDefaultInstructionClearUpPasses();
     }
 
-    public void addDefaultClearUpPasses() {
+    public void addDefaultBlockClearUpPasses() {
         addPass(new ClearUnreachableBlock());
-        addPass(new ConstantFold());
-        addPass(new RemoveTravialPhi());
+        addDefaultInstructionClearUpPasses();
         addPass(new MergeDirectBranch());
+        addDefaultInstructionClearUpPasses();
+    }
+
+    public void addDefaultInstructionClearUpPasses() {
         addPass(new ConstantFold());
         addPass(new RemoveTravialPhi());
         addPass(new ConstantFold());

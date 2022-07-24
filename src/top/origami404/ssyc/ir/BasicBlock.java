@@ -160,11 +160,10 @@ public class BasicBlock extends User
     public void replaceAllUseWith(final Value newValue) {
         super.replaceAllUseWith(newValue);
 
-        final var func = getParentOpt().orElseThrow(() -> new IRVerifyException(this, "Free block"));
         ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-
         final var newBlock = (BasicBlock) newValue;
-        func.getIList().replaceFirst(this, newBlock);
+
+        getParentOpt().ifPresent(func -> func.getIList().replaceFirst(this, newBlock));
     }
 
     /** 不维护新前继的后继是自己 */

@@ -37,6 +37,9 @@ public class MergeDirectBranch implements IRPass {
             // 然后删除 block 的跳转, 再把 succ 的全部指令加进去 (这一步之后 succ 的跳转就是 block 的跳转了)
             block.getIList().remove(block.getTerminator());
             succ.nonPhis().forEach(block.getIList()::add);
+            // 先把 succ 从列表里删除, 防止 RAUW 把 block 换到 succ 在函数的基本块列表里的位置
+            // 对中间的块或许没有影响, 但是对第零个块(起始块)而言, 要是位置动了就坏了
+            succ.freeFromIList();
             // 然后把以 succ 为前继的所有块都换成 block
             succ.replaceAllUseWith(block);
             // 最后删除 succ
