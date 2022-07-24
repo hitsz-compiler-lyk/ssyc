@@ -8,6 +8,7 @@ import java.util.Optional;
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.INodeOwner;
 
 public abstract class Value {
     public Value(IRType type) {
@@ -57,7 +58,8 @@ public abstract class Value {
     // }
 
     public boolean isUseless() {
-        return userList.isEmpty();
+        return userList.stream()
+            .allMatch(user -> user instanceof INodeOwner && ((INodeOwner<?, ?>) user).getINode().isFree());
     }
 
     public Optional<SourceCodeSymbol> getSymbolOpt() {

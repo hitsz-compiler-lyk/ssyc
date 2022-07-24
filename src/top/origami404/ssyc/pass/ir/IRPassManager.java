@@ -16,7 +16,10 @@ public class IRPassManager {
     public void addDefaultPasses() {
         addDefaultBlockClearUpPasses();
         addPass(new FunctionInline());
-        addDefaultInstructionClearUpPasses();
+        addPass(new ClearUselessFunction());
+        addDefaultBlockClearUpPasses();
+        // addPass(new InstructionUnique());
+        addDefaultBlockClearUpPasses();
     }
 
     public void addDefaultBlockClearUpPasses() {
