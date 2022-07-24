@@ -20,20 +20,14 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
 
 public class IRBuilder {
-    // public IRBuilder(BasicBlock currentBasicBlock) {
-    //     this(currentBasicBlock, getLastINodeItr(currentBasicBlock));
-    // }
-
     public IRBuilder() {
         // TODO: 再次认真考虑要不要为了支持全局常量表达式求值而引入这个 null
         this.currBB = null;
         this.currFunc = null;
     }
 
-    // public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
     public IRBuilder(BasicBlock currentBasicBlock) {
         this.currBB = currentBasicBlock;
-        // this.pos = position;
         this.currFunc = currentBasicBlock.getParentOpt()
             .orElseThrow(() -> new RuntimeException("Cannot use free blocks as builder's argument"));
         addInfos(currBB);
@@ -79,7 +73,7 @@ public class IRBuilder {
     public void insertStore(Value ptr, Value val) { direct(new StoreInst(ptr, val)); }
 
     // GEP 指令是需要被加进 Cache 里的, 因为底层的指针偏移运算肯定是可复用并且越少越好的
-    public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return cache(new GEPInst(ptr, indices)); }
+    public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return direct(new GEPInst(ptr, indices)); }
 
     public GEPInst insertGEPByInts(Value ptr, List<Integer> indices) {
         final var valueIndices = indices.stream().map(Constant::createIntConstant).collect(Collectors.toList());
@@ -125,7 +119,6 @@ public class IRBuilder {
     public void changeBasicBlock(BasicBlock newBB) {
         currBB = newBB;
         newBB.getParentOpt().ifPresentOrElse(func -> currFunc = func, () -> newBB.setParent(currFunc));
-        // pos = getLastINodeItr(newBB);
         addInfos(newBB);
     }
 
@@ -143,7 +136,6 @@ public class IRBuilder {
 
     private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(CurrDefInfo.class, CurrDefInfo::new);
-        bb.getParentOpt().ifPresent(f -> f.addIfAbsent(InstCache.class, InstCache::new));
     }
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
@@ -206,7 +198,7 @@ public class IRBuilder {
         if (IntConstantFolder.canFold(val)) {
             return IntConstantFolder.foldConst(val);
         } else {
-            return cache(val);
+            return direct(val);
         }
     }
 
@@ -214,7 +206,7 @@ public class IRBuilder {
         if (FloatConstantFolder.canFold(val)) {
             return FloatConstantFolder.foldConst(val);
         } else {
-            return cache(val);
+            return direct(val);
         }
     }
 
@@ -222,7 +214,7 @@ public class IRBuilder {
         if (CondFolder.canFold(cond)) {
             return CondFolder.foldConst(cond);
         } else {
-            return cache(cond);
+            return direct(cond);
         }
     }
 
@@ -241,12 +233,6 @@ public class IRBuilder {
         }
     }
 
-    private<T extends Instruction> T cache(T inst) {
-        final var cachedInst = createWithCache(inst);
-        insert(inst);
-        return cachedInst;
-    }
-
     private<T extends Instruction> T direct(T inst) {
         insert(inst);
         return inst;
@@ -256,13 +242,6 @@ public class IRBuilder {
         currBB.getIList().add(inst);
     }
 
-    @SuppressWarnings("unchecked")
-    private<T extends Instruction> T createWithCache(T inst) {
-        final var cache = currFunc.getAnalysisInfo(InstCache.class);
-        return (T) cache.getOrElse(inst);
-    }
-
     private Function currFunc;
     private BasicBlock currBB;
-    // private ListIterator<INode<Instruction, BasicBlock>> pos;
 }
