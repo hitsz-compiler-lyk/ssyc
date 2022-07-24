@@ -14,17 +14,18 @@ public class BasicBlock extends User
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public static BasicBlock createFreeBBlock(Function func, SourceCodeSymbol symbol) {
-        return new BasicBlock(func, symbol);
+    //======================================= 构造基本块 =============================================================//
+    public static BasicBlock createFreeBBlock(SourceCodeSymbol symbol) {
+        return new BasicBlock(symbol);
     }
 
     public static BasicBlock createBBlockCO(Function func, SourceCodeSymbol symbol) {
-        final var bb = createFreeBBlock(func, symbol);
+        final var bb = createFreeBBlock(symbol);
         func.getIList().add(bb);
         return bb;
     }
 
-    public BasicBlock(Function func, SourceCodeSymbol symbol) {
+    private BasicBlock(SourceCodeSymbol symbol) {
         super(IRType.BBlockTy);
         super.setSymbol(symbol);
 
@@ -36,11 +37,13 @@ public class BasicBlock extends User
         this.analysisInfos = new HashMap<>();
     }
 
-    public IList<Instruction, BasicBlock> getIList() {
+
+    //============================= 基本块其他成分 (IList, INode, AnalysisOwner) =====================================//
+    @Override public IList<Instruction, BasicBlock> getIList() {
         return instructions;
     }
 
-    public INode<BasicBlock, Function> getINode() {
+    @Override public INode<BasicBlock, Function> getINode() {
         return inode;
     }
 
@@ -48,15 +51,36 @@ public class BasicBlock extends User
         return instructions.size();
     }
 
-    @Override
-    public Map<String, AnalysisInfo> getInfoMap() {
+    @Override public Map<String, AnalysisInfo> getInfoMap() {
         return analysisInfos;
     }
 
+
+    //============================================ 指令修改 ==========================================================//
     public void addPhi(PhiInst phi) {
         phiEnd.add(phi);
     }
 
+    public void adjustPhiEnd() {
+        // 不可能一条指令都没有, 因为还要有最后的 terminator
+        int i = 0;
+        while (instructions.get(i).is(PhiInst.class)) {
+            i += 1;
+        }
+
+        phiEnd = instructions.listIterator(i);
+    }
+
+    public void addInstBeforeTerminator(Instruction inst) {
+        lastButNoTerminator().add(inst);
+    }
+
+    public void addInstAtEnd(Instruction inst) {
+        getIList().add(inst);
+    }
+
+
+    //============================================ 指令访问 ==========================================================//
     public Iterator<PhiInst> iterPhis() {
         return IteratorTools.iterConvert(
             IteratorTools.iterBetweenFromBegin(instructions, phiEnd),
@@ -94,6 +118,10 @@ public class BasicBlock extends User
         return instructions.get(getInstructionCount() - 1);
     }
 
+    public boolean isTerminated() {
+        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
+    }
+
     private ListIterator<Instruction> lastButNoTerminator() {
         final var instCnt = getInstructionCount();
         if (instCnt >= 1) {
@@ -103,6 +131,16 @@ public class BasicBlock extends User
         }
     }
 
+    private Optional<Instruction> getLastInstruction() {
+        if (instructions.size() == 0) {
+            return Optional.empty();
+        } else {
+            return Optional.of(instructions.get(instructions.size() - 1));
+        }
+    }
+
+
+    //========================================== CFG 相关 (前后继访问/修改) ==========================================//
     public List<BasicBlock> getSuccessors() {
         // 使用 List 以方便有可能需要使用索引标记的情况
         // 比如说用 List 就可以直接开 boolean visited[N]
@@ -152,35 +190,24 @@ public class BasicBlock extends User
         }
     }
 
-    public boolean isTerminated() {
-        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
-    }
-
-    @Override
-    public void replaceAllUseWith(final Value newValue) {
-        super.replaceAllUseWith(newValue);
-
-        final var func = getParentOpt().orElseThrow(() -> new IRVerifyException(this, "Free block"));
-        ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-
-        final var newBlock = (BasicBlock) newValue;
-        func.getIList().replaceFirst(this, newBlock);
-    }
-
     /** 不维护新前继的后继是自己 */
     public void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
         final var index = getPredecessors().indexOf(oldPred);
         ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
 
-        for (final var phi : phis()) {
-            final var val = phi.getIncomingValue(index);
-            if (val instanceof Instruction) {
-                ensure(((Instruction) val).getParent() == newPred,
-                    "The incoming value (instruction) of phi is NOT in new Pred");
-            }
-        }
-
         replaceOperandCO(index, newPred);
+    }
+
+
+    //========================================== Value/User 相关 =====================================================//
+    @Override
+    public void replaceAllUseWith(final Value newValue) {
+        super.replaceAllUseWith(newValue);
+
+        ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
+        final var newBlock = (BasicBlock) newValue;
+
+        getParentOpt().ifPresent(func -> func.getIList().replaceFirst(this, newBlock));
     }
 
     @Override
@@ -228,31 +255,8 @@ public class BasicBlock extends User
         }
     }
 
-    private Optional<Instruction> getLastInstruction() {
-        if (instructions.size() == 0) {
-            return Optional.empty();
-        } else {
-            return Optional.of(instructions.get(instructions.size() - 1));
-        }
-    }
-
-    public String getLabelName() {
-        // 去除最前面的 '%'
-        return getSymbol().getName();
-    }
-
     private final IList<Instruction, BasicBlock> instructions;
     private IList<Instruction, BasicBlock>.IListElementIterator phiEnd;
     private final INode<BasicBlock, Function> inode;
     private final Map<String, AnalysisInfo> analysisInfos;
-
-    public void adjustPhiEnd() {
-        // 不可能一条指令都没有, 因为还要有最后的 terminator
-        int i = 0;
-        while (instructions.get(i).is(PhiInst.class)) {
-            i += 1;
-        }
-
-        phiEnd = instructions.listIterator(i);
-    }
 }

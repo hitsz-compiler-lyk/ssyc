@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import top.origami404.ssyc.frontend.folder.CondFolder;
 import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
 import top.origami404.ssyc.frontend.folder.IntConstantFolder;
-import top.origami404.ssyc.frontend.info.InstCache;
 import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
@@ -101,7 +100,7 @@ public class IRBuilder {
     }
 
     public BasicBlock createFreeBBlock(SourceCodeSymbol symbol) {
-        return BasicBlock.createFreeBBlock(currFunc, symbol);
+        return BasicBlock.createFreeBBlock(symbol);
     }
 
     public void appendBBlock(BasicBlock newBB) {
@@ -239,7 +238,7 @@ public class IRBuilder {
     }
 
     private<T extends Instruction> void insert(T inst) {
-        currBB.getIList().add(inst);
+        currBB.addInstAtEnd(inst);
     }
 
     private Function currFunc;
