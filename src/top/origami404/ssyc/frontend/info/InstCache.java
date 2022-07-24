@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
+import top.origami404.ssyc.ir.constant.FloatConst;
+import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.Instruction;
 
@@ -15,9 +17,31 @@ public class InstCache implements AnalysisInfo {
         return Optional.ofNullable(cache.get(hash));
     }
 
-    public Instruction getOrElse(Instruction inst) {
+    public Instruction getOrSelf(Instruction inst) {
         return this.get(inst.getKind(), inst.getOperands())
             .orElse(inst);
+    }
+
+    public Instruction getOrAdd(Instruction inst) {
+        if (!contains(inst)) {
+            add(inst);
+        }
+
+        return get(inst.getKind(), inst.getOperands()).orElseThrow();
+    }
+
+    public void addOrReplace(Instruction inst) {
+        if (!contains(inst)) {
+            add(inst);
+        } else {
+            final var inCache = get(inst.getKind(), inst.getOperands()).orElseThrow();
+            if (inCache != inst) {
+                // 先将 inst 从列表中移除, 防止 RAUW 时 inCache 的位置被换到 inst 的位置
+                // 导致原 inCache 位置到 inst 的这段指令中用到 inCache 的指令到最后位置变得比 inCache 前
+                inst.freeFromIList();
+                inst.replaceAllUseWith(inCache);
+            }
+        }
     }
 
     void add(Instruction newInst) {
@@ -54,10 +78,16 @@ public class InstCache implements AnalysisInfo {
 
         for (final var op : operands) {
             hash *= 37;
-            // 在 Cache 里的 Inst 的参数应该也在 Cache 里
-            // 所以 operands 里的 op 应该都是唯一的
-            // 直接使用 identifyHashCode
-            hash += System.identityHashCode(op);
+            if (op instanceof IntConst) {
+                hash += ((IntConst) op).getValue();
+            } else if (op instanceof FloatConst) {
+                hash += Float.floatToIntBits(((FloatConst) op).getValue());
+            } else {
+                // 在 Cache 里的 Inst 的参数应该也在 Cache 里
+                // 所以 operands 里的 op 应该都是唯一的
+                // 直接使用 identifyHashCode
+                hash += System.identityHashCode(op);
+            }
         }
 
         return hash;
