@@ -108,7 +108,7 @@ public class IRBuilder {
             insertBranch(newBB);
         }
         changeBasicBlock(newBB);
-        currFunc.getIList().add(newBB);
+        currFunc.add(newBB);
     }
 
     public void createAndAppendBBlock(SourceCodeSymbol symbol) {

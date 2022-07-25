@@ -21,7 +21,7 @@ public class BasicBlock extends User
 
     public static BasicBlock createBBlockCO(Function func, SourceCodeSymbol symbol) {
         final var bb = createFreeBBlock(symbol);
-        func.getIList().add(bb);
+        func.add(bb);
         return bb;
     }
 
@@ -76,7 +76,7 @@ public class BasicBlock extends User
     }
 
     public void addInstAtEnd(Instruction inst) {
-        getIList().add(inst);
+        add(inst);
     }
 
 

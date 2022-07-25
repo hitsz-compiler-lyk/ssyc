@@ -9,6 +9,7 @@ import top.origami404.ssyc.ir.analysis.AnalysisInfoOwner;
 import top.origami404.ssyc.ir.type.FunctionIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.*;
+import top.origami404.ssyc.utils.IList.IListElementIterator;
 
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner
@@ -70,9 +71,17 @@ public class Function extends Value
         return bblocks.get(0);
     }
 
+    /** 现在函数本身就是一个 {@code List<BasicBlock>} 了, 可以直接使用 {@code for (final var block : func)} */
+    @Deprecated
     public List<BasicBlock> getBasicBlocks() {
         ensureNotExternal();
         return this.getIList();
+    }
+
+    @Override
+    public IList<BasicBlock, Function>.IListElementIterator listIterator(final int index) {
+        ensureNotExternal();
+        return IListOwner.super.listIterator(index);
     }
 
     @Override
