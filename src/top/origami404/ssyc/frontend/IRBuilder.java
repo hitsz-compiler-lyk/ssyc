@@ -86,7 +86,7 @@ public class IRBuilder {
     public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
     public PhiInst insertEmptyPhi(IRType type, SourceCodeSymbol variable) {
-        final var phi = new PhiInst(currBB, type, variable);
+        final var phi = new PhiInst(type, variable);
         currBB.addPhi(phi);
         return phi;
     }

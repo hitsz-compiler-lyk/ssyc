@@ -62,19 +62,6 @@ public abstract class Instruction extends User
         return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
     }
 
-    @Override
-    public void replaceAllUseWith(final Value newValue) {
-        super.replaceAllUseWith(newValue);
-        getParentOpt().ifPresentOrElse(block -> {
-            if (newValue instanceof Instruction) {
-                block.getIList().replaceFirst(this, (Instruction) newValue);
-            } else {
-                block.getIList().remove(this);
-            }
-
-        }, () -> Log.info("RAUW on free instruction"));
-    }
-
     private final InstKind kind;
     private final INode<Instruction, BasicBlock> inode;
 }
