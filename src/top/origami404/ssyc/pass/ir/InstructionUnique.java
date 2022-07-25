@@ -9,24 +9,91 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.visitor.ValueVisitor;
 import top.origami404.ssyc.pass.ir.InstructionUnique.DomInfoMaker.DomInfo.BrKind;
 import top.origami404.ssyc.pass.ir.InstructionUnique.DomInfoMaker.DomInfo.BrKindHandler;
+import top.origami404.ssyc.utils.INodeOwner;
 import top.origami404.ssyc.utils.Log;
 
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 public class InstructionUnique implements IRPass {
     @Override
     public void runPass(final Module module) {
-        module.getNonExternalFunction().forEach(InstructionUnique::runOnFunction);
+        module.getNonExternalFunction().forEach(this::runOnFunction);
     }
 
-    static void runOnFunction(Function func) {
+    void runOnFunction(Function func) {
         final var uniquer = new ValueUniquer();
         for (final var block : func.getBasicBlocks()) {
             block.allInst().forEach(uniquer::visitInstruction);
         }
 
         final var domInfo = new DomInfoMaker(func);
+        runUntilFalse(() -> moveInstructionToCommonDom(domInfo, func));
+    }
 
+    boolean moveInstructionToCommonDom(DomInfoMaker domInfo, Function func) {
+        boolean hasChanged = false;
+
+        for (final var block : func.getBasicBlocks()) {
+            for (final var inst : block.nonPhiAndTerminator()) {
+                final var userInstructions = inst.getUserList().stream()
+                    .filter(Instruction.class::isInstance).map(Instruction.class::cast)
+                    .collect(Collectors.toUnmodifiableList());
+
+                final var userBlocks = userInstructions.stream()
+                    .map(INodeOwner::getParent)
+                    .collect(Collectors.toSet());
+
+                if (userBlocks.isEmpty()) {
+                    continue;
+                }
+
+                Log.ensure(!inst.getType().isVoid());
+
+                final var idom = domInfo.lcdomOrSelf(userBlocks);
+                if (idom != block) {
+                    idom.addInstBeforeTerminator(inst);
+                    hasChanged = true;
+
+                } else {
+                    final var userInBlock = userInstructions.stream()
+                        .filter(i -> i.getParent() == block)
+                        .collect(Collectors.toUnmodifiableSet());
+
+                    final var hasPhiInBlockAsUser = userInBlock.stream()
+                        .anyMatch(PhiInst.class::isInstance);
+                    final var isSelfPhi = inst instanceof PhiInst;
+
+                    if (isSelfPhi == hasPhiInBlockAsUser) {
+                        final var ilist = block.getIList();
+
+                        final int mostPreviousIndex = userInBlock.stream()
+                            .map(ilist::indexOf)
+                            .min(Integer::compareTo).orElseThrow();
+                        final var selfIndex = ilist.indexOf(inst);
+
+                        // 当 inst 是 Phi 的时候, 就有可能自己用自己, 这时候 mostPreviousIndex 就会等于 selfIndex
+                        if (!(selfIndex <= mostPreviousIndex)) {
+                            block.getIList().remove(inst);
+                            block.getIList().add(mostPreviousIndex, inst);
+                            hasChanged = true;
+                        }
+
+                    } else if (!isSelfPhi && hasPhiInBlockAsUser) {
+                        final var domOfCurr = domInfo.idom(block);
+                        domOfCurr.addInstBeforeTerminator(inst);
+                        hasChanged = true;
+
+                    } else {
+                        // Do nothing for this case
+                        assert isSelfPhi && !hasPhiInBlockAsUser;
+                    }
+                }
+            }
+        }
+
+        return hasChanged;
     }
 
     static class DomInfoMaker {
@@ -38,7 +105,7 @@ public class InstructionUnique implements IRPass {
         }
 
         private void insertDomInfo(Function func) {
-            func.getBasicBlocks().forEach(block -> block.addAnalysisInfo(new DomInfo()));
+            func.getBasicBlocks().forEach(block -> block.addAnalysisInfo(new DomInfo(block)));
         }
 
         private void fillDomInfoInitValue(Function func) {
@@ -99,6 +166,7 @@ public class InstructionUnique implements IRPass {
             }
 
             while (true) {
+                Log.debug("finding lcdom(head): a: %s, b: %s".formatted(a, b));
                 while (getDepth(a) != getDepth(b)) {
                     if (!(getDepth(a) > getDepth(b))) {
                         final var tmp = a;
@@ -112,36 +180,26 @@ public class InstructionUnique implements IRPass {
                 }
 
                 if (a == b) {
-                    return a;
+                    return idom(a);
                 }
 
                 a = idom(a);
                 b = idom(b);
+                Log.debug("finding lcdom(foot): a: %s, b: %s".formatted(a, b));
             }
         }
 
         /** 找到该集合内所有基本块的最近公共支配块 */
         public BasicBlock lcdom(Set<BasicBlock> blocks) {
-            if (blocks.size() == 0) {
-                throw new RuntimeException("Can NOT find LCDom for empty set");
-            }
+            return reduceSet(blocks, this::lcdom);
+        }
 
-            // 随后一个一个合并可能作为支配块的前继块
-            while (blocks.size() > 1) {
-                final var iter = blocks.iterator();
+        public BasicBlock lcdomOrSelf(BasicBlock a, BasicBlock b) {
+            return a == b ? a : lcdom(a, b);
+        }
 
-                // 每次拿两个出来
-                final var first = iter.next();
-                blocks.remove(first);
-
-                final var second = iter.next();
-                blocks.remove(second);
-
-                // 算出它们的最近公共支配块之后, 塞回去
-                blocks.add(lcdom(first, second));
-            }
-
-            return blocks.iterator().next();
+        public BasicBlock lcdomOrSelf(Set<BasicBlock> blocks) {
+            return reduceSet(blocks, this::lcdomOrSelf);
         }
 
         /** 找到 block 的最近的支配块 */
@@ -162,11 +220,33 @@ public class InstructionUnique implements IRPass {
                     }
                 });
 
+                Log.debug("Miss: %s (preds: %s)".formatted(block, truePredSet.stream().map(BasicBlock::toString).collect(Collectors.joining(", "))));
+
                 // 稍微做个缓存省省时间
                 info.idom = Optional.of(lcdom(truePredSet));
             }
 
             return info.idom.orElseThrow();
+        }
+
+        /** 将一个 set 中的元素依次两两通过 func 合并, 需要 func 满足结合律 */
+        private static <E> E reduceSet(Set<E> set, BiFunction<E, E, E> func) {
+            if (set.size() == 0) {
+                throw new RuntimeException("Can NOT apply reduceSet for empty set");
+            }
+
+            while (set.size() > 1) {
+                final var iter = set.iterator();
+
+                final var first = iter.next();
+                final var second = iter.next();
+                set.remove(first);
+                set.remove(second);
+
+                set.add(func.apply(first, second));
+            }
+
+            return set.iterator().next();
         }
 
         private int getDepth(BasicBlock block) {
@@ -179,10 +259,15 @@ public class InstructionUnique implements IRPass {
                 public BrKind kind = BrKind.Unknown;
             }
 
+            DomInfo(BasicBlock block) {
+                this.predKinds = new ArrayList<>(Collections.nCopies(block.getPredecessors().size(), null));
+                this.succKinds = new ArrayList<>(Collections.nCopies(block.getSuccessors().size(), null));
+            }
+
             int depth = 0;
             Optional<BasicBlock> idom = Optional.empty();
-            final List<BrKindHandler> succKinds = new ArrayList<>();
-            final List<BrKindHandler> predKinds = new ArrayList<>();
+            final List<BrKindHandler> succKinds;
+            final List<BrKindHandler> predKinds;
         }
 
         interface BiFunctionInt<E> {
@@ -223,7 +308,7 @@ public class InstructionUnique implements IRPass {
             return null;
         }
 
-        public boolean canNotBeUniqued(Instruction inst) {
+        public static boolean canNotBeUniqued(Instruction inst) {
             if (inst.getType().isVoid()) {
                 return true;
             }

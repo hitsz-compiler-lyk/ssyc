@@ -18,7 +18,7 @@ public class IRPassManager {
         addPass(new FunctionInline());
         addPass(new ClearUselessFunction());
         addDefaultBlockClearUpPasses();
-        // addPass(new InstructionUnique());
+        addPass(new InstructionUnique());
         addDefaultBlockClearUpPasses();
     }
 
@@ -26,6 +26,8 @@ public class IRPassManager {
         addPass(new ClearUnreachableBlock());
         addDefaultInstructionClearUpPasses();
         addPass(new MergeDirectBranch());
+        addDefaultInstructionClearUpPasses();
+        addPass(new ClearUnreachableBlock());
         addDefaultInstructionClearUpPasses();
     }
 
