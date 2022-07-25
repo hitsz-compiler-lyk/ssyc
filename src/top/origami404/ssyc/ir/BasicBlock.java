@@ -200,15 +200,6 @@ public class BasicBlock extends User
 
 
     //========================================== Value/User 相关 =====================================================//
-    @Override
-    public void replaceAllUseWith(final Value newValue) {
-        super.replaceAllUseWith(newValue);
-
-        ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-        final var newBlock = (BasicBlock) newValue;
-
-        getParentOpt().ifPresent(func -> func.getIList().replaceFirst(this, newBlock));
-    }
 
     @Override
     public void verify() throws IRVerifyException {
