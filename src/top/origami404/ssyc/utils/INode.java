@@ -55,6 +55,17 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         return value;
     }
 
+    public void replaceInIList(INode<E, P> newNode) {
+        newNode.getParentOpt().ifPresent(p -> p.remove(newNode.getOwner()));
+        newNode.setParent(getParentOpt().orElse(null));
+        this.setParent(null);
+
+        prev.ifPresent(n -> n.setNext(newNode));
+        next.ifPresent(n -> n.setPrev(newNode));
+        newNode.setPrevOpt(prev);
+        newNode.setNextOpt(next);
+    }
+
     void setNext(INode<E, P> next) {
         this.next = Optional.ofNullable(next);
     }
