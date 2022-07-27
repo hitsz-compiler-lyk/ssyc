@@ -58,8 +58,7 @@ public abstract class Value {
     // }
 
     public boolean isUseless() {
-        return userList.stream()
-            .allMatch(user -> user instanceof INodeOwner && ((INodeOwner<?, ?>) user).getINode().isFree());
+        return userList.isEmpty();
     }
 
     public Optional<SourceCodeSymbol> getSymbolOpt() {

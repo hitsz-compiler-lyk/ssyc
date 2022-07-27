@@ -8,8 +8,7 @@ import java.util.HashSet;
 public class ClearUselessFunction implements IRPass {
     @Override
     public void runPass(final Module module) {
-        final var oldFunctions = new HashSet<>(module.getFunctions());
-        oldFunctions.stream()
+        IRPass.copyForChange(module.getFunctions()).stream()
            .filter(func -> !func.getFunctionSourceName().equals("main"))
            .filter(Value::isUseless)
            .forEach(module.getFunctions()::remove);

@@ -15,9 +15,7 @@ import java.util.stream.Collectors;
 public class FunctionInline implements IRPass {
     @Override
     public void runPass(final Module module) {
-        for (final var func : module.getNonExternalFunction()) {
-            runUntilFalse(() -> run(func));
-        }
+        runUntilFalse(() -> module.getNonExternalFunction().stream().anyMatch(FunctionInline::run));
     }
 
     public static boolean run(Function func) {
