@@ -50,7 +50,7 @@ public class IPhyReg extends Reg {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         return name;
     }
 

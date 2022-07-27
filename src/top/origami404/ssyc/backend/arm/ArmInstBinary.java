@@ -65,11 +65,11 @@ public class ArmInstBinary extends ArmInst {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         String op = binaryMap.get(getInst());
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + getDst().toString() + ",\t" + getLhs().toString() + ",\t"
-                + getRhs().toString() + "\n";
+        String ret = "\t" + op + getCond().toString() + "\t" + getDst().print() + ",\t" + getLhs().print() + ",\t"
+                + getRhs().print() + "\n";
         return ret;
     }
 }

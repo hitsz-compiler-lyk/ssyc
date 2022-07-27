@@ -21,7 +21,7 @@ public class ArmInstBranch extends ArmInst {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         return "\t" + "b" + getCond().toString() + "\t" + targetBlock.getLabel() + "\n";
     }
 

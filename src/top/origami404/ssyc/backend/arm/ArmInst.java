@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import top.origami404.ssyc.backend.operand.IPhyReg;
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.backend.operand.Reg;
 import top.origami404.ssyc.utils.INode;
@@ -120,6 +121,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     private Set<Reg> regUse, regDef;
     private List<Operand> operands;
     private ArmCondType cond;
+    private int defCnt;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
@@ -142,6 +144,14 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         return regDef;
     }
 
+    public int getDefCnt() {
+        return defCnt;
+    }
+
+    public void setDefCnt(int defCnt) {
+        this.defCnt = defCnt;
+    }
+
     public void addRegUse(Operand r) {
         if (r instanceof Reg) {
             regUse.add((Reg) r);
@@ -155,11 +165,15 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public void delRegUse(Operand r) {
-        regUse.remove(r);
+        if (r instanceof Reg) {
+            regUse.remove((Reg) r);
+        }
     }
 
     public void delRegDef(Operand r) {
-        regDef.remove(r);
+        if (r instanceof Reg) {
+            regDef.remove((Reg) r);
+        }
     }
 
     public List<Operand> getOperands() {
@@ -172,6 +186,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void initOperands(Operand... op) {
         var defCnt = defCntMap.get(inst);
+        if (inst.equals(ArmInstKind.Call)) {
+            defCnt = this.defCnt;
+        }
         for (int i = 0; i < op.length; i++) {
             operands.add(op[i]);
             if (i < defCnt) {
@@ -187,6 +204,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceOperand(int idx, Operand op) {
         var defCnt = defCntMap.get(inst);
+        if (inst.equals(ArmInstKind.Call)) {
+            defCnt = this.defCnt;
+        }
         var oldOp = operands.get(idx);
         if (oldOp instanceof Reg) {
             ((Reg) oldOp).removeInst(this);
@@ -214,6 +234,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceDefOperand(Operand oldOp, Operand op) {
         var defCnt = defCntMap.get(inst);
+        if (inst.equals(ArmInstKind.Call)) {
+            defCnt = this.defCnt;
+        }
         for (int i = 0; i < defCnt; i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);
@@ -223,6 +246,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceUseOperand(Operand oldOp, Operand op) {
         var defCnt = defCntMap.get(inst);
+        if (inst.equals(ArmInstKind.Call)) {
+            defCnt = this.defCnt;
+        }
         for (int i = defCnt; i < operands.size(); i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);
@@ -238,8 +264,15 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         this.cond = cond;
     }
 
-    @Override
-    public abstract String toString();
+    public boolean isStackLoad() {
+        return inst.equals(ArmInstKind.LOAD) && getOperand(1).equals(new IPhyReg("sp"));
+    }
+
+    public boolean isStackStore() {
+        return inst.equals(ArmInstKind.STORE) && getOperand(1).equals(new IPhyReg("sp"));
+    }
+
+    public abstract String print();
 
     @Override
     public INode<ArmInst, ArmBlock> getINode() {

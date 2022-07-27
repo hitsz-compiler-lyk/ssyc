@@ -37,7 +37,11 @@ public class Addr extends Operand {
     }
 
     @Override
-    public String toString() {
-        return label;
+    public String print() {
+        if (isGlobal) {
+            return "=" + label;
+        } else {
+            return label;
+        }
     }
 }

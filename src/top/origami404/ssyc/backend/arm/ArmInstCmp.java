@@ -26,7 +26,7 @@ public class ArmInstCmp extends ArmInst {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         var lhs = getLhs();
         var rhs = getRhs();
         var op = "cmp";
@@ -34,7 +34,7 @@ public class ArmInstCmp extends ArmInst {
         if (lhs.IsFloat() || rhs.IsFloat()) {
             op = "vcmp.f32";
         }
-        ret += "\t" + op + "\t" + lhs.toString() + ",\t" + rhs.toString() + "\n";
+        ret += "\t" + op + "\t" + lhs.print() + ",\t" + rhs.print() + "\n";
         if (lhs.IsFloat() || rhs.IsFloat()) {
             ret += "\tvmrs\tAPSR_nzcv,\tfpscr\n";
         }

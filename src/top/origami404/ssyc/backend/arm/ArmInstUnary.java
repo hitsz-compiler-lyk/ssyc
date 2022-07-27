@@ -33,14 +33,14 @@ public class ArmInstUnary extends ArmInst {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         var dst = getDst();
         var src = getSrc();
 
         if (getInst() == ArmInstKind.INeg) {
-            return "\t" + "neg" + getCond().toString() + "\t" + dst.toString() + "\t" + src.toString();
+            return "\t" + "neg" + getCond().toString() + "\t" + dst.print() + "\t" + src.print();
         } else if (getInst() == ArmInstKind.FNeg) {
-            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.toString() + "\t" + src.toString();
+            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.print() + "\t" + src.print();
         } else {
             Log.ensure(false);
             return "";

@@ -25,8 +25,8 @@ public class ArmInstFloatToInt extends ArmInst {
     }
 
     @Override
-    public String toString() {
-        return "\t" + "vcvt.s32.f32" + "\t" + getDst().toString() + "\t" + getSrc().toString();
+    public String print() {
+        return "\t" + "vcvt.s32.f32" + "\t" + getDst().print() + "\t" + getSrc().print();
     }
 
 }

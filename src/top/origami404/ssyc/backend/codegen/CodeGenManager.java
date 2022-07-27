@@ -3,11 +3,14 @@ package top.origami404.ssyc.backend.codegen;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import top.origami404.ssyc.backend.arm.ArmBlock;
 import top.origami404.ssyc.backend.arm.ArmFunction;
+import top.origami404.ssyc.backend.arm.ArmInst;
 import top.origami404.ssyc.backend.arm.ArmInstBinary;
 import top.origami404.ssyc.backend.arm.ArmInstBranch;
 import top.origami404.ssyc.backend.arm.ArmInstCall;
@@ -42,6 +45,7 @@ import top.origami404.ssyc.ir.constant.BoolConst;
 import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.constant.FloatConst;
 import top.origami404.ssyc.ir.constant.IntConst;
+import top.origami404.ssyc.ir.constant.ArrayConst.ZeroArrayConst;
 import top.origami404.ssyc.ir.inst.BinaryOpInst;
 import top.origami404.ssyc.ir.inst.BoolToIntInst;
 import top.origami404.ssyc.ir.inst.BrCondInst;
@@ -54,11 +58,13 @@ import top.origami404.ssyc.ir.inst.GEPInst;
 import top.origami404.ssyc.ir.inst.InstKind;
 import top.origami404.ssyc.ir.inst.IntToFloatInst;
 import top.origami404.ssyc.ir.inst.LoadInst;
+import top.origami404.ssyc.ir.inst.MemInitInst;
 import top.origami404.ssyc.ir.inst.PhiInst;
 import top.origami404.ssyc.ir.inst.ReturnInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
 import top.origami404.ssyc.ir.inst.UnaryOpInst;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
+import top.origami404.ssyc.ir.type.PointerIRTy;
 import top.origami404.ssyc.utils.Log;
 
 public class CodeGenManager {
@@ -67,6 +73,8 @@ public class CodeGenManager {
     private Map<Function, ArmFunction> funcMap;
     private Map<BasicBlock, ArmBlock> blockMap;
     private Map<String, GlobalVar> globalvars;
+    private Map<ArrayConst, String> arrayConstMap;
+    private List<ArmFunction> externalFunctions;
     private static final Map<InstKind, ArmCondType> condMap = new HashMap<>() {
         {
             put(InstKind.ICmpEq, ArmCondType.Eq);
@@ -89,6 +97,8 @@ public class CodeGenManager {
         valMap = new HashMap<>();
         funcMap = new HashMap<>();
         blockMap = new HashMap<>();
+        arrayConstMap = new HashMap<>();
+        externalFunctions = new ArrayList<>();
     }
 
     public List<ArmFunction> getFunctions() {
@@ -105,13 +115,25 @@ public class CodeGenManager {
             globalvars.put(gv.getSymbol().getName(), gv);
         }
 
+        int acCnt = 0;
+        for (var val : irModule.getArrayConstants()) {
+            arrayConstMap.put(val, "meminit.array." + acCnt);
+            valMap.put(val, new Addr("meminit.array." + acCnt++, true));
+        }
+
         // 添加Global信息
         for (var val : globalvars.values()) {
             valMap.put(val, new Addr(val.getSymbol().getName(), true));
         }
 
         for (var func : irModule.getFunctions()) {
-            var armFunc = new ArmFunction(func.getFunctionSourceName());
+            if (func.isExternal()) {
+                var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getType().getParamTypes().size());
+                externalFunctions.add(armFunc);
+                continue;
+            }
+
+            var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getParameters().size());
             armFunc.getFuncInfo().setParameter(func.getParameters());
             functions.add(armFunc);
             funcMap.put(func, armFunc);
@@ -124,8 +146,8 @@ public class CodeGenManager {
             // 处理起始块的后驱和第一个基本块的前驱
             if (func.asElementView().size() > 0) {
                 var armblock = blockMap.get(func.asElementView().get(0));
-                armFunc.getFuncInfo().getStartBlock().setTrueSuccBlock(armblock);
-                armblock.addPred(armFunc.getFuncInfo().getStartBlock());
+                armFunc.getFuncInfo().getPrologue().setTrueSuccBlock(armblock);
+                armblock.addPred(armFunc.getFuncInfo().getPrologue());
             }
 
             // 处理Arm基本块的前后驱
@@ -174,6 +196,8 @@ public class CodeGenManager {
                         resolveBrInst((BrInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof BrCondInst) {
                         resolveBrCondInst((BrCondInst) inst, armBlock, armFunc.getFuncInfo());
+                    } else if (inst instanceof MemInitInst) {
+                        resolveMemInitInst((MemInitInst) inst, armBlock, armFunc.getFuncInfo());
                     } else if (inst instanceof CmpInst) {
                         continue;
                     } else if (inst instanceof BoolToIntInst) {
@@ -181,7 +205,7 @@ public class CodeGenManager {
                     } else if (inst instanceof PhiInst) {
                         continue;
                     } else {
-
+                        Log.ensure(false, "not implement");
                     }
                 }
             }
@@ -287,13 +311,13 @@ public class CodeGenManager {
                     if (i < 4) {
                         // MOVE VR Ri
                         // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
-                        new ArmInstMove(funcinfo.getStartBlock(), vr, new IPhyReg(i));
+                        new ArmInstMove(funcinfo.getPrologue(), vr, new IPhyReg(i));
                     } else {
                         // LDR VR [SP, (i-4)*4]
                         // 寄存器分配后修改为 LDR VR [SP, (i-4)*4 + stackSize + push的大小]
                         var offset = resolveIImmOperand((i - 4) * 4, block, funcinfo);
                         // 保证这个MOVE语句一定在最前面
-                        new ArmInstLoad(funcinfo.getStartBlock(), vr, new IPhyReg("sp"), offset);
+                        new ArmInstLoad(funcinfo.getPrologue(), vr, new IPhyReg("sp"), offset);
                     }
                     break;
                 }
@@ -585,14 +609,15 @@ public class CodeGenManager {
                 new ArmInstStroe(block, src, new IPhyReg("sp"), offset);
             }
         }
+        int offset = ((args.size() - 4) * 2 + 1) / 2;
         if (args.size() > 4) {
-            var rhs = resolveIImmOperand((args.size() - 4) * 4, block, funcinfo);
+            var rhs = resolveIImmOperand(offset * 4, block, funcinfo);
             // SUB SP SP (inst.args.size() - 4) * 4
             new ArmInstBinary(block, ArmInstKind.ISub, new IPhyReg("sp"), new IPhyReg("sp"), rhs);
         }
         new ArmInstCall(block, funcMap.get(inst.getCallee()));
         if (args.size() > 4) {
-            var rhs = resolveIImmOperand((args.size() - 4) * 4, block, funcinfo);
+            var rhs = resolveIImmOperand(offset * 4, block, funcinfo);
             // ADD SP SP (inst.args.size() - 4) * 4
             new ArmInstBinary(block, ArmInstKind.IAdd, new IPhyReg("sp"), new IPhyReg("sp"), rhs);
         }
@@ -616,11 +641,11 @@ public class CodeGenManager {
         if (inst.getReturnValue().isPresent()) {
             var src = inst.getReturnValue().get();
             var srcReg = resolveOperand(src, block, funcinfo);
-            if(src.getType().isFloat()){
+            if (src.getType().isFloat()) {
                 // atpcs 规范
                 // VMOV S0 inst.getReturnValue()
                 new ArmInstMove(block, new FPhyReg("s0"), srcReg);
-            }else{
+            } else {
                 // VMOV R0 inst.getReturnValue()
                 new ArmInstMove(block, new IPhyReg("r0"), srcReg);
             }
@@ -685,7 +710,7 @@ public class CodeGenManager {
             // 可以考虑在CodeGen的时候再添加 连续的基本块不需要该指令
             new ArmInstBranch(block, blockMap.get(inst.getFalseBB()));
         } else {
-            Log.ensure(false,"BrCondInst Cond Illegal");
+            Log.ensure(false, "BrCondInst Cond Illegal");
         }
     }
 
@@ -740,12 +765,32 @@ public class CodeGenManager {
         }
     }
 
+    private void resolveMemInitInst(MemInitInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        var dst = resolveOperand(inst.getArrayPtr(), block, funcinfo);
+        var ac = inst.getInit();
+        int size = ((PointerIRTy) inst.getType()).getSize();
+        if (ac instanceof ZeroArrayConst) {
+            new ArmInstMove(block, new IPhyReg("r0"), dst);
+            new ArmInstMove(block, new IPhyReg("r1"), new IImm(0));
+            var imm = resolveIImmOperand(size, block, funcinfo);
+            new ArmInstMove(block, new IPhyReg("r2"), imm);
+            new ArmInstCall(block, "memset", 3);
+        } else {
+            new ArmInstMove(block, new IPhyReg("r0"), dst);
+            var src = resolveOperand(ac, block, funcinfo);
+            new ArmInstMove(block, new IPhyReg("r1"), src);
+            var imm = resolveIImmOperand(size, block, funcinfo);
+            new ArmInstMove(block, new IPhyReg("r2"), imm);
+            new ArmInstCall(block, "memcpy", 3);
+        }
+    }
+
     // code gen arm
 
     public StringBuilder codeGenArm() {
         var arm = new StringBuilder();
         arm.append(".arch armv7ve\n");
-        if (!globalvars.isEmpty()) {
+        if (!globalvars.isEmpty() || !arrayConstMap.isEmpty()) {
             arm.append("\n\n.data\n.align 4\n");
         }
         for (var entry : globalvars.entrySet()) {
@@ -758,6 +803,69 @@ public class CodeGenManager {
                 arm.append(codeGenFloatConst((FloatConst) val));
             } else if (val instanceof ArrayConst) {
                 arm.append(codeGenArrayConst((ArrayConst) val));
+            }
+            arm.append("\n");
+        }
+        for (var entry : arrayConstMap.entrySet()) {
+            var key = entry.getValue();
+            var val = entry.getKey();
+            arm.append(key + ":\n");
+            arm.append(codeGenArrayConst(val));
+            arm.append("\n");
+        }
+
+        arm.append("\n\n.text\n");
+        for (var func : functions) {
+            fixStack(func);
+            var funcInfo = func.getFuncInfo();
+            var stackSize = funcInfo.getFinalstackSize();
+            String prologuePrint = "";
+            if (stackSize > 0) {
+                if (CodeGenManager.checkEncodeImm(stackSize)) {
+                    prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
+                } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
+                    prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
+                } else {
+                    var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                    prologuePrint += move.print();
+                    prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
+                }
+            }
+
+            arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
+            var iuse = new StringBuilder();
+            var first = true;
+            for (var reg : funcInfo.getiUsedRegs()) {
+                if (!first) {
+                    iuse.append(", ");
+                    first = false;
+                }
+                iuse.append(reg.print());
+            }
+
+            var fuse = new StringBuilder();
+            first = true;
+            for (var reg : funcInfo.getfUsedRegs()) {
+                if (!first) {
+                    fuse.append(", ");
+                    first = false;
+                }
+                fuse.append(reg.print());
+            }
+
+            if (!funcInfo.getiUsedRegs().isEmpty()) {
+                prologuePrint += "\tpop\t{" + iuse.toString() + "}\n";
+            }
+
+            if (!funcInfo.getfUsedRegs().isEmpty()) {
+                prologuePrint += "\tvpop\t{" + iuse.toString() + "}\n";
+            }
+            arm.append(prologuePrint);
+
+            for (var block : func.asElementView()) {
+                for (var inst : block.asElementView()) {
+                    arm.append(inst.print());
+                }
             }
         }
 
@@ -857,5 +965,141 @@ public class CodeGenManager {
             }
         }
         return sb.toString();
+    }
+
+    public boolean checkOffsetRange(int offset) {
+        return offset >= -4095 && offset <= 4095;
+    }
+
+    public boolean checkOffsetRange(IImm offset) {
+        return checkOffsetRange(offset.getImm());
+    }
+
+    private boolean fixStack(ArmFunction func) {
+        var funcInfo = func.getFuncInfo();
+        int regCnt = funcInfo.getfUsedRegs().size() + funcInfo.getiUsedRegs().size();
+        int stackSize = (funcInfo.getStackSize() + 4 * regCnt + 4) / 8 * 8 - 4 * regCnt;
+        funcInfo.setFinalstackSize(stackSize);
+        stackSize = 0;
+        Map<Integer, Integer> stackMap = new HashMap<>();
+        var stackObject = funcInfo.getStackObject();
+        var stackObjectOffset = funcInfo.getStackObjectOffset();
+        for (int i = stackObjectOffset.size() - 1; i >= 0; i--) {
+            stackMap.put(stackObjectOffset.get(i), stackSize);
+            stackSize += stackObject.get(i);
+        }
+
+        boolean isFix = false;
+        var blocks = func.asElementView();
+        for (int i = 1; i < blocks.size(); i++) {
+            var block = blocks.get(i);
+            var instIt = block.getIList().iterator();
+            while (instIt.hasNext()) {
+                var inst = instIt.next();
+                if (inst.isStackLoad()) {
+                    var load = (ArmInstLoad) inst;
+                    if (load.getAddr() instanceof IImm) {
+                        var addr = (IImm) load.getAddr();
+                        Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
+                        var actualOffset = stackMap.get(addr.getImm());
+                        isFix |= fixStackInst(load, actualOffset);
+                    }
+                } else if (inst.isStackStore()) {
+                    var store = (ArmInstStroe) inst;
+                    if (store.getAddr() instanceof IImm) {
+                        var addr = (IImm) store.getAddr();
+                        Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
+                        var actualOffset = stackMap.get(addr.getImm());
+                        isFix |= fixStackInst(store, actualOffset);
+                    }
+                }
+            }
+        }
+
+        var instIt = funcInfo.getPrologue().getIList().iterator();
+        stackSize = funcInfo.getFinalstackSize();
+        while (instIt.hasNext()) {
+            var inst = instIt.next();
+            if (inst.isStackLoad()) {
+                var load = (ArmInstLoad) inst;
+                if (load.getAddr() instanceof IImm) {
+                    var addr = (IImm) load.getAddr();
+                    var actualOffset = addr.getImm() + stackSize + 4 * regCnt;
+                    isFix |= fixStackInst(load, actualOffset);
+                }
+            } else if (inst.isStackStore()) {
+                var store = (ArmInstStroe) inst;
+                if (store.getAddr() instanceof IImm) {
+                    var addr = (IImm) store.getAddr();
+                    var actualOffset = addr.getImm() + stackSize + 4 * regCnt;
+                    isFix |= fixStackInst(store, actualOffset);
+                }
+            }
+        }
+        return isFix;
+    }
+
+    private boolean fixStackInst(ArmInstLoad load, int actualOffset) {
+        boolean isFix = false;
+        if (!checkOffsetRange(actualOffset)) {
+            if (!load.isFixOffset()) {
+                isFix = true;
+                var vr = new IVirtualReg();
+                var move = new ArmInstMove(vr, new IImm(actualOffset));
+                load.setFixOffset(true);
+                load.insertBeforeCO(move);
+            } else {
+                var prevInst = load.getINode().getPrev().get().getValue();
+                Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                var move = (ArmInstMove) prevInst;
+                move.replaceSrc(new IImm(actualOffset));
+            }
+        } else {
+            load.setTrueOffset(new IImm(actualOffset));
+        }
+        return isFix;
+    }
+
+    private boolean fixStackInst(ArmInstStroe store, int actualOffset) {
+        boolean isFix = false;
+        if (!checkOffsetRange(actualOffset)) {
+            if (!store.isFixOffset()) {
+                isFix = true;
+                var vr = new IVirtualReg();
+                var move = new ArmInstMove(vr, new IImm(actualOffset));
+                store.setFixOffset(true);
+                store.insertBeforeCO(move);
+            } else {
+                var prevInst = store.getINode().getPrev().get().getValue();
+                Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                var move = (ArmInstMove) prevInst;
+                move.replaceSrc(new IImm(actualOffset));
+            }
+        } else {
+            store.setTrueOffset(new IImm(actualOffset));
+        }
+        return isFix;
+    }
+
+    private void calcIUseRegs(ArmFunction func, Set<IPhyReg> regs) {
+        var funcInfo = func.getFuncInfo();
+        var iUseRegs = funcInfo.getiUsedRegs();
+        iUseRegs.clear();
+        for (int i = func.getParamsCnt(); i <= 15; i++) {
+            if (regs.contains(new IPhyReg(i))) {
+                iUseRegs.add(new IPhyReg(i));
+            }
+        }
+    }
+
+    private void calcFUseRegs(ArmFunction func, Set<FPhyReg> regs) {
+        var funcInfo = func.getFuncInfo();
+        var fUseRegs = funcInfo.getfUsedRegs();
+        fUseRegs.clear();
+        for (int i = 0; i <= 31; i++) {
+            if (regs.contains(new FPhyReg(i))) {
+                fUseRegs.add(new FPhyReg(i));
+            }
+        }
     }
 }

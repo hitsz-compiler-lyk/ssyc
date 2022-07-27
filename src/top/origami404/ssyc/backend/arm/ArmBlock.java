@@ -127,9 +127,10 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     public ArmBlock(ArmFunction func, String label) {
         this.label = label;
-        func.asElementView().add(this);
         this.pred = new ArrayList<ArmBlock>();
         this.insts = new IList<ArmInst, ArmBlock>(this);
+        this.inode = new INode<>(this, func);
+        func.asElementView().add(this);
     }
 
     public ArmBlock(String label) {

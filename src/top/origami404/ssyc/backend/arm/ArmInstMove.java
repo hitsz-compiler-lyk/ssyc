@@ -45,8 +45,12 @@ public class ArmInstMove extends ArmInst {
         return this.getOperand(1);
     }
 
+    public void replaceSrc(Operand src) {
+        this.replaceOperand(1, src);
+    }
+
     @Override
-    public String toString() {
+    public String print() {
         var dst = getDst();
         var src = getSrc();
 
@@ -64,15 +68,15 @@ public class ArmInstMove extends ArmInst {
             }
             // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-immediate-values-using-mov-and-mvn?lang=en
             if (CodeGenManager.checkEncodeImm(~imm)) {
-                return "\t" + isVector + "mvn" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
+                return "\t" + isVector + "mvn" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(~imm) + "\n";
             } else if (CodeGenManager.checkEncodeImm(imm)) {
-                return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
+                return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(imm) + "\n";
             } else if (src.IsFImm()) {
                 // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-32-bit-immediate-values-to-a-register-using-ldr-rd---const?lang=en
                 // VLDR Rn =Const
-                return "\t" + "vldr" + getCond().toString() + "\t" + dst.toString() + ",\t" + "="
+                return "\t" + "vldr" + getCond().toString() + "\t" + dst.print() + ",\t" + "="
                         + ((FImm) src).toHexString() + "\n";
             } else {
                 // MOVW 把 16 位立即数放到寄存器的底16位，高16位清0
@@ -80,17 +84,16 @@ public class ArmInstMove extends ArmInst {
                 var high = imm >>> 16;
                 var low = (imm << 16) >>> 16;
                 String ret = "";
-                ret += "\t" + isVector + "movw" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
+                ret += "\t" + isVector + "movw" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(low) + "\n";
                 if (high != 0) {
-                    ret += "\t" + isVector + "movt" + getCond().toString() + "\t" + dst.toString() + ",\t" + "#"
+                    ret += "\t" + isVector + "movt" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                             + Integer.toString(high) + "\n";
                 }
                 return ret;
             }
         } else {
-            return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.toString() + ",\t" + src.toString()
-                    + "\n";
+            return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
         }
     }
 }

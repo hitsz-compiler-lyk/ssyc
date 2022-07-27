@@ -18,7 +18,7 @@ public class FImm extends Imm {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         return "#" + Float.toString(imm);
     }
 }

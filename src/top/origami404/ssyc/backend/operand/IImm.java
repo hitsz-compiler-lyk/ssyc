@@ -18,7 +18,7 @@ public class IImm extends Imm {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         return "#" + Integer.toString(imm);
     }
 }

@@ -20,8 +20,6 @@ public abstract class Reg extends Operand {
         this.instSet = new ArrayList<>();
     }
 
-    public abstract String toString();
-
     public void setId(int id) {
         this.id = id;
     }

@@ -72,7 +72,7 @@ public abstract class Operand {
     }
 
     public boolean IsReg() {
-        return !IsIImm() && s != opType.Addr;
+        return !IsImm() && s != opType.Addr;
     }
 
     @Override
@@ -130,5 +130,5 @@ public abstract class Operand {
         }
     }
 
-    public abstract String toString();
+    public abstract String print();
 }

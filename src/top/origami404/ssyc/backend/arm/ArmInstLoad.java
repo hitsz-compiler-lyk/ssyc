@@ -7,6 +7,8 @@ import top.origami404.ssyc.backend.operand.Operand;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstLoad extends ArmInst {
+    boolean isFixOffset = false;
+    Operand trueOffset;
 
     public ArmInstLoad(ArmInstKind inst) {
         super(inst);
@@ -72,11 +74,34 @@ public class ArmInstLoad extends ArmInst {
         return this.getOperand(2);
     }
 
+    public boolean isFixOffset() {
+        return isFixOffset;
+    }
+
+    public void setFixOffset(boolean isFixOffset) {
+        this.isFixOffset = isFixOffset;
+    }
+
+    public void setTrueOffset(Operand trueOffset) {
+        this.trueOffset = trueOffset;
+    }
+
+    public Operand getTrueOffset() {
+        return trueOffset;
+    }
+
+    public void delTrueOffset() {
+        this.trueOffset = null;
+    }
+
     @Override
-    public String toString() {
+    public String print() {
         var dst = getDst();
         var addr = getAddr();
         var offset = getOffset();
+        if (trueOffset != null) {
+            offset = trueOffset;
+        }
 
         var isVector = "";
         if (dst.IsFloat()) {
@@ -84,11 +109,11 @@ public class ArmInstLoad extends ArmInst {
         }
 
         if (addr.IsAddr()) {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.toString() + ",\t" + addr.toString()
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t" + addr.print()
                     + "\n";
         } else {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.toString() + ",\t[" + addr.toString()
-                    + ",\t" + offset.toString() + "]\n";
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
+                    + ",\t" + offset.print() + "]\n";
         }
     }
 
