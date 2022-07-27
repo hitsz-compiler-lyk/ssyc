@@ -23,4 +23,8 @@ public interface INodeOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
             inode.getParent().remove(inode.getOwner());
         }
     }
+
+    default void replaceInIList(E newElm) {
+        getINode().replaceInIList(newElm.getINode());
+    }
 }
