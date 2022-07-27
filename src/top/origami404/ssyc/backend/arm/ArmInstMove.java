@@ -68,6 +68,7 @@ public class ArmInstMove extends ArmInst {
             }
             // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-immediate-values-using-mov-and-mvn?lang=en
             if (CodeGenManager.checkEncodeImm(~imm)) {
+<<<<<<< HEAD
                 return "\t" + isVector + "mvn" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(~imm) + "\n";
             } else if (CodeGenManager.checkEncodeImm(imm)) {
@@ -78,22 +79,41 @@ public class ArmInstMove extends ArmInst {
                 // VLDR Rn =Const
                 return "\t" + "vldr" + getCond().toString() + "\t" + dst.print() + ",\t" + "="
                         + ((FImm) src).toHexString() + "\n";
+=======
+                return "\t" + isVector + "mvn" + getCond() + "\t" + dst + ",\t" + "#" + ~imm + "\n";
+            } else if (CodeGenManager.checkEncodeImm(imm)) {
+                return "\t" + isVector + "mov" + getCond() + "\t" + dst + ",\t" + "#" + imm + "\n";
+            } else if (src.IsFImm()) {
+                // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-32-bit-immediate-values-to-a-register-using-ldr-rd---const?lang=en
+                // VLDR Rn =Const
+                return "\t" + "vldr" + getCond() + "\t" + dst + ",\t" + "=" + ((FImm) src).toHexString() + "\n";
+>>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
             } else {
                 // MOVW 把 16 位立即数放到寄存器的底16位，高16位清0
                 // MOVT 把 16 位立即数放到寄存器的高16位，低16位不影响
                 var high = imm >>> 16;
                 var low = (imm << 16) >>> 16;
                 String ret = "";
+<<<<<<< HEAD
                 ret += "\t" + isVector + "movw" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(low) + "\n";
                 if (high != 0) {
                     ret += "\t" + isVector + "movt" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                             + Integer.toString(high) + "\n";
+=======
+                ret += "\t" + isVector + "movw" + getCond() + "\t" + dst + ",\t" + "#" + low + "\n";
+                if (high != 0) {
+                    ret += "\t" + isVector + "movt" + getCond() + "\t" + dst + ",\t" + "#" + high + "\n";
+>>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
                 }
                 return ret;
             }
         } else {
+<<<<<<< HEAD
             return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
+=======
+            return "\t" + isVector + "mov" + getCond() + "\t" + dst + ",\t" + src + "\n";
+>>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
         }
     }
 }

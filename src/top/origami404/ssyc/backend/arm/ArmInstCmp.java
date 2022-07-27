@@ -34,7 +34,11 @@ public class ArmInstCmp extends ArmInst {
         if (lhs.IsFloat() || rhs.IsFloat()) {
             op = "vcmp.f32";
         }
+<<<<<<< HEAD
         ret += "\t" + op + "\t" + lhs.print() + ",\t" + rhs.print() + "\n";
+=======
+        ret += "\t" + op + "\t" + lhs + ",\t" + rhs + "\n";
+>>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
         if (lhs.IsFloat() || rhs.IsFloat()) {
             ret += "\tvmrs\tAPSR_nzcv,\tfpscr\n";
         }

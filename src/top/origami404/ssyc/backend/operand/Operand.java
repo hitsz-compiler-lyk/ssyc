@@ -83,51 +83,25 @@ public abstract class Operand {
         if (((Operand) obj).getState() != this.s) {
             return false;
         }
-        switch (this.getState()) {
-            case IImm: {
-                return ((IImm) obj).getImm() == ((IImm) this).getImm();
-            }
-            case FImm: {
-                return ((FImm) obj).getImm() == ((FImm) this).getImm();
-            }
-            case Addr: {
-                return ((Addr) obj).getLabel().equals(((Addr) this).getLabel()) &&
-                        ((Addr) obj).isGlobal() == ((Addr) this).isGlobal();
-            }
-            case IPhy:
-            case FPhy:
-            case IVirtual:
-            case FVirtual: {
-                return ((Reg) obj).getId() == ((Reg) this).getId();
-            }
-            default: {
-                return this.equals(obj);
-            }
-        }
+        return switch (this.getState()) {
+            case IImm -> ((IImm) obj).getImm() == ((IImm) this).getImm();
+            case FImm -> ((FImm) obj).getImm() == ((FImm) this).getImm();
+            case Addr -> ((Addr) obj).getLabel().equals(((Addr) this).getLabel())
+                        && ((Addr) obj).isGlobal() == ((Addr) this).isGlobal();
+            case IPhy, FPhy, IVirtual, FVirtual -> ((Reg) obj).getId() == ((Reg) this).getId();
+            default -> this.equals(obj);
+        };
     }
 
     @Override
     public int hashCode() {
-        switch (this.getState()) {
-            case IImm: {
-                return Objects.hash(s, ((IImm) this).getImm());
-            }
-            case FImm: {
-                return Objects.hash(s, ((FImm) this).getImm());
-            }
-            case Addr: {
-                return Objects.hash(s, ((Addr) this).getLabel(), ((Addr) this).isGlobal());
-            }
-            case IPhy:
-            case FPhy:
-            case IVirtual:
-            case FVirtual: {
-                return Objects.hash(s, ((Reg) this).getId());
-            }
-            default: {
-                return super.hashCode();
-            }
-        }
+        return switch (this.getState()) {
+            case IImm -> Objects.hash(s, ((IImm) this).getImm());
+            case FImm -> Objects.hash(s, ((FImm) this).getImm());
+            case Addr -> Objects.hash(s, ((Addr) this).getLabel(), ((Addr) this).isGlobal());
+            case IPhy, FPhy, IVirtual, FVirtual -> Objects.hash(s, ((Reg) this).getId());
+            default -> super.hashCode();
+        };
     }
 
     public abstract String print();

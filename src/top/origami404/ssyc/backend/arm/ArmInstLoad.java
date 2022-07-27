@@ -109,11 +109,19 @@ public class ArmInstLoad extends ArmInst {
         }
 
         if (addr.IsAddr()) {
+<<<<<<< HEAD
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t" + addr.print()
                     + "\n";
         } else {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + "]\n";
+=======
+            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t" + addr
+                    + "\n";
+        } else {
+            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t[" + addr
+                    + ",\t" + offset.toString() + "]\n";
+>>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
         }
     }
 

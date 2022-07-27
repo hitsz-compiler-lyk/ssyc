@@ -127,7 +127,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
 
     public ArmFunction(String name) {
         this.name = name;
-        this.blocks = new IList<ArmBlock, ArmFunction>(this);
+        this.blocks = new IList<>(this);
         this.funcInfo = new FunctionInfo(this);
         this.paramsCnt = 0;
     }
