@@ -24,7 +24,7 @@ public class InstructionUnique implements IRPass {
 
     void runOnFunction(Function func) {
         final var uniquer = new ValueUniquer();
-        for (final var block : func.getBasicBlocks()) {
+        for (final var block : func) {
             block.allInst().forEach(uniquer::visitInstruction);
         }
 
@@ -35,7 +35,7 @@ public class InstructionUnique implements IRPass {
     boolean moveInstructionToCommonDom(DomInfoMaker domInfo, Function func) {
         boolean hasChanged = false;
 
-        for (final var block : func.getBasicBlocks()) {
+        for (final var block : func) {
             for (final var inst : block.nonPhiAndTerminator()) {
                 final var userInstructions = inst.getUserList().stream()
                     .filter(Instruction.class::isInstance).map(Instruction.class::cast)
@@ -53,6 +53,7 @@ public class InstructionUnique implements IRPass {
 
                 final var idom = domInfo.lcdomOrSelf(userBlocks);
                 if (idom != block) {
+                    inst.freeFromIList();
                     idom.addInstBeforeTerminator(inst);
                     hasChanged = true;
 
@@ -61,27 +62,33 @@ public class InstructionUnique implements IRPass {
                         .filter(i -> i.getParent() == block)
                         .collect(Collectors.toUnmodifiableSet());
 
+                    if (userInBlock.isEmpty()) {
+                        // 这时 idom 就是 inst 所在的当前块
+                        // 并且所有的 user 都在这个块支配之下
+                        // 相当于 inst 什么位置都不用挪
+                        continue; // for this inst
+                    }
+
                     final var hasPhiInBlockAsUser = userInBlock.stream()
                         .anyMatch(PhiInst.class::isInstance);
                     final var isSelfPhi = inst instanceof PhiInst;
 
                     if (isSelfPhi == hasPhiInBlockAsUser) {
-                        final var ilist = block.getIList();
-
                         final int mostPreviousIndex = userInBlock.stream()
-                            .map(ilist::indexOf)
+                            .map(block::indexOf)
                             .min(Integer::compareTo).orElseThrow();
-                        final var selfIndex = ilist.indexOf(inst);
+                        final var selfIndex = block.indexOf(inst);
 
                         // 当 inst 是 Phi 的时候, 就有可能自己用自己, 这时候 mostPreviousIndex 就会等于 selfIndex
                         if (!(selfIndex <= mostPreviousIndex)) {
-                            block.getIList().remove(inst);
-                            block.getIList().add(mostPreviousIndex, inst);
+                            inst.freeFromIList();
+                            block.add(mostPreviousIndex, inst);
                             hasChanged = true;
                         }
 
                     } else if (!isSelfPhi && hasPhiInBlockAsUser) {
                         final var domOfCurr = domInfo.idom(block);
+                        inst.freeFromIList();
                         domOfCurr.addInstBeforeTerminator(inst);
                         hasChanged = true;
 
@@ -105,11 +112,11 @@ public class InstructionUnique implements IRPass {
         }
 
         private void insertDomInfo(Function func) {
-            func.getBasicBlocks().forEach(block -> block.addAnalysisInfo(new DomInfo(block)));
+            func.forEach(block -> block.addAnalysisInfo(new DomInfo(block)));
         }
 
         private void fillDomInfoInitValue(Function func) {
-            for (final var block : func.getBasicBlocks()) {
+            for (final var block : func) {
                 final var blockInfo = block.getAnalysisInfo(DomInfo.class);
                 forEachWithIndex(block.getSuccessors(), (i, succ) -> {
                     final var succInfo = succ.getAnalysisInfo(DomInfo.class);
