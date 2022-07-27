@@ -36,10 +36,9 @@ public class InstCache implements AnalysisInfo {
         } else {
             final var inCache = get(inst.getKind(), inst.getOperands()).orElseThrow();
             if (inCache != inst) {
-                // 先将 inst 从列表中移除, 防止 RAUW 时 inCache 的位置被换到 inst 的位置
-                // 导致原 inCache 位置到 inst 的这段指令中用到 inCache 的指令到最后位置变得比 inCache 前
-                inst.freeFromIList();
+                inst.replaceInIList(inCache);
                 inst.replaceAllUseWith(inCache);
+                inst.freeFromUseDef();
             }
         }
     }

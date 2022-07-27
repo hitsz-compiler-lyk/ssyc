@@ -17,6 +17,7 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
+import top.origami404.ssyc.utils.Log;
 
 public class IRBuilder {
     public IRBuilder() {
@@ -141,30 +142,31 @@ public class IRBuilder {
         return bb.asINodeView().listIterator(bb.getInstructionCount());
     }
 
-    /**
-     * 注意: 不会更新 currDef !!!!!!!!!!!!!!!
-     */
     public static void refold(Instruction val) {
         if (val instanceof BrCondInst) {
             final var br = (BrCondInst) val;
-            final var cond = (br.getCond());
+            final var cond = br.getCond();
 
             if (cond instanceof BoolConst) {
                 final var value = ((BoolConst) cond).getValue();
-                final var currBB = br.getParentOpt().orElseThrow();
+                final var currBB = br.getParent();
                 final var nextBB = value ? br.getTrueBB() : br.getFalseBB();
                 final var fakeBB = value ? br.getFalseBB() : br.getTrueBB();
 
                 fakeBB.removePredecessorWithPhiUpdated(currBB);
 
                 final var directBr = new BrInst(currBB, nextBB);
-                val.replaceAllUseWith(directBr);
+                val.replaceInIList(directBr);
+                Log.ensure(val.isUseless(), "Br can NOT be used");
             }
 
         } else {
             final var exp = foldExp(val);
             if (exp != val) {
+                Log.ensure(exp instanceof Constant, "Result of fold must be a Constant");
+                // 由于 CurrDef 内的 Entry 已经是一个 User 了, 所以 RAUW 同样会顺路更新 currDef
                 val.replaceAllUseWith(exp);
+                val.freeFromIList();
             }
         }
     }
