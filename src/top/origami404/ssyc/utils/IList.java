@@ -64,7 +64,8 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
         return false;
     }
 
-    public int indexOf(final E o) {
+    @Override
+    public int indexOf(final Object o) {
         int result = 0;
         for (final E next : this) {
             if (next == o) {
