@@ -47,6 +47,7 @@ public class User extends Value {
         return replaceOperandCO(idx, newValue);
     }
 
+    /** 删除其所有 operand 使其再也不会使用其他 Value */
     public void freeFromUseDef() {
         ensure(getUserList().isEmpty(), "Can NOT call freeFromUseDef on value that are current being used");
         removeOperandAllCO();
@@ -89,7 +90,7 @@ public class User extends Value {
     }
 
     protected void removeOperandAllCO() {
-        for (var i = operandList.size(); i >= 0; i--) {
+        for (var i = operandList.size() - 1; i >= 0; i--) {
             removeOperandCO(i);
         }
     }

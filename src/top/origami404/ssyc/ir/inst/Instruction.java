@@ -57,6 +57,11 @@ public abstract class Instruction extends User
         }
     }
 
+    public void freeAll() {
+        freeFromUseDef();
+        freeFromIList();
+    }
+
     @Override
     public String toString() {
         return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
