@@ -1,6 +1,7 @@
 package top.origami404.ssyc.ir;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
@@ -9,40 +10,40 @@ import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.*;
 
-public class BasicBlock extends Value
+public class BasicBlock extends User
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
         AnalysisInfoOwner
 {
-    public static BasicBlock createFreeBBlock(Function func, SourceCodeSymbol symbol) {
-        return new BasicBlock(func, symbol);
+    //======================================= 构造基本块 =============================================================//
+    public static BasicBlock createFreeBBlock(SourceCodeSymbol symbol) {
+        return new BasicBlock(symbol);
     }
 
     public static BasicBlock createBBlockCO(Function func, SourceCodeSymbol symbol) {
-        final var bb = createFreeBBlock(func, symbol);
+        final var bb = createFreeBBlock(symbol);
         func.getIList().add(bb);
         return bb;
     }
 
-    public BasicBlock(Function func, SourceCodeSymbol symbol) {
+    private BasicBlock(SourceCodeSymbol symbol) {
         super(IRType.BBlockTy);
         super.setSymbol(symbol);
 
         this.instructions = new IList<>(this);
-        this.inode = new INode<>(this, func);
-        // 可以在以后再加入对应 parent 的位置, 便于 IR 生成
-        // func.getIList().add(this);
+        this.inode = new INode<>(this);
 
         this.phiEnd = instructions.listIterator();
-        this.predecessors = new ArrayList<>();
 
         this.analysisInfos = new HashMap<>();
     }
 
-    public IList<Instruction, BasicBlock> getIList() {
+
+    //============================= 基本块其他成分 (IList, INode, AnalysisOwner) =====================================//
+    @Override public IList<Instruction, BasicBlock> getIList() {
         return instructions;
     }
 
-    public INode<BasicBlock, Function> getINode() {
+    @Override public INode<BasicBlock, Function> getINode() {
         return inode;
     }
 
@@ -50,15 +51,36 @@ public class BasicBlock extends Value
         return instructions.size();
     }
 
-    @Override
-    public Map<String, AnalysisInfo> getInfoMap() {
+    @Override public Map<String, AnalysisInfo> getInfoMap() {
         return analysisInfos;
     }
 
+
+    //============================================ 指令修改 ==========================================================//
     public void addPhi(PhiInst phi) {
         phiEnd.add(phi);
     }
 
+    public void adjustPhiEnd() {
+        // 不可能一条指令都没有, 因为还要有最后的 terminator
+        int i = 0;
+        while (instructions.get(i).is(PhiInst.class)) {
+            i += 1;
+        }
+
+        phiEnd = instructions.listIterator(i);
+    }
+
+    public void addInstBeforeTerminator(Instruction inst) {
+        lastButNoTerminator().add(inst);
+    }
+
+    public void addInstAtEnd(Instruction inst) {
+        getIList().add(inst);
+    }
+
+
+    //============================================ 指令访问 ==========================================================//
     public Iterator<PhiInst> iterPhis() {
         return IteratorTools.iterConvert(
             IteratorTools.iterBetweenFromBegin(instructions, phiEnd),
@@ -69,26 +91,35 @@ public class BasicBlock extends Value
             });
     }
 
-    public Iterable<PhiInst> phis() {
-        return this::iterPhis;
+    public List<PhiInst> phis() {
+        return IteratorTools.iterToListView(this::iterPhis);
     }
 
-    public Iterable<Instruction> nonPhis() {
-        return () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd.clone());
+    public List<Instruction> nonPhis() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetweenToEnd(instructions, phiEnd.clone()));
     }
 
-    public Iterable<Instruction> nonTerminator() {
-        return () -> IteratorTools.iterBetweenFromBegin(instructions, lastButNoTerminator());
+    public List<Instruction> nonTerminator() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetweenFromBegin(instructions, lastButNoTerminator()));
     }
 
-    public Iterable<Instruction> nonPhiAndTerminator() {
-        return () -> IteratorTools.iterBetween(instructions, phiEnd, lastButNoTerminator());
+    public List<Instruction> nonPhiAndTerminator() {
+        return IteratorTools.iterToListView(
+            () -> IteratorTools.iterBetween(instructions, phiEnd.clone(), lastButNoTerminator()));
     }
 
-    public Iterable<Instruction> allInst() { return instructions; }
+    public List<Instruction> allInst() {
+        return Collections.unmodifiableList(instructions);
+    }
 
     public Instruction getTerminator() {
         return instructions.get(getInstructionCount() - 1);
+    }
+
+    public boolean isTerminated() {
+        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
     }
 
     private ListIterator<Instruction> lastButNoTerminator() {
@@ -100,6 +131,16 @@ public class BasicBlock extends Value
         }
     }
 
+    private Optional<Instruction> getLastInstruction() {
+        if (instructions.size() == 0) {
+            return Optional.empty();
+        } else {
+            return Optional.of(instructions.get(instructions.size() - 1));
+        }
+    }
+
+
+    //========================================== CFG 相关 (前后继访问/修改) ==========================================//
     public List<BasicBlock> getSuccessors() {
         // 使用 List 以方便有可能需要使用索引标记的情况
         // 比如说用 List 就可以直接开 boolean visited[N]
@@ -119,39 +160,54 @@ public class BasicBlock extends Value
     }
 
     public List<BasicBlock> getPredecessors() {
-        return predecessors;
+        return getOperands().stream().map(BasicBlock.class::cast).collect(Collectors.toList());
     }
 
     public void addPredecessor(BasicBlock predecessor) {
-        predecessors.add(predecessor);
+        addOperandCO(predecessor);
+    }
+
+    void removePredecessor(int index) {
+        removeOperandCO(index);
+    }
+
+    public int getPredecessorSize() {
+        return getOperandSize();
     }
 
     public void removePredecessorWithPhiUpdated(BasicBlock predecessorToBeRemoved) {
-        final var index = predecessors.indexOf(predecessorToBeRemoved);
+        final var index = getPredecessors().indexOf(predecessorToBeRemoved);
 
         ensure(index >= 0, "BBlock %s is NOT the predecessor of %s".formatted(predecessorToBeRemoved, this));
 
-        predecessors.remove(index);
+        removePredecessor(index);
         for (final var phi : phis()) {
             phi.removeOperandCO(index);
         }
 
-        if (predecessors.size() == 0) {
+        if (getPredecessorSize() == 0) {
             Log.info("Eliminate BBlock " + this);
         }
     }
 
-    public boolean isTerminated() {
-        return getLastInstruction().map(Instruction::getKind).map(InstKind::isBr).orElse(false);
+    /** 不维护新前继的后继是自己 */
+    public void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
+        final var index = getPredecessors().indexOf(oldPred);
+        ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
+
+        replaceOperandCO(index, newPred);
     }
 
+
+    //========================================== Value/User 相关 =====================================================//
     @Override
     public void replaceAllUseWith(final Value newValue) {
         super.replaceAllUseWith(newValue);
 
-        final var func = getParentOpt().orElseThrow(() -> new IRVerifyException(this, "Free block"));
         ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-        func.getIList().replaceFirst(this, (BasicBlock) newValue);
+        final var newBlock = (BasicBlock) newValue;
+
+        getParentOpt().ifPresent(func -> func.getIList().replaceFirst(this, newBlock));
     }
 
     @Override
@@ -199,32 +255,8 @@ public class BasicBlock extends Value
         }
     }
 
-    private Optional<Instruction> getLastInstruction() {
-        if (instructions.size() == 0) {
-            return Optional.empty();
-        } else {
-            return Optional.of(instructions.get(instructions.size() - 1));
-        }
-    }
-
-    public String getLabelName() {
-        // 去除最前面的 '%'
-        return getSymbol().getName();
-    }
-
     private final IList<Instruction, BasicBlock> instructions;
     private IList<Instruction, BasicBlock>.IListElementIterator phiEnd;
     private final INode<BasicBlock, Function> inode;
     private final Map<String, AnalysisInfo> analysisInfos;
-    private final List<BasicBlock> predecessors;
-
-    public void adjustPhiEnd() {
-        // 不可能一条指令都没有, 因为还要有最后的 terminator
-        int i = 0;
-        while (instructions.get(i).is(PhiInst.class)) {
-            i += 1;
-        }
-
-        phiEnd = instructions.listIterator(i);
-    }
 }

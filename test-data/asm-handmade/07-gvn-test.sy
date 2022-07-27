@@ -1,0 +1,11 @@
+
+int main() {
+    int a[10][10] = {1, 2, 3};
+    if (a[0][1] == 2) {
+        putint(a[0][0] + 3);
+    } else {
+        putint(a[0][0] + 1);
+    }
+
+    return 0;
+}

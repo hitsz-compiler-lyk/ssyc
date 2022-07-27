@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import top.origami404.ssyc.frontend.folder.CondFolder;
 import top.origami404.ssyc.frontend.folder.FloatConstantFolder;
 import top.origami404.ssyc.frontend.folder.IntConstantFolder;
-import top.origami404.ssyc.frontend.info.InstCache;
 import top.origami404.ssyc.frontend.info.CurrDefInfo;
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
@@ -20,77 +19,71 @@ import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.INode;
 
 public class IRBuilder {
-    // public IRBuilder(BasicBlock currentBasicBlock) {
-    //     this(currentBasicBlock, getLastINodeItr(currentBasicBlock));
-    // }
-
     public IRBuilder() {
         // TODO: 再次认真考虑要不要为了支持全局常量表达式求值而引入这个 null
         this.currBB = null;
         this.currFunc = null;
     }
 
-    // public IRBuilder(BasicBlock currentBasicBlock, ListIterator<INode<Instruction, BasicBlock>> position) {
     public IRBuilder(BasicBlock currentBasicBlock) {
         this.currBB = currentBasicBlock;
-        // this.pos = position;
         this.currFunc = currentBasicBlock.getParentOpt()
             .orElseThrow(() -> new RuntimeException("Cannot use free blocks as builder's argument"));
         addInfos(currBB);
     }
 
-    public Value insertINeg(Value arg) { return foldInt(new UnaryOpInst(currBB, InstKind.INeg, arg)); }
-    public Value insertIAdd(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(currBB, InstKind.IAdd, lhs, rhs)); }
-    public Value insertISub(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(currBB, InstKind.ISub, lhs, rhs)); }
-    public Value insertIMul(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(currBB, InstKind.IMul, lhs, rhs)); }
-    public Value insertIDiv(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(currBB, InstKind.IDiv, lhs, rhs)); }
-    public Value insertIMod(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(currBB, InstKind.IMod, lhs, rhs)); }
+    public Value insertINeg(Value arg) { return foldInt(new UnaryOpInst(InstKind.INeg, arg)); }
+    public Value insertIAdd(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IAdd, lhs, rhs)); }
+    public Value insertISub(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.ISub, lhs, rhs)); }
+    public Value insertIMul(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IMul, lhs, rhs)); }
+    public Value insertIDiv(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IDiv, lhs, rhs)); }
+    public Value insertIMod(Value lhs, Value rhs) { return foldInt(new BinaryOpInst(InstKind.IMod, lhs, rhs)); }
 
-    public Value insertFNeg(Value arg) { return foldFloat(new UnaryOpInst(currBB, InstKind.FNeg, arg)); }
-    public Value insertFAdd(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(currBB, InstKind.FAdd, lhs, rhs)); }
-    public Value insertFSub(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(currBB, InstKind.FSub, lhs, rhs)); }
-    public Value insertFMul(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(currBB, InstKind.FMul, lhs, rhs)); }
-    public Value insertFDiv(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(currBB, InstKind.FDiv, lhs, rhs)); }
+    public Value insertFNeg(Value arg) { return foldFloat(new UnaryOpInst(InstKind.FNeg, arg)); }
+    public Value insertFAdd(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FAdd, lhs, rhs)); }
+    public Value insertFSub(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FSub, lhs, rhs)); }
+    public Value insertFMul(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FMul, lhs, rhs)); }
+    public Value insertFDiv(Value lhs, Value rhs) { return foldFloat(new BinaryOpInst(InstKind.FDiv, lhs, rhs)); }
 
-    public Value insertICmpEq(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpEq, lhs, rhs)); }
-    public Value insertICmpNe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpNe, lhs, rhs)); }
-    public Value insertICmpLt(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpLt, lhs, rhs)); }
-    public Value insertICmpLe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpLe, lhs, rhs)); }
-    public Value insertICmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpGt, lhs, rhs)); }
-    public Value insertICmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.ICmpGe, lhs, rhs)); }
-    public Value insertFCmpEq(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpEq, lhs, rhs)); }
-    public Value insertFCmpNe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpNe, lhs, rhs)); }
-    public Value insertFCmpLt(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpLt, lhs, rhs)); }
-    public Value insertFCmpLe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpLe, lhs, rhs)); }
-    public Value insertFCmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpGt, lhs, rhs)); }
-    public Value insertFCmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(currBB, InstKind.FCmpGe, lhs, rhs)); }
+    public Value insertICmpEq(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpEq, lhs, rhs)); }
+    public Value insertICmpNe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpNe, lhs, rhs)); }
+    public Value insertICmpLt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpLt, lhs, rhs)); }
+    public Value insertICmpLe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpLe, lhs, rhs)); }
+    public Value insertICmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpGt, lhs, rhs)); }
+    public Value insertICmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.ICmpGe, lhs, rhs)); }
+    public Value insertFCmpEq(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpEq, lhs, rhs)); }
+    public Value insertFCmpNe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpNe, lhs, rhs)); }
+    public Value insertFCmpLt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpLt, lhs, rhs)); }
+    public Value insertFCmpLe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpLe, lhs, rhs)); }
+    public Value insertFCmpGt(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGt, lhs, rhs)); }
+    public Value insertFCmpGe(Value lhs, Value rhs) { return foldCmp(new CmpInst(InstKind.FCmpGe, lhs, rhs)); }
 
     public void insertBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) { foldBr(cond, trueBB, falseBB); }
 
     public void insertBranch(BasicBlock nextBB) { direct(new BrInst(currBB, nextBB)); }
 
-    public CallInst insertCall(Function func, List<Value> args) { return direct(new CallInst(currBB, func, args)); }
-    public void insertReturn() { direct(new ReturnInst(currBB)); }
-    public void insertReturn(Value returnVal) { direct(new ReturnInst(currBB, returnVal)); }
+    public CallInst insertCall(Function func, List<Value> args) { return direct(new CallInst(func, args)); }
+    public void insertReturn() { direct(new ReturnInst()); }
+    public void insertReturn(Value returnVal) { direct(new ReturnInst(returnVal)); }
 
-    public CAllocInst insertCAlloc(ArrayIRTy allocBaseType) { return direct(new CAllocInst(currBB, allocBaseType)); }
+    public CAllocInst insertCAlloc(ArrayIRTy allocBaseType) { return direct(new CAllocInst(allocBaseType)); }
 
-    public LoadInst insertLoad(Value ptr) { return direct(new LoadInst(currBB, ptr)); }
-    public void insertStore(Value ptr, Value val) { direct(new StoreInst(currBB, ptr, val)); }
+    public LoadInst insertLoad(Value ptr) { return direct(new LoadInst(ptr)); }
+    public void insertStore(Value ptr, Value val) { direct(new StoreInst(ptr, val)); }
 
     // GEP 指令是需要被加进 Cache 里的, 因为底层的指针偏移运算肯定是可复用并且越少越好的
-    public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return cache(new GEPInst(currBB, ptr, indices)); }
+    public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return direct(new GEPInst(ptr, indices)); }
 
     public GEPInst insertGEPByInts(Value ptr, List<Integer> indices) {
         final var valueIndices = indices.stream().map(Constant::createIntConstant).collect(Collectors.toList());
         return insertGEP(ptr, valueIndices);
     }
 
-    public Value insertI2F(Value from) { return foldFloat(new IntToFloatInst(currBB, from));    }
-    public Value insertF2I(Value from) { return foldInt(new FloatToIntInst(currBB, from));      }
-    public Value insertB2I(Value from) { return foldInt(new BoolToIntInst(currBB, from));       }
+    public Value insertI2F(Value from) { return foldFloat(new IntToFloatInst(from));    }
+    public Value insertF2I(Value from) { return foldInt(new FloatToIntInst(from));      }
+    public Value insertB2I(Value from) { return foldInt(new BoolToIntInst(from));       }
 
-    public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(currBB, arrPtr)); }
+    public MemInitInst insertMemInit(Value arrPtr) { return direct(new MemInitInst(arrPtr)); }
 
     public PhiInst insertEmptyPhi(IRType type, SourceCodeSymbol variable) {
         final var phi = new PhiInst(currBB, type, variable);
@@ -107,7 +100,7 @@ public class IRBuilder {
     }
 
     public BasicBlock createFreeBBlock(SourceCodeSymbol symbol) {
-        return BasicBlock.createFreeBBlock(currFunc, symbol);
+        return BasicBlock.createFreeBBlock(symbol);
     }
 
     public void appendBBlock(BasicBlock newBB) {
@@ -125,7 +118,6 @@ public class IRBuilder {
     public void changeBasicBlock(BasicBlock newBB) {
         currBB = newBB;
         newBB.getParentOpt().ifPresentOrElse(func -> currFunc = func, () -> newBB.setParent(currFunc));
-        // pos = getLastINodeItr(newBB);
         addInfos(newBB);
     }
 
@@ -143,7 +135,6 @@ public class IRBuilder {
 
     private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(CurrDefInfo.class, CurrDefInfo::new);
-        bb.getParentOpt().ifPresent(f -> f.addIfAbsent(InstCache.class, InstCache::new));
     }
 
     private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
@@ -206,7 +197,7 @@ public class IRBuilder {
         if (IntConstantFolder.canFold(val)) {
             return IntConstantFolder.foldConst(val);
         } else {
-            return cache(val);
+            return direct(val);
         }
     }
 
@@ -214,7 +205,7 @@ public class IRBuilder {
         if (FloatConstantFolder.canFold(val)) {
             return FloatConstantFolder.foldConst(val);
         } else {
-            return cache(val);
+            return direct(val);
         }
     }
 
@@ -222,7 +213,7 @@ public class IRBuilder {
         if (CondFolder.canFold(cond)) {
             return CondFolder.foldConst(cond);
         } else {
-            return cache(cond);
+            return direct(cond);
         }
     }
 
@@ -241,28 +232,15 @@ public class IRBuilder {
         }
     }
 
-    private<T extends Instruction> T cache(T inst) {
-        final var cachedInst = createWithCache(inst);
-        insert(inst);
-        return cachedInst;
-    }
-
     private<T extends Instruction> T direct(T inst) {
         insert(inst);
         return inst;
     }
 
     private<T extends Instruction> void insert(T inst) {
-        currBB.getIList().add(inst);
-    }
-
-    @SuppressWarnings("unchecked")
-    private<T extends Instruction> T createWithCache(T inst) {
-        final var cache = currFunc.getAnalysisInfo(InstCache.class);
-        return (T) cache.getOrElse(inst);
+        currBB.addInstAtEnd(inst);
     }
 
     private Function currFunc;
     private BasicBlock currBB;
-    // private ListIterator<INode<Instruction, BasicBlock>> pos;
 }

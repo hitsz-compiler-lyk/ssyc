@@ -12,9 +12,10 @@ import java.util.List;
 
 public class PhiInst extends Instruction {
     public PhiInst(BasicBlock block, IRType type, SourceCodeSymbol symbol) {
-        super(block, InstKind.Phi, type);
+        super(InstKind.Phi, type);
         super.setSymbol(symbol);
 
+        this.waitFor = symbol;
         this.incompleted = true;
     }
 
@@ -91,11 +92,6 @@ public class PhiInst extends Instruction {
     }
 
     public int getIncomingSize() {
-        // 不需要每次都检查了 (检查代价比较高)
-//        if (getOperandSize() != getIncomingBlocks().size()) {
-//            throw new IRTypeException(this, "Phi must have the same amount of incoming variable and blocks");
-//        }
-//
         return getOperandSize();
     }
 
@@ -111,12 +107,24 @@ public class PhiInst extends Instruction {
     public void verify() throws IRVerifyException {
         try {
             super.verify();
-            ensure(getIncomingValues().size() == getIncomingBlocks().size(),
-                    "Phi must have the same amount of incoming variable and blocks");
+            final var valueCnt = getIncomingValues().size();
+            final var blockCnt = getIncomingBlocks().size();
+            ensure(valueCnt == blockCnt,
+                    "Phi must have the same amount of incoming value and blocks (%d vs %d)".formatted(valueCnt, blockCnt));
         } catch (SelfReferenceException e) {
             // Do nothing
         }
     }
 
+    public SourceCodeSymbol getWaitFor() {
+        return waitFor;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + "(for " + getWaitFor() + ")";
+    }
+
+    private final SourceCodeSymbol waitFor;
     private boolean incompleted;
 }

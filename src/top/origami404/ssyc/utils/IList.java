@@ -262,8 +262,10 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             // 更新迭代器本身的状态
             lastModified = IteratorActionKind.REMOVE;
 
+            // 让被删除的节点变成自由节点
+            tempNode.setParent(null);
+
             // 更新链的状态
-            tempNode.markedAsDeleted();
             prevTemp.ifPresent(n -> n.setNextOpt(nextTemp));
             nextTemp.ifPresent(n -> n.setPrevOpt(prevTemp));
 
@@ -281,14 +283,13 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
                 throw new IllegalStateException("Cannot call `set` before any movement");
             }
 
-            final var prevTemp = tempNode.getPrev();
-            final var nextTemp = tempNode.getNext();
+            // 维护新的节点的父母关系
+            newNode.getParentOpt().ifPresent(p -> p.remove(newNode.getOwner()));
+            newNode.setParent(IList.this);
 
             // 修改链表
-
-            // 将原来的节点标记为删除
-            // TODO: what if newNode == tempNode ???
-            tempNode.markedAsDeleted();
+            final var prevTemp = tempNode.getPrev();
+            final var nextTemp = tempNode.getNext();
 
             // 依次链接 prevTemp <-> newNode <-> nextTemp
             prevTemp.ifPresent(n -> n.setNext(newNode));
@@ -297,8 +298,6 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             newNode.setNextOpt(nextTemp);
             nextTemp.ifPresent(n -> n.setPrev(newNode));
 
-            // 维护新的节点的父母关系
-            newNode.setParent(IList.this);
         }
 
         @Override
@@ -306,6 +305,11 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             Log.debug("Add %s to %s".formatted(newNode.getValue(), IList.this.getOwner()));
             lastModified = IteratorActionKind.ADD;
 
+            // 维护新的节点的父母关系
+            newNode.getParentOpt().ifPresent(p -> p.remove(newNode.getOwner()));
+            newNode.setParent(IList.this);
+
+            // 然后把新节点放进来
             newNode.setPrev(prevNode);
             newNode.setNextOpt(prevNode.getNext());
 
@@ -315,8 +319,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
             // 插入后需要更新 prevNode
             prevNode = newNode;
 
-            // 维护新的节点的父母关系
-            newNode.setParent(IList.this);
+            // 更新当前 List 的状态
             IList.this.adjustSize(+1);
         }
     }

@@ -1,13 +1,12 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.Constant;
 
 public class UnaryOpInst extends Instruction {
-    public UnaryOpInst(BasicBlock block, InstKind opKind, Value arg) {
-        super(block, opKind, arg.getType());
+    public UnaryOpInst(InstKind opKind, Value arg) {
+        super(opKind, arg.getType());
         super.addOperandCO(arg);
     }
 

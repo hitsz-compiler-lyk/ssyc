@@ -70,7 +70,7 @@ public class Function extends Value
         return bblocks.get(0);
     }
 
-    public Iterable<BasicBlock> getBasicBlocks() {
+    public List<BasicBlock> getBasicBlocks() {
         ensureNotExternal();
         return this.getIList();
     }

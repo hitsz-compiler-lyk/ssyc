@@ -9,7 +9,7 @@ import top.origami404.ssyc.utils.Log;
 
 public class BrCondInst extends Instruction {
     public BrCondInst(BasicBlock currBlock, Value cond, BasicBlock trueBB, BasicBlock falseBB) {
-        super(currBlock, InstKind.BrCond, IRType.VoidTy);
+        super(InstKind.BrCond, IRType.VoidTy);
 
         super.addOperandCO(cond);
         super.addOperandCO(trueBB);

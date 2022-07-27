@@ -110,8 +110,8 @@ public abstract class Value {
     }
     protected void removeUser(User user) { userList.remove(user); }
 
-    private IRType type;
-    private List<User> userList;
+    private final IRType type;
+    private final List<User> userList;
     private Optional<SourceCodeSymbol> symbol;
 
     // 用于验证 IR 的方法

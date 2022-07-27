@@ -85,12 +85,12 @@ exp
     ;
 
 logOr
-    : logAnd '||' logOr
+    : logOr '||' logAnd
     | logAnd
     ;
 
 logAnd
-    : logRel '&&' logAnd
+    : logAnd '&&' logRel
     | logRel
     ;
 
@@ -98,13 +98,13 @@ logRel: relEq ;
 
 relEqOp: '==' | '!=' ;
 relEq
-    : relComp relEqOp relEq
+    : relEq relEqOp relComp
     | relComp
     ;
 
 relCompOp: '<' | '>' | '<=' | '>=' ;
 relComp
-    : relExp relCompOp relComp
+    : relComp relCompOp relExp
     | relExp
     ;
 
@@ -112,13 +112,13 @@ relExp: exp;
 
 expAddOp: '+' | '-' ;
 expAdd
-    : expMul expAddOp expAdd
+    : expAdd expAddOp expMul
     | expMul
     ;
 
 expMulOp: '*' | '/' | '%' ;
 expMul
-    : expUnary expMulOp expMul
+    : expMul expMulOp expUnary
     | expUnary
     ;
 
@@ -165,8 +165,9 @@ Ident: ('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '0'..'9' | '_')* ;
 // the expoent part of hex style cannot be ignored
 // the expoent part of hex style is still a `digit-sequence`, which `digit` is `DEC`
 FloatConst: FloatDec | FloatHex ;
-fragment FloatDec:               (DEC* '.' DEC*) (('e' | 'E') ('+' | '-')? DEC+)? ;
-fragment FloatHex: ('0x' | '0X') (HEX* '.' HEX*)  ('p' | 'P') ('+' | '-')? DEC+   ;
+fragment FloatDec: (((DEC+ '.') | ('.' DEC+) | (DEC+ '.' DEC+)) FloatDecExp?) | (DEC+ FloatDecExp) ;
+fragment FloatDecExp: (('e' | 'E') ('+' | '-')? DEC+) ;
+fragment FloatHex: ('0x' | '0X') (HEX+ | (HEX+ '.') | ('.' HEX+) | (HEX+ '.' HEX+))  ('p' | 'P') ('+' | '-')? DEC+   ;
 
 // See Ref: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf page 54
 // `0` is considered as an octal number

@@ -2,7 +2,9 @@ package top.origami404.ssyc.frontend.info;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.GlobalVar;
@@ -67,6 +69,10 @@ public class FinalInfo implements AnalysisInfo {
 
     public Value getDef(SourceCodeSymbol symbol) {
         return getDefOpt(symbol).orElseThrow(() -> new RuntimeException("Symbol not found: " + symbol));
+    }
+
+    public Set<Entry<SourceCodeSymbol, Value>> getAllEntries() {
+        return finals.entrySet();
     }
 
     private final Map<SourceCodeSymbol, Value> finals = new HashMap<>();

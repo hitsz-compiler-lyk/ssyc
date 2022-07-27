@@ -173,7 +173,7 @@ public class LLVMDumper {
             pir("fptosi <from> to i32", ((FloatToIntInst) inst).getFrom());
 
         } else if (inst instanceof BoolToIntInst) {
-            pir("zext i1 <from> to i32", ((BoolToIntInst) inst).getFrom());
+            pir("zext <from> to i32", ((BoolToIntInst) inst).getFrom());
 
         } else if (inst instanceof CmpInst) {
             final var cmp = (CmpInst) inst;
@@ -194,9 +194,9 @@ public class LLVMDumper {
                 final var type = phi.getType();
                 // final var zero = Constant.getZeroByType(type);
                 if (type.isInt()) {
-                    pir("add i32 0, 0 ; non-incoming phi");
+                    pir("add i32 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else if (type.isFloat()) {
-                    pir("fadd float 0, 0");
+                    pir("fadd float 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else {
                     throw new RuntimeException("Unknown type of empty phi: " + type);
                 }
