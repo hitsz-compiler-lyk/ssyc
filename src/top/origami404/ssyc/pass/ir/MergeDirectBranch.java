@@ -16,8 +16,7 @@ public class MergeDirectBranch implements IRPass {
 
     /** 合并两个紧密相连的块 (若 A -> B, A 的后继只有 B, B 的前继只有 A, 则它们是紧密相联的) */
     public static boolean mergeBlock(Function function) {
-        final var oldBlocks = new ArrayList<>(function.getBasicBlocks());
-        for (final var block : oldBlocks) {
+        for (final var block : function) {
             final var isUniqueSucc = block.getSuccessors().size() == 1;
             if (!isUniqueSucc) {
                 continue;
@@ -35,15 +34,12 @@ public class MergeDirectBranch implements IRPass {
             // succ 不可能有 phi. 因为若 succ 有 phi, 那么该 phi 必然都是一个参数的, 而这意味着它会被消除
             Log.ensure(succ.phis().size() == 0, "Block with unique predecessor should NOT have any phi");
             // 然后删除 block 的跳转, 再把 succ 的全部指令加进去 (这一步之后 succ 的跳转就是 block 的跳转了)
-            block.getIList().remove(block.getTerminator());
-            succ.nonPhis().forEach(block.getIList()::add);
-            // 先把 succ 从列表里删除, 防止 RAUW 把 block 换到 succ 在函数的基本块列表里的位置
-            // 对中间的块或许没有影响, 但是对第零个块(起始块)而言, 要是位置动了就坏了
-            succ.freeFromIList();
+            block.getTerminator().freeAll();
+            block.addAll(succ.nonPhis());
             // 然后把以 succ 为前继的所有块都换成 block
             succ.replaceAllUseWith(block);
             // 最后删除 succ
-            function.getIList().remove(succ);
+            succ.freeAll();
             // 基本块的后继是通过访问跳转指令获取的, 所以不需要额外维护
             return true;
         }

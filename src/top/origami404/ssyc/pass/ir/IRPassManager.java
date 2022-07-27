@@ -1,6 +1,7 @@
 package top.origami404.ssyc.pass.ir;
 
 import top.origami404.ssyc.ir.Module;
+import top.origami404.ssyc.utils.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,7 @@ public class IRPassManager {
         addPass(new FunctionInline());
         addPass(new ClearUselessFunction());
         addDefaultBlockClearUpPasses();
-        addPass(new InstructionUnique());
+        // addPass(new InstructionUnique());
         addDefaultBlockClearUpPasses();
     }
 
@@ -40,6 +41,7 @@ public class IRPassManager {
     private void runOne(int index, Module module) {
         try {
             final var pass = irPasses.get(index);
+            Log.info("Begin run #%d:%s".formatted(index, pass.getPassName()));
             pass.runPass(module);
         } catch (Exception e) {
             throw new IRPassException(index, e);
@@ -54,7 +56,7 @@ public class IRPassManager {
 
     public class IRPassException extends RuntimeException {
         IRPassException(int index, Exception cause) {
-            super("IRPass exception on #%d:%s".formatted(index, irPasses.get(index).getClass().getSimpleName()), cause);
+            super("IRPass exception on #%d:%s".formatted(index, irPasses.get(index).getPassName()), cause);
         }
     }
 }

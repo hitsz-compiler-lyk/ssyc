@@ -22,7 +22,7 @@ public class FunctionInline implements IRPass {
 
     public static boolean run(Function func) {
         boolean hasChanged = false;
-        for (final var block : func.getBasicBlocks()) {
+        for (final var block : func) {
             for (final var inst : block.nonPhiAndTerminator()) {
                 if (inst instanceof CallInst) {
                     final var call = (CallInst) inst;
@@ -39,7 +39,7 @@ public class FunctionInline implements IRPass {
     }
 
     private static boolean isSimpleFunction(Function func) {
-        for (final var block : func.getBasicBlocks()) {
+        for (final var block : func) {
             for (final var inst : block.nonPhiAndTerminator()) {
                 if ((inst instanceof CallInst) && !((CallInst) inst).getCallee().isExternal()) {
                     return false;
@@ -98,7 +98,7 @@ public class FunctionInline implements IRPass {
         final var callerFunc = callerBlock.getParent();
         final var prefix = "_" + randomPrefix();
 
-        final var splitResult = splitList(callerBlock.getIList(), callInst);
+        final var splitResult = splitList(callerBlock, callInst);
 
         // 处理 frontBB (该块的 Call 指令之前的指令要放的新块)
         final var frontBB = BasicBlock.createFreeBBlock(callerBBSym.newSymbolWithSuffix(prefix + "_inline_front"));
@@ -133,17 +133,13 @@ public class FunctionInline implements IRPass {
             backBB.addInstAtEnd(backInst);
         }
 
-        // 要先将 call 指令从原块中移除
-        // 否则下面可能的用返回值的 phi 指令替换其的操作会把 phi 从 exitBB 移到 BB 中
-        callInst.freeFromIList();
-
         // 处理 exitBB (内联的函数的 "return" 指令要跳转到的块)
         final var exitBB = BasicBlock.createFreeBBlock(callerBBSym.newSymbolWithSuffix(prefix + "_inline_exit"));
         final var returnType = calleeFunc.getType().getReturnType();
         if (!returnType.isVoid()) {
             // 构造用于存返回值的 Phi
             final var returnValueSym = new SourceCodeSymbol(calleeFunc.getFunctionSourceName() + prefix + "_inline_return", 0, 0);
-            final var returnValuePhi = new PhiInst(exitBB, calleeFunc.getType().getReturnType(), returnValueSym);
+            final var returnValuePhi = new PhiInst(calleeFunc.getType().getReturnType(), returnValueSym);
             exitBB.addInstAtEnd(returnValuePhi);
             // 将对 CallInst 的引用全部换成对返回值的 Phi 的引用
             callInst.replaceAllUseWith(returnValuePhi);
@@ -162,8 +158,12 @@ public class FunctionInline implements IRPass {
             paramToArg.put(params.get(i), args.get(i));
         }
 
+        // 将 call 指令从原块中移除并清理其使用的 operand
+        // 之所以现在才清理, 是因为前面获取形参到实参的映射部分还需要用到 CallInst 的 operand
+        callInst.freeAll();
+
         // 进行拷贝
-        final var cloner = new FunctionInlineCloner(callerFunc, calleeFunc, paramToArg, exitBB, prefix);
+        final var cloner = new FunctionInlineCloner(calleeFunc, paramToArg, exitBB, prefix);
         final var calleeNewBlocks = cloner.convert();
 
         // 插入从 frontBB 到内联进来的函数的 entry 块的跳转
@@ -182,9 +182,9 @@ public class FunctionInline implements IRPass {
         newBlocks.add(backBB);
 
         // 移除旧的块, 加入新的块
-        final var oldBlockIndex = callerFunc.getIList().indexOf(callerBlock);
-        callerFunc.getIList().remove(oldBlockIndex);
-        callerFunc.getIList().addAll(oldBlockIndex, newBlocks);
+        final var oldBlockIndex = callerFunc.indexOf(callerBlock);
+        callerBlock.freeAll();
+        callerFunc.addAll(oldBlockIndex, newBlocks);
     }
 
     static class SplitResult<T> {
@@ -215,18 +215,17 @@ public class FunctionInline implements IRPass {
     /** 完成函数内联所需要的基本块和指令的复制 */
     static class FunctionInlineCloner implements ValueVisitor<Value> {
         public FunctionInlineCloner(
-            Function caller, Function callee,
+            Function callee,
             Map<Parameter, Value> paramToArgs, BasicBlock exitBB, String prefix
         ) {
             this.oldToNew = new HashMap<>(paramToArgs);
-            this.caller = caller;
             this.callee = callee;
             this.exitBB = exitBB;
             this.prefix = prefix;
         }
 
         public List<BasicBlock> convert() {
-            for (final var block : callee.getBasicBlocks()) {
+            for (final var block : callee) {
                 final var newBlock = getOrCreate(block);
                 for (final var inst : block.allInst()) {
                     newBlock.addInstAtEnd(getOrCreate(inst));
@@ -236,12 +235,12 @@ public class FunctionInline implements IRPass {
             }
 
             if (!callee.getType().getReturnType().isVoid()) {
-                final var first = exitBB.getIList().get(0);
+                final var first = exitBB.get(0);
                 Log.ensure(first instanceof PhiInst);
                 ((PhiInst) first).setIncomingCO(returnValues);
             }
 
-            return callee.getBasicBlocks().stream().map(this::getOrCreate).collect(Collectors.toList());
+            return callee.stream().map(this::getOrCreate).collect(Collectors.toList());
         }
 
         public <T extends Value> T getOrCreate(T old) {
@@ -282,7 +281,6 @@ public class FunctionInline implements IRPass {
         @Override public Constant visitConstant(final Constant value) { return value; }
 
         private final Map<Value, Value> oldToNew;
-        private final Function caller;
         private final Function callee;
         private final BasicBlock exitBB;
         private final String prefix;
@@ -385,10 +383,8 @@ public class FunctionInline implements IRPass {
 
             @Override
             public Instruction visitPhiInst(final PhiInst inst) {
-                final var currBB = getOrCreate(inst.getParent());
-
                 // Phi 有可能自己引用自己, 所以必须事先插入定义
-                final var phi = new PhiInst(currBB, inst.getType(), inst.getSymbol());
+                final var phi = new PhiInst(inst.getType(), inst.getSymbol());
                 oldToNew.put(inst, phi);
 
                 final var incomingValues = inst.getIncomingValues().stream()

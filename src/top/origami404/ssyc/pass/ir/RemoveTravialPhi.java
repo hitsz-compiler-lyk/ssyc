@@ -18,7 +18,7 @@ public class RemoveTravialPhi implements IRPass {
     public static boolean removeTrivialPhi(Function function) {
         boolean flag = false;
 
-        for (final var block : function.getBasicBlocks()) {
+        for (final var block : function) {
             for (final var phi : block.phis()) {
                 // if (phi.getINode().isFree()) continue;
                 flag = tryRemovePhi(phi) != phi || flag;
@@ -35,13 +35,11 @@ public class RemoveTravialPhi implements IRPass {
     public static Value tryRemovePhi(PhiInst phi) {
         final var replacement = tryFindPhiReplacement(phi);
         if (replacement != phi) {
-            final var block = phi.getParent();
-
             // 如果能去掉
             // 首先删除原 phi 所有 incoming (会去除所有 user)
             phi.clearIncomingCO();
             // 然后将其从块中删除
-            block.getIList().remove(phi);
+            phi.freeFromIList();
             // 然后将其所有出现都替换掉
             phi.replaceAllUseWith(replacement);
         }
