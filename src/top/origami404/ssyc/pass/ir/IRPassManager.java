@@ -19,7 +19,8 @@ public class IRPassManager {
         addPass(new FunctionInline());
         addPass(new ClearUselessFunction());
         addDefaultBlockClearUpPasses();
-        // addPass(new InstructionUnique());
+        addPass(new ConstructDominatorInfo());
+        addPass(new SimpleGVN());
         addDefaultBlockClearUpPasses();
     }
 
