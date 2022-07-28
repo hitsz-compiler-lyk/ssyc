@@ -10,6 +10,7 @@ import java.util.Set;
 
 import top.origami404.ssyc.backend.arm.ArmBlock;
 import top.origami404.ssyc.backend.arm.ArmFunction;
+import top.origami404.ssyc.backend.arm.ArmInst;
 import top.origami404.ssyc.backend.arm.ArmInstBinary;
 import top.origami404.ssyc.backend.arm.ArmInstBranch;
 import top.origami404.ssyc.backend.arm.ArmInstCall;
@@ -171,7 +172,6 @@ public class CodeGenManager {
             }
         }
 
-
         for (var func : irModule.getFunctions()) {
             if (func.isExternal()) {
                 continue;
@@ -223,6 +223,17 @@ public class CodeGenManager {
 
             // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
             // MOVE Phi Incoming.Value
+            Map<ArmBlock, ArmInst> fristBranch = new HashMap<>();
+            for (var block : func.asElementView()) {
+                var armBlock = blockMap.get(block);
+                for (var inst : armBlock.asElementView()) {
+                    if (inst instanceof ArmInstBranch) {
+                        fristBranch.put(armBlock, inst);
+                        break;
+                    }
+                }
+            }
+
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
                 var phiIt = block.iterPhis();
@@ -235,11 +246,16 @@ public class CodeGenManager {
                         var src = incomingInfo.getValue();
                         var incomingBlock = blockMap.get(incomingInfo.getBlock());
                         var srcReg = resolveOperand(src, incomingBlock, funcInfo);
-                        new ArmInstMove(incomingBlock, phiReg, srcReg);
+                        if (fristBranch.containsKey(incomingBlock)) {
+                            var branch = fristBranch.get(incomingBlock);
+                            var move = new ArmInstMove(phiReg, srcReg);
+                            branch.insertBeforeCO(move);
+                        } else {
+                            new ArmInstMove(incomingBlock, phiReg, srcReg);
+                        }
                     }
                 }
             }
-
         }
     }
 
@@ -550,7 +566,7 @@ public class CodeGenManager {
     }
 
     private void resolveGEPInst(GEPInst inst, ArmBlock block, FunctionInfo funcinfo) {
-        var p = ((PointerIRTy)inst.getPtr().getType()).getBaseType();
+        var p = ((PointerIRTy) inst.getPtr().getType()).getBaseType();
         var indices = inst.getIndices();
         ArrayList<Integer> dim = new ArrayList<>();
 
@@ -1070,7 +1086,7 @@ public class CodeGenManager {
                 var vr = new IVirtualReg();
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 load.setFixOffset(true);
-                // load.insertBeforeCO(move);
+                load.insertBeforeCO(move);
             } else {
                 var prevInst = load.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
@@ -1091,7 +1107,7 @@ public class CodeGenManager {
                 var vr = new IVirtualReg();
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 store.setFixOffset(true);
-                // store.insertBeforeCO(move);
+                store.insertBeforeCO(move);
             } else {
                 var prevInst = store.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
