@@ -66,6 +66,44 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
         newNode.setNextOpt(next);
     }
 
+    public void freeFromIList() {
+        getParentOpt().ifPresent(p -> p.asINodeView().remove(this));
+    }
+
+    public void insertBeforeCO(INode<E, P> newPrev) {
+        // 先将对方从原来的 IList 中挪走, 然后将其 parent 设为自己的 IList
+        newPrev.freeFromIList();
+        newPrev.setParent(this.getParentOpt().orElse(null));
+
+        // 将原先的 prev 与 newPrev 连接
+        newPrev.setPrevOpt(getPrev());
+        getPrev().ifPresent(n -> n.setNext(newPrev));
+
+        // 将 newPrev 与自己连接
+        this.setPrev(newPrev);
+        newPrev.setNext(this);
+
+        // 调整自己的 IList 的大小
+        getParentOpt().ifPresent(l -> l.adjustSize(+1));
+    }
+
+    public void insertAfterCO(INode<E, P> newNext) {
+        // 先将对方从原来的 IList 中挪走, 然后将其 parent 设为自己的 IList
+        newNext.freeFromIList();
+        newNext.setParent(getParentOpt().orElse(null));
+
+        // 将原先的 next 与 newNext 连接
+        newNext.setNextOpt(getNext());
+        getNext().ifPresent(n -> n.setPrev(newNext));
+
+        // 将 newNext 与自己连接
+        this.setNext(newNext);
+        newNext.setPrev(this);
+
+        // 调整自己的 IList 的大小
+        getParentOpt().ifPresent(l -> l.adjustSize(+1));
+    }
+
     void setNext(INode<E, P> next) {
         this.next = Optional.ofNullable(next);
     }
