@@ -1,8 +1,8 @@
 int decInt = 123;
 int octInt = 012;
 int zeroInt = 0;                    // an oct
-int hexInt = 0xABCDEF0123;
-int hexInt2 = 0Xabcdef4567;
+int hexInt = 0xABCEF01;
+int hexInt2 = 0Xabcef45;
 
 float decFloat1 = 123.456;
 float decFloat2 = .456;
