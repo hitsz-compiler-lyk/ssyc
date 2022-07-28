@@ -32,4 +32,8 @@ public interface INodeOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, 
     default void insertAfterCO(E newNextElm) {
         getINode().insertAfterCO(newNextElm.getINode());
     }
+
+    default void replaceInIList(E newElm) {
+        getINode().replaceInIList(newElm.getINode());
+    }
 }

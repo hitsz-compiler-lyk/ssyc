@@ -29,6 +29,10 @@ public class PhiInst extends Instruction {
             // clearIncomingCO();
         }
 
+        setIncomingWithoutCheckIncomingBlockCO(incomingValues);
+    }
+
+    public void setIncomingWithoutCheckIncomingBlockCO(List<Value> incomingValues) {
         super.addAllOperandsCO(incomingValues);
     }
 
