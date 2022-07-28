@@ -1,13 +1,17 @@
 package top.origami404.ssyc.ir.inst;
 
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
-import top.origami404.ssyc.ir.*;
+import top.origami404.ssyc.ir.BasicBlock;
+import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.IRVerifyException.SelfReferenceException;
+import top.origami404.ssyc.ir.User;
+import top.origami404.ssyc.ir.Value;
+import top.origami404.ssyc.ir.constant.FloatConst;
+import top.origami404.ssyc.ir.constant.IntConst;
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.IListException;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
-import top.origami404.ssyc.utils.Log;
 
 public abstract class Instruction extends User
     implements INodeOwner<Instruction, BasicBlock>
@@ -65,6 +69,31 @@ public abstract class Instruction extends User
     @Override
     public String toString() {
         return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
+    }
+
+    /**
+     * 根据 kind 与 operands 计算一个哈希值以供参考
+     * <p>类型相同, 参数同一 ==> hashCode 相等</p>
+     * 哈希方法来自:  <a href="https://stackoverflow.com/a/113600">SO 回答</a>
+     * @return 哈希值
+     */
+    @Override
+    public int hashCode() {
+        // 使用 stream API 的话, 会导致 int 反复装箱开箱, 可能会导致性能问题
+        int hash = getKind().ordinal();
+
+        for (final var op : getOperands()) {
+            hash *= 37;
+            if (op instanceof IntConst) {
+                hash += ((IntConst) op).getValue();
+            } else if (op instanceof FloatConst) {
+                hash += Float.floatToIntBits(((FloatConst) op).getValue());
+            } else {
+                hash += System.identityHashCode(op);
+            }
+        }
+
+        return hash;
     }
 
     private final InstKind kind;

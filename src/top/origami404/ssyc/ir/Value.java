@@ -8,6 +8,7 @@ import java.util.Optional;
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
+import top.origami404.ssyc.utils.INodeOwner;
 
 public abstract class Value {
     public Value(IRType type) {

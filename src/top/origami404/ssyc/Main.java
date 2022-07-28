@@ -8,6 +8,7 @@ import org.antlr.v4.runtime.*;
 
 import top.origami404.ssyc.backend.codegen.CodeGenManager;
 import top.origami404.ssyc.frontend.*;
+import top.origami404.ssyc.pass.ir.IRPassManager;
 import top.origami404.ssyc.utils.LLVMDumper;
 
 public class Main {
@@ -38,6 +39,11 @@ public class Main {
             case "llvm" -> {
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
+                module.verifyAll();
+
+                final var mgr = new IRPassManager();
+                mgr.addDefaultPasses();
+                mgr.runAllPass(module);
                 module.verifyAll();
 
                 final var dumper = new LLVMDumper(outputStream);
