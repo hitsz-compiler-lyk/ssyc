@@ -21,7 +21,7 @@ public class BasicBlock extends User
 
     public static BasicBlock createBBlockCO(Function func, SourceCodeSymbol symbol) {
         final var bb = createFreeBBlock(symbol);
-        func.getIList().add(bb);
+        func.add(bb);
         return bb;
     }
 
@@ -76,7 +76,7 @@ public class BasicBlock extends User
     }
 
     public void addInstAtEnd(Instruction inst) {
-        getIList().add(inst);
+        add(inst);
     }
 
 
@@ -200,14 +200,24 @@ public class BasicBlock extends User
 
 
     //========================================== Value/User 相关 =====================================================//
-    @Override
-    public void replaceAllUseWith(final Value newValue) {
-        super.replaceAllUseWith(newValue);
 
-        ensure(newValue instanceof BasicBlock, "Can NOT use non-BBlock to replace a bblock");
-        final var newBlock = (BasicBlock) newValue;
+    public void freeAll() {
+        freeFromUseDef();
+        freeFromIList();
 
-        getParentOpt().ifPresent(func -> func.getIList().replaceFirst(this, newBlock));
+        if (!instructions.isEmpty()) {
+            Log.info("Free all on non-empty basic block: " + this);
+            instructions.forEach(Instruction::freeAll);
+        }
+    }
+
+    public void freeAllWithoutCheck() {
+        Log.info("Calling free all WITHOUT check on " + this);
+        removeOperandAllCO();
+        freeFromIList();
+        // 因为这是不检查版本, 块内的指令很有可能还在互相引用的状态, 直接调用 freeAll 会检查不通过
+        // 而不需要在调用 freeFromList 了 (它们所在的 IList 本身(this) 都要没了, 调用也没意义了)
+        instructions.forEach(Instruction::removeOperandAllCO);
     }
 
     @Override

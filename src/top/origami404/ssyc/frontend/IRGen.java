@@ -1160,7 +1160,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             // 首先删除原 phi 所有 incoming (会去除所有 user)
             phi.clearIncomingCO();
             // 然后将其从块中删除
-            block.getIList().remove(phi);
+            block.remove(phi);
             // 然后将其所有出现都替换为 end
             phi.replaceAllUseWith(end);
         }
@@ -1194,7 +1194,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
 
         // 没有定义的话, 就要往上递归去找
-        final var phi = new PhiInst(bblock, type, symbol);
+        final var phi = new PhiInst(type, symbol);
         phi.setParent(bblock);
         // 为了防止递归无限循环, 得先插一个空 phi 在这里作为定义
         versionInfo.newDef(symbol, phi);

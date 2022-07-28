@@ -1,6 +1,5 @@
 package top.origami404.ssyc.ir.inst;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.type.IRType;

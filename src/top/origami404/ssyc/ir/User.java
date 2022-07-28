@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import top.origami404.ssyc.ir.type.IRType;
 import top.origami404.ssyc.utils.Log;
@@ -45,6 +47,12 @@ public class User extends Value {
         return replaceOperandCO(idx, newValue);
     }
 
+    /** 删除其所有 operand 使其再也不会使用其他 Value */
+    public void freeFromUseDef() {
+        ensure(getUserList().isEmpty(), "Can NOT call freeFromUseDef on value that are current being used");
+        removeOperandAllCO();
+    }
+
     @Override
     public void verify() throws IRVerifyException {
         super.verify();
@@ -65,6 +73,10 @@ public class User extends Value {
         operand.addUser(this);
     }
 
+    protected void addAllOperandsCO(Collection<? extends Value> operands) {
+        operands.forEach(this::addOperandCO);
+    }
+
     protected Value removeOperandCO(Value value) {
         final var index = operandList.indexOf(value);
         return removeOperandCO(index);
@@ -77,8 +89,14 @@ public class User extends Value {
         return oldValue;
     }
 
-    protected void addAllOperandsCO(Collection<? extends Value> operands) {
-        operands.forEach(this::addOperandCO);
+    protected void removeOperandAllCO() {
+        for (var i = operandList.size() - 1; i >= 0; i--) {
+            removeOperandCO(i);
+        }
+    }
+
+    protected void removeOperandIfCO(Predicate<? super Value> predicate) {
+        Collections.unmodifiableList(operandList).stream().filter(predicate).forEach(this::removeOperandCO);
     }
 
     private final List<Value> operandList;

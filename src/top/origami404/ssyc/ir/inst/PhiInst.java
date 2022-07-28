@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class PhiInst extends Instruction {
-    public PhiInst(BasicBlock block, IRType type, SourceCodeSymbol symbol) {
+    public PhiInst(IRType type, SourceCodeSymbol symbol) {
         super(InstKind.Phi, type);
         super.setSymbol(symbol);
 
@@ -33,10 +33,7 @@ public class PhiInst extends Instruction {
     }
 
     public void clearIncomingCO() {
-        final var size = getIncomingSize();
-        for (int i = size - 1; i >= 0; i--) {
-            removeOperandCO(i);
-        }
+        removeOperandAllCO();
     }
 
     public boolean isIncompleted() {

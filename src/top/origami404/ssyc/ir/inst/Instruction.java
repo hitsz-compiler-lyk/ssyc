@@ -57,22 +57,14 @@ public abstract class Instruction extends User
         }
     }
 
-    @Override
-    public String toString() {
-        return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
+    public void freeAll() {
+        freeFromUseDef();
+        freeFromIList();
     }
 
     @Override
-    public void replaceAllUseWith(final Value newValue) {
-        super.replaceAllUseWith(newValue);
-        getParentOpt().ifPresentOrElse(block -> {
-            if (newValue instanceof Instruction) {
-                block.getIList().replaceFirst(this, (Instruction) newValue);
-            } else {
-                block.getIList().remove(this);
-            }
-
-        }, () -> Log.info("RAUW on free instruction"));
+    public String toString() {
+        return getKind() + ":" + getSymbolOpt().map(SourceCodeSymbol::toString).orElse("?") + "|" + getParentOpt().map(Value::toString).orElse("?");
     }
 
     private final InstKind kind;
