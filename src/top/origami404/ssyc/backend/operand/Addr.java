@@ -38,10 +38,6 @@ public class Addr extends Operand {
 
     @Override
     public String print() {
-        if (isGlobal) {
-            return "=" + label;
-        } else {
-            return label;
-        }
+        return label;
     }
 }

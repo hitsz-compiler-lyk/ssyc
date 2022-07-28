@@ -10,7 +10,6 @@ import java.util.Set;
 
 import top.origami404.ssyc.backend.arm.ArmBlock;
 import top.origami404.ssyc.backend.arm.ArmFunction;
-import top.origami404.ssyc.backend.arm.ArmInst;
 import top.origami404.ssyc.backend.arm.ArmInstBinary;
 import top.origami404.ssyc.backend.arm.ArmInstBranch;
 import top.origami404.ssyc.backend.arm.ArmInstCall;
@@ -117,8 +116,8 @@ public class CodeGenManager {
 
         int acCnt = 0;
         for (var val : irModule.getArrayConstants()) {
-            arrayConstMap.put(val, "meminit.array." + acCnt);
-            valMap.put(val, new Addr("meminit.array." + acCnt++, true));
+            arrayConstMap.put(val, "meminit_array_" + acCnt);
+            valMap.put(val, new Addr("meminit_array_" + acCnt++, true));
         }
 
         // 添加Global信息
@@ -130,6 +129,7 @@ public class CodeGenManager {
             if (func.isExternal()) {
                 var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getType().getParamTypes().size());
                 externalFunctions.add(armFunc);
+                funcMap.put(func, armFunc);
                 continue;
             }
 
@@ -138,8 +138,10 @@ public class CodeGenManager {
             functions.add(armFunc);
             funcMap.put(func, armFunc);
 
-            for (var block : func.asElementView()) {
-                var armblock = new ArmBlock(armFunc, block.getLabelName());
+            var blocks = func.asElementView();
+            for (int i = 0; i < blocks.size(); i++) {
+                var block = blocks.get(i);
+                var armblock = new ArmBlock(armFunc, block.getSymbol().getName() + "_" + i);
                 blockMap.put(block, armblock);
             }
 
@@ -167,37 +169,46 @@ public class CodeGenManager {
                     }
                 }
             }
+        }
+
+
+        for (var func : irModule.getFunctions()) {
+            if (func.isExternal()) {
+                continue;
+            }
+            var armFunc = funcMap.get(func);
+            var funcInfo = armFunc.getFuncInfo();
 
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
 
                 for (var inst : block.asElementView()) {
                     if (inst instanceof BinaryOpInst) {
-                        resolveBinaryInst((BinaryOpInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveBinaryInst((BinaryOpInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof UnaryOpInst) {
-                        resolveUnaryInst((UnaryOpInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveUnaryInst((UnaryOpInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof LoadInst) {
-                        resolveLoadInst((LoadInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveLoadInst((LoadInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof StoreInst) {
-                        resolveStoreInst((StoreInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveStoreInst((StoreInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof CAllocInst) {
-                        resolveCAllocInst((CAllocInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveCAllocInst((CAllocInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof GEPInst) {
-                        resolveGEPInst((GEPInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveGEPInst((GEPInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof CallInst) {
-                        resolveCallInst((CallInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveCallInst((CallInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof ReturnInst) {
-                        resolveReturnInst((ReturnInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveReturnInst((ReturnInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof IntToFloatInst) {
-                        resolveIntToFloatInst((IntToFloatInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveIntToFloatInst((IntToFloatInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof FloatToIntInst) {
-                        resolveFloatToIntInst((FloatToIntInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveFloatToIntInst((FloatToIntInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof BrInst) {
-                        resolveBrInst((BrInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveBrInst((BrInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof BrCondInst) {
-                        resolveBrCondInst((BrCondInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveBrCondInst((BrCondInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof MemInitInst) {
-                        resolveMemInitInst((MemInitInst) inst, armBlock, armFunc.getFuncInfo());
+                        resolveMemInitInst((MemInitInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof CmpInst) {
                         continue;
                     } else if (inst instanceof BoolToIntInst) {
@@ -218,12 +229,12 @@ public class CodeGenManager {
                 while (phiIt.hasNext()) {
                     var phi = phiIt.next();
                     var incomingInfoIt = phi.getIncomingInfos().iterator();
-                    var phiReg = resolveOperand(phi, armBlock, armFunc.getFuncInfo());
+                    var phiReg = resolveOperand(phi, armBlock, funcInfo);
                     while (incomingInfoIt.hasNext()) {
                         var incomingInfo = incomingInfoIt.next();
                         var src = incomingInfo.getValue();
                         var incomingBlock = blockMap.get(incomingInfo.getBlock());
-                        var srcReg = resolveOperand(src, incomingBlock, armFunc.getFuncInfo());
+                        var srcReg = resolveOperand(src, incomingBlock, funcInfo);
                         new ArmInstMove(incomingBlock, phiReg, srcReg);
                     }
                 }
@@ -357,25 +368,23 @@ public class CodeGenManager {
     }
 
     private Operand resolveOperand(Value val, ArmBlock block, FunctionInfo funcinfo) {
-        if (val instanceof Constant) {
-            return resolveImmOperand((Constant) val, block, funcinfo);
-        } else if (val instanceof Parameter && funcinfo.getParameter().contains(val)) {
+        if (val instanceof Parameter && funcinfo.getParameter().contains(val)) {
             return resolveParameter((Parameter) val, block, funcinfo);
         } else if (val instanceof GlobalVar) {
             return resolveGlobalVar((GlobalVar) val, block, funcinfo);
+        } else if (valMap.containsKey(val)) {
+            return valMap.get(val);
+        } else if (val instanceof Constant) {
+            return resolveImmOperand((Constant) val, block, funcinfo);
         } else {
-            if (valMap.containsKey(val)) {
-                return valMap.get(val);
+            Operand vr;
+            if (val.getType().isFloat()) {
+                vr = new FVirtualReg();
             } else {
-                Operand vr;
-                if (val.getType().isFloat()) {
-                    vr = new FVirtualReg();
-                } else {
-                    vr = new IVirtualReg();
-                }
-                valMap.put(val, vr);
-                return vr;
+                vr = new IVirtualReg();
             }
+            valMap.put(val, vr);
+            return vr;
         }
     }
 
@@ -444,7 +453,7 @@ public class CodeGenManager {
             case IMod: {
                 // x % y == x - (x / y) *y
                 lhsReg = resolveLhsOperand(lhs, block, funcinfo);
-                rhsReg = resolveOperand(rhs, block, funcinfo);
+                rhsReg = resolveLhsOperand(rhs, block, funcinfo); // 实际上rhs 也会再Ternay变成 lhs
                 dstReg = resolveOperand(dst, block, funcinfo);
                 var vr = new IVirtualReg();
                 // SDIV VR inst.getLHS() inst.getRHS()
@@ -452,6 +461,7 @@ public class CodeGenManager {
                 // MLS inst VR inst.getRHS() inst.getLHS()
                 // inst = inst.getLHS() - VR * inst.getRHS()
                 new ArmInstTernay(block, ArmInstKind.IMulSub, dstReg, vr, rhsReg, lhsReg);
+                break;
             }
             case FAdd: {
                 if (lhs instanceof Constant) {
@@ -465,6 +475,7 @@ public class CodeGenManager {
                 }
                 // VADD.F32 inst inst.getLHS() inst.getRHS()
                 new ArmInstBinary(block, ArmInstKind.FAdd, dstReg, lhsReg, rhsReg);
+                break;
             }
             case FSub: {
                 lhsReg = resolveLhsOperand(lhs, block, funcinfo);
@@ -472,6 +483,7 @@ public class CodeGenManager {
                 dstReg = resolveOperand(dst, block, funcinfo);
                 // VSUB.F32 inst inst.getLHS() inst.getRHS()
                 new ArmInstBinary(block, ArmInstKind.FSub, dstReg, lhsReg, rhsReg);
+                break;
             }
             case FMul: {
                 if (lhs instanceof Constant) {
@@ -485,6 +497,7 @@ public class CodeGenManager {
                 }
                 // VMUL.F32 inst inst.getLHS() inst.getRHS()
                 new ArmInstBinary(block, ArmInstKind.FMul, dstReg, lhsReg, rhsReg);
+                break;
             }
             case FDiv: {
                 lhsReg = resolveLhsOperand(lhs, block, funcinfo);
@@ -492,6 +505,7 @@ public class CodeGenManager {
                 dstReg = resolveOperand(dst, block, funcinfo);
                 // VDIV.F32 inst inst.getLHS() inst.getRHS()
                 new ArmInstBinary(block, ArmInstKind.FDiv, dstReg, lhsReg, rhsReg);
+                break;
             }
             default: {
                 Log.ensure(false, "binary inst not implement");
@@ -536,7 +550,7 @@ public class CodeGenManager {
     }
 
     private void resolveGEPInst(GEPInst inst, ArmBlock block, FunctionInfo funcinfo) {
-        var p = inst.getType().getBaseType();
+        var p = ((PointerIRTy)inst.getPtr().getType()).getBaseType();
         var indices = inst.getIndices();
         ArrayList<Integer> dim = new ArrayList<>();
 
@@ -768,7 +782,7 @@ public class CodeGenManager {
     private void resolveMemInitInst(MemInitInst inst, ArmBlock block, FunctionInfo funcinfo) {
         var dst = resolveOperand(inst.getArrayPtr(), block, funcinfo);
         var ac = inst.getInit();
-        int size = ((PointerIRTy) inst.getType()).getSize();
+        int size = inst.getInit().getType().getSize();
         if (ac instanceof ZeroArrayConst) {
             new ArmInstMove(block, new IPhyReg("r0"), dst);
             new ArmInstMove(block, new IPhyReg("r1"), new IImm(0));
@@ -791,8 +805,9 @@ public class CodeGenManager {
         var arm = new StringBuilder();
         arm.append(".arch armv7ve\n");
         if (!globalvars.isEmpty() || !arrayConstMap.isEmpty()) {
-            arm.append("\n\n.data\n.align 4\n");
+            arm.append("\n\n.data\n.align 4\n\n");
         }
+        Set<ArrayConst> acSet = new HashSet<>();
         for (var entry : globalvars.entrySet()) {
             var key = entry.getKey();
             var val = entry.getValue().getInit();
@@ -802,6 +817,7 @@ public class CodeGenManager {
             } else if (val instanceof FloatConst) {
                 arm.append(codeGenFloatConst((FloatConst) val));
             } else if (val instanceof ArrayConst) {
+                acSet.add((ArrayConst) val);
                 arm.append(codeGenArrayConst((ArrayConst) val));
             }
             arm.append("\n");
@@ -809,6 +825,9 @@ public class CodeGenManager {
         for (var entry : arrayConstMap.entrySet()) {
             var key = entry.getValue();
             var val = entry.getKey();
+            if (acSet.contains(val)) {
+                continue;
+            }
             arm.append(key + ":\n");
             arm.append(codeGenArrayConst(val));
             arm.append("\n");
@@ -863,6 +882,7 @@ public class CodeGenManager {
             arm.append(prologuePrint);
 
             for (var block : func.asElementView()) {
+                arm.append(block.getLabel() + ":\n");
                 for (var inst : block.asElementView()) {
                     arm.append(inst.print());
                 }
@@ -881,6 +901,9 @@ public class CodeGenManager {
     }
 
     private String codeGenArrayConst(ArrayConst val) {
+        if (val instanceof ZeroArrayConst) {
+            return "\t" + ".zero" + "\t" + 4 * val.getType().getSize() + "\n";
+        }
         var sb = new StringBuilder();
         for (var elem : val.getRawElements()) {
             if (elem instanceof IntConst) {
@@ -1047,7 +1070,7 @@ public class CodeGenManager {
                 var vr = new IVirtualReg();
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 load.setFixOffset(true);
-                load.insertBeforeCO(move);
+                // load.insertBeforeCO(move);
             } else {
                 var prevInst = load.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
@@ -1068,7 +1091,7 @@ public class CodeGenManager {
                 var vr = new IVirtualReg();
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 store.setFixOffset(true);
-                store.insertBeforeCO(move);
+                // store.insertBeforeCO(move);
             } else {
                 var prevInst = store.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");

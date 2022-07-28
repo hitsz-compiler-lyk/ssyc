@@ -25,7 +25,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             this.func = func;
             this.stackSize = 0;
             this.finalstackSize = 0;
-            this.prologue = new ArmBlock(func, "." + func.name + ".prologue");
+            this.prologue = new ArmBlock(func, func.name + "_prologue");
             this.iUsedRegs = new ArrayList<>();
             this.fUsedRegs = new ArrayList<>();
             this.stackObject = new ArrayList<>();
@@ -94,11 +94,6 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     private FunctionInfo funcInfo;
 
     private int paramsCnt;
-
-    @Override
-    public String toString() {
-        return "";
-    }
 
     @Override
     public IList<ArmBlock, ArmFunction> getIList() {

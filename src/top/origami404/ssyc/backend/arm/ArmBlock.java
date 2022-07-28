@@ -68,11 +68,6 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
     private BlockLiveInfo blockLiveInfo;
 
     @Override
-    public String toString() {
-        return "";
-    }
-
-    @Override
     public INode<ArmBlock, ArmFunction> getINode() {
         return inode;
     }
@@ -127,16 +122,10 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     public ArmBlock(ArmFunction func, String label) {
         this.label = label;
-<<<<<<< HEAD
         this.pred = new ArrayList<ArmBlock>();
         this.insts = new IList<ArmInst, ArmBlock>(this);
-        this.inode = new INode<>(this, func);
+        this.inode = new INode<ArmBlock, ArmFunction>(this);
         func.asElementView().add(this);
-=======
-        func.asElementView().add(this);
-        this.pred = new ArrayList<>();
-        this.insts = new IList<>(this);
->>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
     }
 
     public ArmBlock(String label) {

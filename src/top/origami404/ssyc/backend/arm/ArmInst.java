@@ -68,10 +68,12 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             // ArmInstMove
             put(ArmInstKind.MOV, 1);
 
-            // ArmInstCall ArmInstReturn
-            for (var kind : Arrays.asList(ArmInstKind.Call, ArmInstKind.Return)) {
-                put(kind, 0);
-            }
+            // ArmInstCall
+            put(ArmInstKind.Return, 0);
+
+            // ArmInstCall
+            // 引用的参数r0-r3和lr都是被定值的
+            put(ArmInstKind.Call, Integer.MAX_VALUE);
 
             // ArmInstLoad
             put(ArmInstKind.LOAD, 1);
@@ -111,7 +113,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     private Set<Reg> regUse, regDef;
     private List<Operand> operands;
     private ArmCondType cond;
-    private int defCnt;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
@@ -132,14 +133,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public Set<Reg> getRegDef() {
         return regDef;
-    }
-
-    public int getDefCnt() {
-        return defCnt;
-    }
-
-    public void setDefCnt(int defCnt) {
-        this.defCnt = defCnt;
     }
 
     public void addRegUse(Operand r) {
@@ -176,9 +169,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void initOperands(Operand... op) {
         var defCnt = defCntMap.get(inst);
-        if (inst.equals(ArmInstKind.Call)) {
-            defCnt = this.defCnt;
-        }
         for (int i = 0; i < op.length; i++) {
             operands.add(op[i]);
             if (i < defCnt) {
@@ -194,9 +184,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceOperand(int idx, Operand op) {
         var defCnt = defCntMap.get(inst);
-        if (inst.equals(ArmInstKind.Call)) {
-            defCnt = this.defCnt;
-        }
         var oldOp = operands.get(idx);
         if (oldOp instanceof Reg) {
             ((Reg) oldOp).removeInst(this);
@@ -224,9 +211,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceDefOperand(Operand oldOp, Operand op) {
         var defCnt = defCntMap.get(inst);
-        if (inst.equals(ArmInstKind.Call)) {
-            defCnt = this.defCnt;
-        }
         for (int i = 0; i < defCnt; i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);
@@ -236,9 +220,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void replaceUseOperand(Operand oldOp, Operand op) {
         var defCnt = defCntMap.get(inst);
-        if (inst.equals(ArmInstKind.Call)) {
-            defCnt = this.defCnt;
-        }
         for (int i = defCnt; i < operands.size(); i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);

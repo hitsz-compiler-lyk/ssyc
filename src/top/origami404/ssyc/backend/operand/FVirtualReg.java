@@ -12,7 +12,7 @@ public class FVirtualReg extends Reg {
     }
 
     @Override
-    public String toString() {
+    public String print() {
         return "@FV" + this.getId();
     }
 

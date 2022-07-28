@@ -20,15 +20,11 @@ public class ArmInstCall extends ArmInst {
         this.func = func;
         block.asElementView().add(this);
         int defCnt = Integer.min(func.getParamsCnt(), 4);
-        this.setDefCnt(defCnt + 1);
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < defCnt; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
-        for (int i = 0; i < defCnt; i++) {
-            ops.add(new IPhyReg(i));
-        }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
     }
 
@@ -37,15 +33,11 @@ public class ArmInstCall extends ArmInst {
         this.funcName = funcName;
         block.asElementView().add(this);
         int defCnt = Integer.min(paramsCnt, 4);
-        this.setDefCnt(defCnt + 1);
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < defCnt; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
-        for (int i = 0; i < defCnt; i++) {
-            ops.add(new IPhyReg(i));
-        }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
     }
 

@@ -2,6 +2,7 @@ package top.origami404.ssyc.backend.arm;
 
 import top.origami404.ssyc.backend.operand.IImm;
 import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.utils.Log;
 
 // 0: dst     RegDef
 // 1: addr    RegUse
@@ -109,19 +110,14 @@ public class ArmInstLoad extends ArmInst {
         }
 
         if (addr.IsAddr()) {
-<<<<<<< HEAD
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t" + addr.print()
-                    + "\n";
+            Log.ensure(!dst.IsFloat(), "load addr into vfp");
+            return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + addr.print() + "\n" +
+                    "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + addr.print() + "\n";
+        } else if (offset.equals(new IImm(0))) {
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print() + "]\n";
         } else {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + "]\n";
-=======
-            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t" + addr
-                    + "\n";
-        } else {
-            return "\t" + isVector + "ldr" + getCond() + "\t" + dst + ",\t[" + addr
-                    + ",\t" + offset.toString() + "]\n";
->>>>>>> dfac878edd9308c304b5b7283c261c24dbc74992
         }
     }
 
