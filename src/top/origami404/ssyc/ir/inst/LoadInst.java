@@ -2,7 +2,6 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.Optional;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
@@ -34,10 +33,5 @@ public class LoadInst extends Instruction {
 
         final var ptrType = getPtr().getType();
         ensure(ptrType instanceof PointerIRTy, "Type of an argument of Load must be a pointer");
-
-        // assert ptrType instanceof PointerIRTy;
-        // final var baseType = ((PointerIRTy) ptrType).getBaseType();
-        // ensure(baseType.isInt() || baseType.isFloat(),
-        //         "Type of an argument of Load must be a pointer to Int or Float");
     }
 }

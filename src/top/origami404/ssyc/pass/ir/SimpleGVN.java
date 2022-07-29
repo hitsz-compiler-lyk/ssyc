@@ -1,12 +1,10 @@
 package top.origami404.ssyc.pass.ir;
 
 import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.pass.ir.ConstructDominatorInfo.DominatorInfo;
 import top.origami404.ssyc.utils.ChainMap;
-import top.origami404.ssyc.utils.Log;
 
 import java.util.*;
 

@@ -29,3 +29,6 @@ test-data/**/*.exec
 # Idea Projects
 .idea
 *.iml
+
+# Test script log
+ssyc.log

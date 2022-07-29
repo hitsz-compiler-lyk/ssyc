@@ -8,10 +8,8 @@ import java.util.Optional;
 import top.origami404.ssyc.frontend.SourceCodeSymbol;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.utils.INodeOwner;
-
 public abstract class Value {
-    public Value(IRType type) {
+    protected Value(IRType type) {
         this.type = type;
         this.userList = new ArrayList<>();
         this.symbol = Optional.empty();
@@ -39,7 +37,6 @@ public abstract class Value {
     public void replaceAllUseWith(Value newValue) {
         final var oldUserList = new ArrayList<>(userList);
         oldUserList.forEach(u -> u.replaceOperandCO(this, newValue));
-        // userList = new ArrayList<>();
         ensure(userList.isEmpty(), "User list should be empty after RAUW");
     }
 
@@ -131,7 +128,6 @@ public abstract class Value {
     }
 
     private void checkPointerAndArrayType() {
-        final var type = getType();
         // 对全局变量, 有可能出现指针的指针类型 (因为数组退化的缘故)
         if (type instanceof ArrayIRTy) {
             ensure(((ArrayIRTy) type).getElementType().canBeElement(),

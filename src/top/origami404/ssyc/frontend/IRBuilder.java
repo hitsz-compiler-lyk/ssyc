@@ -1,7 +1,6 @@
 package top.origami404.ssyc.frontend;
 
 import java.util.List;
-import java.util.ListIterator;
 import java.util.stream.Collectors;
 
 import top.origami404.ssyc.frontend.folder.CondFolder;
@@ -16,7 +15,6 @@ import top.origami404.ssyc.ir.constant.Constant;
 import top.origami404.ssyc.ir.inst.*;
 import top.origami404.ssyc.ir.type.ArrayIRTy;
 import top.origami404.ssyc.ir.type.IRType;
-import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.Log;
 
 public class IRBuilder {
@@ -136,10 +134,6 @@ public class IRBuilder {
 
     private static void addInfos(BasicBlock bb) {
         bb.addIfAbsent(CurrDefInfo.class, CurrDefInfo::new);
-    }
-
-    private static ListIterator<INode<Instruction, BasicBlock>> getLastINodeItr(BasicBlock bb) {
-        return bb.asINodeView().listIterator(bb.getInstructionCount());
     }
 
     public static void refold(Instruction val) {

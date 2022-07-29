@@ -48,9 +48,9 @@ public class FunctionInline implements IRPass {
         return true;
     }
 
+    private static Random rng = new Random();
     static String randomPrefix() {
         final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        final var rng = new Random();
 
         final var buffer = new char[4];
         for (int i = 0; i < 4; i++) {
@@ -241,6 +241,7 @@ public class FunctionInline implements IRPass {
             return callee.stream().map(this::getOrCreate).collect(Collectors.toList());
         }
 
+        @SuppressWarnings("unchecked")
         public <T extends Value> T getOrCreate(T old) {
             return (T) visit(old);
         }
@@ -328,10 +329,11 @@ public class FunctionInline implements IRPass {
 
             @Override
             public Instruction visitCallInst(final CallInst inst) {
-                final var callee = getOrCreate(inst.getCallee());
+                // callee 被上层类用了, 为了防止重名导致不知名的冲突故改用
+                final var calleeOfCall = getOrCreate(inst.getCallee());
                 final var args = inst.getArgList().stream()
                     .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
-                return new CallInst(callee, args);
+                return new CallInst(calleeOfCall, args);
             }
 
             @Override

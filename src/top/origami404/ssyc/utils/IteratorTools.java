@@ -1,10 +1,8 @@
 package top.origami404.ssyc.utils;
 
-import top.origami404.ssyc.ir.inst.Instruction;
-
 import java.util.*;
 
-public class IteratorTools {
+public final class IteratorTools {
     public static <E> List<E> iterToListView(Iterable<E> iter) {
         final var list = new ArrayList<E>();
         iter.forEach(list::add);
@@ -72,4 +70,6 @@ public class IteratorTools {
     public static <E> boolean isUnique(List<E> list) {
         return unique(list).equals(list);
     }
+
+    private IteratorTools() {}
 }
