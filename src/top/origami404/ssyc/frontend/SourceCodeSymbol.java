@@ -56,6 +56,13 @@ public class SourceCodeSymbol {
     }
 
     /**
+     * @return "名字_行号_列号"
+     */
+    public String getAsmName() {
+        return "%s_%d_%d".formatted(name, line, column);
+    }
+
+    /**
      * @return "@名字"
      */
     public String getLLVMExternal() {
