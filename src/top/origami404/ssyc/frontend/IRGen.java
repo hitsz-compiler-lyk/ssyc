@@ -64,6 +64,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         addExternalFunc("putarray", Void, Int, PtrInt);
         addExternalFunc("putfloat", Void, Float);
         addExternalFunc("putfarray", Void, Int, PtrFloat);
+
+        addExternalFunc("_sysy_starttime", Void, Int);
+        addExternalFunc("_sysy_stoptime", Void, Int);
     }
 
     private void addExternalFunc(String funcName, IRType returnType, IRType... paramTypes) {
@@ -665,13 +668,26 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         } else {
             // function call
-            final var funcName = ctx.Ident().getText();
+            final var funcNameRaw = ctx.Ident().getText();
+            final var funcName = switch (funcNameRaw) {
+                case "starttime" -> "_sysy_starttime";
+                case "stoptime" -> "_sysy_stoptime";
+                default -> funcNameRaw;
+            };
+
             final var func = symbolTable.resolveSymbolOpt(funcName)
                 .flatMap(finalInfo::getDefOpt)
                 .map(Function.class::cast)
                 .orElseThrow(() ->  new SemanticException(ctx, "Unknown func: " + funcName));
 
-            final var args = visitFuncArgList(ctx.funcArgList());
+            final List<Value> args = switch (funcName) {
+                // 处理性能样例里两个特殊的宏展开
+                case "_sysy_starttime", "_sysy_stoptime" -> {
+                    final var line = ctx.Ident().getSymbol().getLine();
+                    yield new ArrayList<>(List.of(Constant.createIntConstant(line)));
+                }
+                default -> visitFuncArgList(ctx.funcArgList());
+            };
             final var paramTypes = func.getType().getParamTypes();
 
             if (args.size() != paramTypes.size()) {
