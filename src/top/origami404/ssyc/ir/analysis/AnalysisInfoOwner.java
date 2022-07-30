@@ -39,5 +39,14 @@ public interface AnalysisInfoOwner {
         }
     }
 
+    default <T extends AnalysisInfo> void removeAnalysisInfo(Class<T> cls) {
+        final var name = cls.getSimpleName();
+        if (!containsAnalysisInfo(cls)) {
+            throw new RuntimeException("Try to remove a non-exist info: " + name);
+        } else {
+            getInfoMap().remove(name);
+        }
+    }
+
     public Map<String, AnalysisInfo> getInfoMap();
 }

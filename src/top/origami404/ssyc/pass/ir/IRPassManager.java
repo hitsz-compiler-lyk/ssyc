@@ -25,12 +25,14 @@ public class IRPassManager {
     }
 
     public void addDefaultBlockClearUpPasses() {
+        // TODO: 思考到底应该如何调和这堆东西
         addPass(new ClearUnreachableBlock());
         addDefaultInstructionClearUpPasses();
         addPass(new MergeDirectBranch());
         addDefaultInstructionClearUpPasses();
         addPass(new ClearUnreachableBlock());
         addDefaultInstructionClearUpPasses();
+        addPass(new ClearUnreachableBlock());
     }
 
     public void addDefaultInstructionClearUpPasses() {

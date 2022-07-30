@@ -5,98 +5,95 @@ import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.utils.Log;
+import top.origami404.ssyc.pass.ir.dataflow.*;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
-public class ConstructDominatorInfo implements IRPass {
+public class ConstructDominatorInfo
+    extends ForwardDataFlowPass<Set<BasicBlock>, ConstructDominatorInfo.DominatorInfo>
+{
     @Override
-    public void runPass(final Module module) {
-        module.getNonExternalFunction().forEach(DominatorInfo::run);
+    protected Set<BasicBlock> transfer(BasicBlock block, Set<BasicBlock> in) {
+        return in;
     }
 
-    static class DominatorInfo implements AnalysisInfo {
-        static void run(Function function) {
-            insertInfo(function);
-            iterDomUntilFixPoint(function);
-            calcIDom(function);
-            buildDomTree(function);
+    @Override
+    protected Set<BasicBlock> meet(BasicBlock block, List<Set<BasicBlock>> predOuts) {
+        if (predOuts.isEmpty()) {
+            // must be entry block
+            Log.ensure(block == block.getParent().getEntryBBlock(),
+                "Non-entry block %s does NOT have any pred".formatted(block));
+            return entryIn(block);
         }
 
-        static void insertInfo(Function function) {
-            for (final var block : function) {
-                final var allBlocks = new LinkedHashSet<>(function);
-                block.addAnalysisInfo(new DominatorInfo(block, allBlocks));
+        final var result = new LinkedHashSet<>(predOuts.get(0));
+        predOuts.forEach(result::retainAll);
+        return result;
+    }
+
+    @Override
+    protected Set<BasicBlock> topElement(BasicBlock block) {
+        return new LinkedHashSet<>(block.getParent());
+    }
+
+    @Override
+    protected Set<BasicBlock> entryIn(BasicBlock block) {
+        return Set.of(block);
+    }
+
+    @Override
+    protected Class<DominatorInfo> getInfoClass() {
+        return DominatorInfo.class;
+    }
+
+    @Override
+    protected DominatorInfo createInfo(BasicBlock block) {
+        return new DominatorInfo(block);
+    }
+
+    @Override
+    public void runOnFunction(Function func) {
+        super.runOnFunction(func);
+        calcIDom(func);
+        buildDomTree(func);
+    }
+
+    void calcIDom(Function function) {
+        for (final var block : function) {
+            final var info = DominatorInfo.getInfo(block);
+            info.idom = info.calcImmediateDom();
+        }
+    }
+
+    void buildDomTree(Function function) {
+        for (final var block : function) {
+            final var info = DominatorInfo.getInfo(block);
+            final var idom = info.getImmediateDom();
+
+            if (idom != block) {
+                info.domTreeChildren.add(block);
+            } else {
+                Log.ensure(function.getEntryBBlock() == block);
             }
-
-            final var entry = function.getEntryBBlock();
-            final var entryDom = dom(entry);
-            entryDom.clear();
-            entryDom.add(entry);
         }
+    }
 
-        static void iterDomUntilFixPoint(Function function) {
-            final var blocksWithoutEntry = new LinkedHashSet<>(function);
-            blocksWithoutEntry.remove(function.getEntryBBlock());
-
-            boolean hasChange = true;
-            while (hasChange) {
-                hasChange = false;
-
-                for (final var block : blocksWithoutEntry) {
-                    final var newDom = new LinkedHashSet<>(function);
-                    block.getPredecessors().stream().map(DominatorInfo::dom).forEach(newDom::retainAll);
-                    newDom.add(block);
-                    hasChange = getInfo(block).setDom(newDom) || hasChange;
-                }
-            }
-        }
-
-        static void calcIDom(Function function) {
-            for (final var block : function) {
-                final var info = getInfo(block);
-                info.idom = info.calcImmediateDom();
-            }
-        }
-
-        static void buildDomTree(Function function) {
-            for (final var block : function) {
-                final var info = getInfo(block);
-                final var idom = info.getImmediateDom();
-
-                if (idom != block) {
-                    info.domTreeChildren.add(block);
-                } else {
-                    Log.ensure(function.getEntryBBlock() == block);
-                }
-            }
-        }
-
-
-
-        DominatorInfo(BasicBlock self, Set<BasicBlock> init) {
+    static class DominatorInfo extends DataFlowInfo<Set<BasicBlock>> {
+        DominatorInfo(BasicBlock self) {
             this.self = self;
-            this.dom = init;
             this.idom = null;
             this.domTreeChildren = new LinkedHashSet<>();
         }
 
-        boolean setDom(Set<BasicBlock> newDom) {
-            if (!newDom.equals(dom)) {
-                dom = newDom;
-                return true;
-            } else {
-                return false;
-            }
-        }
-
         public Set<BasicBlock> getDom() {
-            return dom;
+            return in();
         }
 
         public Set<BasicBlock> getStrictDom() {
-            final var copyOfDom = new LinkedHashSet<>(dom);
+            final var copyOfDom = new LinkedHashSet<>(getDom());
             copyOfDom.remove(self);
             return copyOfDom;
         }
@@ -108,7 +105,7 @@ public class ConstructDominatorInfo implements IRPass {
         private BasicBlock calcImmediateDom() {
             final var selfSDom = sdom(self);
 
-            for (final var block : dom) {
+            for (final var block : getDom()) {
                 final var sdom = sdom(block);
                 sdom.retainAll(selfSDom);
                 if (sdom.isEmpty()) {
@@ -123,11 +120,10 @@ public class ConstructDominatorInfo implements IRPass {
         }
 
         private final BasicBlock self;
-        private Set<BasicBlock> dom;
         private BasicBlock idom;
         private final Set<BasicBlock> domTreeChildren;
 
-        public static DominatorInfo getInfo(BasicBlock block) {
+        private static DominatorInfo getInfo(BasicBlock block) {
             return block.getAnalysisInfo(DominatorInfo.class);
         }
 
