@@ -2,6 +2,7 @@ package top.origami404.ssyc.backend.arm;
 
 import top.origami404.ssyc.backend.operand.IImm;
 import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.utils.Log;
 
 // Store 都是 RegUse
 // 0: src     RegUse
@@ -111,6 +112,7 @@ public class ArmInstStroe extends ArmInst {
         if (trueOffset != null) {
             offset = trueOffset;
         }
+        Log.ensure(!addr.IsAddr(), "str a actual addr");
 
         var isVector = "";
         if (src.IsFloat()) {

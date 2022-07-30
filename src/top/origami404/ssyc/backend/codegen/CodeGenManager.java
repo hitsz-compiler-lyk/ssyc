@@ -76,6 +76,8 @@ public class CodeGenManager {
     private Map<String, GlobalVar> globalvars;
     private Map<ArrayConst, String> arrayConstMap;
     private List<ArmFunction> externalFunctions;
+    private Map<GlobalVar, Operand> globalMap;
+    private boolean isResolvePhi;
     private static final Map<InstKind, ArmCondType> condMap = new HashMap<>() {
         {
             put(InstKind.ICmpEq, ArmCondType.Eq);
@@ -100,6 +102,8 @@ public class CodeGenManager {
         blockMap = new HashMap<>();
         arrayConstMap = new HashMap<>();
         externalFunctions = new ArrayList<>();
+        globalMap = new HashMap<>();
+        isResolvePhi = false;
     }
 
     public List<ArmFunction> getFunctions() {
@@ -182,6 +186,8 @@ public class CodeGenManager {
 
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
+                // 清空globalMap 不允许跨基本块读取Global地址
+                globalMap.clear();
 
                 for (var inst : block.asElementView()) {
                     if (inst instanceof BinaryOpInst) {
@@ -224,6 +230,7 @@ public class CodeGenManager {
 
             // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
             // MOVE Phi Incoming.Value
+            isResolvePhi = true;
             Map<ArmBlock, ArmInst> fristBranch = new HashMap<>();
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
@@ -257,6 +264,7 @@ public class CodeGenManager {
                     }
                 }
             }
+            isResolvePhi = false;
         }
     }
 
@@ -393,8 +401,18 @@ public class CodeGenManager {
 
     private Operand resolveGlobalVar(GlobalVar val, ArmBlock block, FunctionInfo funcinfo) {
         // 全局变量应该事先处理
+        // 后续可以加一个优化, 在一个基本块内一定的虚拟寄存器序号内直接返回虚拟寄存器
+        if (globalMap.containsKey(val) && !isResolvePhi) {
+            var last = (IVirtualReg) globalMap.get(val);
+            if (IVirtualReg.nowId() - last.getId() <= 10) {
+                return last;
+            }
+        }
         Log.ensure(valMap.containsKey(val));
-        return valMap.get(val);
+        var vr = new IVirtualReg();
+        new ArmInstLoad(block, vr, valMap.get(val));
+        globalMap.put(val, vr);
+        return vr;
     }
 
     private Operand resolveOperand(Value val, ArmBlock block, FunctionInfo funcinfo) {
@@ -562,8 +580,13 @@ public class CodeGenManager {
     private void resolveLoadInst(LoadInst inst, ArmBlock block, FunctionInfo funcinfo) {
         var addr = inst.getPtr();
         var dst = inst;
-
-        var addrReg = resolveOperand(addr, block, funcinfo);
+        Operand addrReg = null;
+        if (addr instanceof GlobalVar && inst.getType().isPtr()) {
+            Log.ensure(valMap.containsKey(addr));
+            addrReg = valMap.get(addr);
+        } else {
+            addrReg = resolveOperand(addr, block, funcinfo);
+        }
         var dstReg = resolveLhsOperand(dst, block, funcinfo);
         // LDR inst inst.getPtr()
         new ArmInstLoad(block, dstReg, addrReg);

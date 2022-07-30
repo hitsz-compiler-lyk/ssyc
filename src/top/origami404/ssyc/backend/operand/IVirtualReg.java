@@ -11,6 +11,10 @@ public class IVirtualReg extends Reg {
         super(opType.IVirtual, cnt++);
     }
 
+    public static int nowId(){
+        return cnt;
+    }
+
     @Override
     public String print() {
         return "@IV" + this.getId();
