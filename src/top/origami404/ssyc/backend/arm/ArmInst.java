@@ -13,6 +13,7 @@ import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.backend.operand.Reg;
 import top.origami404.ssyc.utils.INode;
 import top.origami404.ssyc.utils.INodeOwner;
+import top.origami404.ssyc.utils.Log;
 
 public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
@@ -33,11 +34,13 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         Call,
         Return,
 
-        LOAD,
-        STORE,
+        Load,
+        Store,
 
         Branch,
         Cmp,
+
+        Ltorg,
     }
 
     // RegDef [0 ,cnt)
@@ -76,15 +79,18 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             put(ArmInstKind.Call, Integer.MAX_VALUE);
 
             // ArmInstLoad
-            put(ArmInstKind.LOAD, 1);
+            put(ArmInstKind.Load, 1);
 
             // ArmInstStore
-            put(ArmInstKind.STORE, 0);
+            put(ArmInstKind.Store, 0);
 
             // ArmInstBranch ArmInstCmp
             for (var kind : Arrays.asList(ArmInstKind.Branch, ArmInstKind.Cmp)) {
                 put(kind, 0);
             }
+
+            // ArmInstLtorg
+            put(ArmInstKind.Ltorg, 0);
         }
     };
 
@@ -113,6 +119,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     private Set<Reg> regUse, regDef;
     private List<Operand> operands;
     private ArmCondType cond;
+    private int printCnt;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
@@ -121,6 +128,16 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         this.regDef = new HashSet<>();
         this.operands = new ArrayList<>();
         this.cond = ArmCondType.Any;
+        this.printCnt = 0;
+    }
+
+    protected void setPrintCnt(int printCnt) {
+        this.printCnt = printCnt;
+    }
+
+    public int getPrintCnt() {
+        Log.ensure(printCnt != 0, "print cnt == 0");
+        return printCnt;
     }
 
     public ArmInstKind getInst() {
@@ -236,11 +253,21 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public boolean isStackLoad() {
-        return inst.equals(ArmInstKind.LOAD) && getOperand(1).equals(new IPhyReg("sp"));
+        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"));
     }
 
     public boolean isStackStore() {
-        return inst.equals(ArmInstKind.STORE) && getOperand(1).equals(new IPhyReg("sp"));
+        return inst.equals(ArmInstKind.Store) && getOperand(1).equals(new IPhyReg("sp"));
+    }
+
+    public boolean isLoadFImm() {
+        return inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm();
+    }
+
+    public boolean haveLtorg() {
+        return (inst.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any)) ||
+                (inst.equals(ArmInstKind.Return)) ||
+                (inst.equals(ArmInstKind.Ltorg));
     }
 
     public abstract String print();

@@ -32,6 +32,7 @@ public class ArmInstBinary extends ArmInst {
         super(inst);
         block.asElementView().add(this);
         this.initOperands(dst, lhs, rhs);
+        this.setPrintCnt(1);
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -39,17 +40,20 @@ public class ArmInstBinary extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
+        this.setPrintCnt(1);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
         this.initOperands(dst, lhs, rhs);
+        this.setPrintCnt(1);
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
         super(inst);
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
+        this.setPrintCnt(1);
     }
 
     public Operand getDst() {

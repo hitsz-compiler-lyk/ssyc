@@ -13,6 +13,7 @@ public class ArmInstReturn extends ArmInst {
     public ArmInstReturn(ArmBlock block) {
         super(ArmInstKind.Return);
         block.asElementView().add(this);
+        this.setPrintCnt(50); //6
     }
 
     @Override
@@ -28,9 +29,9 @@ public class ArmInstReturn extends ArmInst {
             } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
                 ret += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
-                var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                var move = new ArmInstMove(new IPhyReg("r1"), new IImm(stackSize));
                 ret += move.toString();
-                ret += "\tadd\tsp,\tsp,\tr4\n";
+                ret += "\tadd\tsp,\tsp,\tr1\n";
             }
         }
 
@@ -71,6 +72,7 @@ public class ArmInstReturn extends ArmInst {
         if (!useLR) {
             ret += "\t" + "bx" + "\t" + "lr" + "\n";
         }
+        ret += ".ltorg\n";
         return ret;
     }
 

@@ -16,51 +16,91 @@ public class ArmInstLoad extends ArmInst {
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.initOperands(dst, addr, new IImm(0));
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, ArmCondType cond) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, addr, new IImm(0));
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(Operand dst, Operand addr) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         this.initOperands(dst, addr, new IImm(0));
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(Operand dst, Operand addr, ArmCondType cond) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         this.setCond(cond);
         this.initOperands(dst, addr, new IImm(0));
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.initOperands(dst, addr, offset);
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset, ArmCondType cond) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, addr, offset);
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         this.initOperands(dst, addr, offset);
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset, ArmCondType cond) {
-        super(ArmInstKind.LOAD);
+        super(ArmInstKind.Load);
         this.setCond(cond);
         this.initOperands(dst, addr, offset);
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public Operand getDst() {
@@ -111,6 +151,8 @@ public class ArmInstLoad extends ArmInst {
 
         if (addr.IsAddr()) {
             Log.ensure(!dst.IsFloat(), "load addr into vfp");
+            // return "\tldr" + getCond().toString() + "\t" + dst.print() + ",\t=" +
+            // addr.print() + "\n";
             return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + addr.print() + "\n" +
                     "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + addr.print() + "\n";
         } else if (offset.equals(new IImm(0))) {

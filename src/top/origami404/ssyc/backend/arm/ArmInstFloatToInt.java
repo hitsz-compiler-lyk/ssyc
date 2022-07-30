@@ -14,6 +14,7 @@ public class ArmInstFloatToInt extends ArmInst {
         super(ArmInstKind.FloatToInt);
         block.asElementView().add(this);
         this.initOperands(dst, src);
+        this.setPrintCnt(1);
     }
 
     public Operand getDst() {
@@ -26,7 +27,7 @@ public class ArmInstFloatToInt extends ArmInst {
 
     @Override
     public String print() {
-        return "\t" + "vcvt.s32.f32" + "\t" + getDst().print() + "\t" + getSrc().print();
+        return "\t" + "vcvt.s32.f32" + "\t" + getDst().print() + "\t" + getSrc().print() + "\n";
     }
 
 }

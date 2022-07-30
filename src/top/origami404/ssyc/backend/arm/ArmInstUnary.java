@@ -15,6 +15,7 @@ public class ArmInstUnary extends ArmInst {
         super(inst);
         block.asElementView().add(this);
         this.initOperands(dst, src);
+        this.setPrintCnt(1);
     }
 
     public ArmInstUnary(ArmBlock block, ArmInstKind inst, Operand dst, Operand src, ArmCondType cond) {
@@ -22,6 +23,7 @@ public class ArmInstUnary extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, src);
+        this.setPrintCnt(1);
     }
 
     public Operand getDst() {

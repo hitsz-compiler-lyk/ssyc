@@ -1,0 +1,7 @@
+int main(){
+    float a[2];
+    getfarray(a);
+    putfloat(a[0]);
+    putch(10);
+    return 0;
+}

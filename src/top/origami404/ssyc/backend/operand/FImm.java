@@ -14,7 +14,7 @@ public class FImm extends Imm {
 
     @Override
     public String toHexString() {
-        return Integer.toHexString(Float.floatToIntBits(imm));
+        return "0x" + Integer.toHexString(Float.floatToIntBits(imm));
     }
 
     @Override

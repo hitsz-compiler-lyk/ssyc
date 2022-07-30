@@ -18,6 +18,7 @@ import top.origami404.ssyc.backend.arm.ArmInstCmp;
 import top.origami404.ssyc.backend.arm.ArmInstFloatToInt;
 import top.origami404.ssyc.backend.arm.ArmInstIntToFloat;
 import top.origami404.ssyc.backend.arm.ArmInstLoad;
+import top.origami404.ssyc.backend.arm.ArmInstLtorg;
 import top.origami404.ssyc.backend.arm.ArmFunction.FunctionInfo;
 import top.origami404.ssyc.backend.arm.ArmInst.ArmCondType;
 import top.origami404.ssyc.backend.arm.ArmInst.ArmInstKind;
@@ -298,18 +299,36 @@ public class CodeGenManager {
         }
     }
 
-    private Operand resolveFImmOperand(FloatConst val, ArmBlock block, FunctionInfo funcinfo) {
-        if (checkEncodeImm(Float.floatToIntBits(val.getValue()))) {
-            // 可以直接表示 直接返回一个FImm
-            return new FImm(val.getValue());
+    private Operand resolveOffset(int val, ArmBlock block, FunctionInfo funcinfo) {
+        if (checkOffsetRange(val)) {
+            // 可以直接表示 直接返回一个IImm
+            return new IImm(val);
         } else {
             // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
             var vr = new IVirtualReg();
-            var addr = new FImm(val.getValue());
-            // VlDR VR =imm32
-            new ArmInstLoad(block, vr, addr);
+            var addr = new IImm(val);
+            // MOV32 VR #imm32
+            new ArmInstMove(block, vr, addr);
             return vr;
         }
+    }
+
+    private Operand resolveLhsIImmOperand(int val, ArmBlock block, FunctionInfo funcinfo) {
+        // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
+        var vr = new IVirtualReg();
+        var addr = new IImm(val);
+        // MOV32 VR #imm32
+        new ArmInstMove(block, vr, addr);
+        return vr;
+    }
+
+    private Operand resolveFImmOperand(FloatConst val, ArmBlock block, FunctionInfo funcinfo) {
+        // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
+        var vr = new FVirtualReg();
+        var addr = new FImm(val.getValue());
+        // VlDR VR =imm32
+        new ArmInstMove(block, vr, addr);
+        return vr;
     }
 
     private Operand resolveImmOperand(Constant val, ArmBlock block, FunctionInfo funcinfo) {
@@ -338,11 +357,13 @@ public class CodeGenManager {
                     if (i < 4) {
                         // MOVE VR Ri
                         // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
-                        new ArmInstMove(funcinfo.getPrologue(), vr, new IPhyReg(i));
+                        // 加到最前面防止后续load修改了r0 - r3
+                        var move = new ArmInstMove(vr, new IPhyReg(i));
+                        funcinfo.getPrologue().asElementView().add(0, move);
                     } else {
                         // LDR VR [SP, (i-4)*4]
                         // 寄存器分配后修改为 LDR VR [SP, (i-4)*4 + stackSize + push的大小]
-                        var offset = resolveIImmOperand((i - 4) * 4, block, funcinfo);
+                        var offset = resolveOffset((i - 4) * 4, block, funcinfo);
                         // 保证这个MOVE语句一定在最前面
                         new ArmInstLoad(funcinfo.getPrologue(), vr, new IPhyReg("sp"), offset);
                     }
@@ -364,13 +385,6 @@ public class CodeGenManager {
             var addr = new IImm(((IntConst) val).getValue());
             // MOV32 VR #imm32
             new ArmInstMove(block, vr, addr);
-            return vr;
-        } else if (val instanceof FloatConst) {
-            // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
-            var vr = new IVirtualReg();
-            var addr = new FImm(((FloatConst) val).getValue());
-            // VlDR VR =imm32
-            new ArmInstLoad(block, vr, addr);
             return vr;
         } else {
             return resolveOperand(val, block, funcinfo);
@@ -607,7 +621,7 @@ public class CodeGenManager {
                     tot = 0;
                     arr = vr;
                 }
-                var imm = resolveIImmOperand(length, block, funcinfo);
+                var imm = resolveLhsIImmOperand(length, block, funcinfo);
                 if (i == indices.size() - 1) {
                     // MLA inst dim.get(i) indices.get(i) 当前地址
                     // inst = dim.get(i)*indices.get(i) + 当前地址
@@ -624,32 +638,46 @@ public class CodeGenManager {
     }
 
     private void resolveCallInst(CallInst inst, ArmBlock block, FunctionInfo funcinfo) {
+        if (inst.getCallee().isExternal() && inst.getCallee().getFunctionSourceName().equals("putfloat")) {
+            Log.ensure(inst.getArgList().size() == 1);
+            var arg = resolveOperand(inst.getArgList().get(0), block, funcinfo);
+            new ArmInstMove(block, new FPhyReg(0), arg);
+            new ArmInstCall(block, funcMap.get(inst.getCallee()));
+            return;
+        }
         var args = inst.getArgList();
-        for (int i = 0; i < args.size(); i++) {
+        int offset = ((args.size() - 4) + 1) / 2 * 8;
+        for (int i = 4; i < args.size(); i++) {
             var arg = args.get(i);
-            if (i < 4) {
-                var src = resolveOperand(arg, block, funcinfo);
-                // MOV Ri inst.args.get(i)
-                new ArmInstMove(block, new IPhyReg(i), src);
-            } else {
-                var src = resolveLhsOperand(arg, block, funcinfo);
-                var offset = resolveIImmOperand(-(args.size() - i) * 4, block, funcinfo);
-                // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
-                // 越后面的参数越靠近栈顶
-                new ArmInstStroe(block, src, new IPhyReg("sp"), offset);
-            }
+            var src = resolveLhsOperand(arg, block, funcinfo);
+            var offsetOp = resolveOffset(-offset + (i - 4) * 4, block, funcinfo);
+            // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
+            // 越后面的参数越靠近栈顶
+            new ArmInstStroe(block, src, new IPhyReg("sp"), offsetOp);
         }
-        int offset = ((args.size() - 4) * 2 + 1) / 2;
+        var argOp = new ArrayList<Operand>();
+        for (int i = 0; i < Integer.min(4, args.size()); i++) {
+            var arg = args.get(i);
+            var src = resolveOperand(arg, block, funcinfo);
+            argOp.add(src);
+        }
+        for (int i = 0; i < Integer.min(4, args.size()); i++) {
+            new ArmInstMove(block, new IPhyReg(i), argOp.get(i));
+        }
+        Operand offsetOp = null;
         if (args.size() > 4) {
-            var rhs = resolveIImmOperand(offset * 4, block, funcinfo);
+            offsetOp = resolveIImmOperand(offset, block, funcinfo);
             // SUB SP SP (inst.args.size() - 4) * 4
-            new ArmInstBinary(block, ArmInstKind.ISub, new IPhyReg("sp"), new IPhyReg("sp"), rhs);
+            new ArmInstBinary(block, ArmInstKind.ISub, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
         }
-        new ArmInstCall(block, funcMap.get(inst.getCallee()));
+        boolean isFloat = false;
+        if (inst.getType().isFloat()) {
+            isFloat = true;
+        }
+        new ArmInstCall(block, funcMap.get(inst.getCallee()), isFloat);
         if (args.size() > 4) {
-            var rhs = resolveIImmOperand(offset * 4, block, funcinfo);
             // ADD SP SP (inst.args.size() - 4) * 4
-            new ArmInstBinary(block, ArmInstKind.IAdd, new IPhyReg("sp"), new IPhyReg("sp"), rhs);
+            new ArmInstBinary(block, ArmInstKind.IAdd, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
         }
         if (!inst.getType().isVoid()) {
             var dst = resolveLhsOperand(inst, block, funcinfo);
@@ -800,16 +828,16 @@ public class CodeGenManager {
         var ac = inst.getInit();
         int size = inst.getInit().getType().getSize();
         if (ac instanceof ZeroArrayConst) {
+            var imm = resolveIImmOperand(size, block, funcinfo);
             new ArmInstMove(block, new IPhyReg("r0"), dst);
             new ArmInstMove(block, new IPhyReg("r1"), new IImm(0));
-            var imm = resolveIImmOperand(size, block, funcinfo);
             new ArmInstMove(block, new IPhyReg("r2"), imm);
             new ArmInstCall(block, "memset", 3);
         } else {
-            new ArmInstMove(block, new IPhyReg("r0"), dst);
             var src = resolveOperand(ac, block, funcinfo);
-            new ArmInstMove(block, new IPhyReg("r1"), src);
             var imm = resolveIImmOperand(size, block, funcinfo);
+            new ArmInstMove(block, new IPhyReg("r0"), dst);
+            new ArmInstMove(block, new IPhyReg("r1"), src);
             new ArmInstMove(block, new IPhyReg("r2"), imm);
             new ArmInstCall(block, "memcpy", 3);
         }
@@ -821,7 +849,7 @@ public class CodeGenManager {
         var arm = new StringBuilder();
         arm.append(".arch armv7ve\n");
         if (!globalvars.isEmpty() || !arrayConstMap.isEmpty()) {
-            arm.append("\n\n.data\n.align 4\n\n");
+            arm.append("\n.data\n.align 4\n\n");
         }
         Set<ArrayConst> acSet = new HashSet<>();
         for (var entry : globalvars.entrySet()) {
@@ -849,7 +877,7 @@ public class CodeGenManager {
             arm.append("\n");
         }
 
-        arm.append("\n\n.text\n");
+        arm.append("\n.text\n");
         for (var func : functions) {
             fixStack(func);
             var funcInfo = func.getFuncInfo();
@@ -897,6 +925,8 @@ public class CodeGenManager {
             }
             arm.append(prologuePrint);
 
+            fixLtorg(func);
+
             for (var block : func.asElementView()) {
                 arm.append(block.getLabel() + ":\n");
                 for (var inst : block.asElementView()) {
@@ -909,11 +939,11 @@ public class CodeGenManager {
     }
 
     private String codeGenIntConst(IntConst val) {
-        return "\t" + ".word" + "\t" + val + "\n";
+        return "\t" + ".word" + "\t" + val.getValue() + "\n";
     }
 
     private String codeGenFloatConst(FloatConst val) {
-        return "\t" + ".word" + "\t" + val + "\n";
+        return "\t" + ".word" + "\t" + "0x" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
     }
 
     private String codeGenArrayConst(ArrayConst val) {
@@ -1124,7 +1154,7 @@ public class CodeGenManager {
         var funcInfo = func.getFuncInfo();
         var iUseRegs = funcInfo.getiUsedRegs();
         iUseRegs.clear();
-        for (int i = func.getParamsCnt(); i <= 15; i++) {
+        for (int i = 4; i <= 15; i++) {
             if (regs.contains(new IPhyReg(i))) {
                 iUseRegs.add(new IPhyReg(i));
             }
@@ -1138,6 +1168,32 @@ public class CodeGenManager {
         for (int i = 0; i <= 31; i++) {
             if (regs.contains(new FPhyReg(i))) {
                 fUseRegs.add(new FPhyReg(i));
+            }
+        }
+    }
+
+    private void fixLtorg(ArmFunction func) {
+        boolean haveLoadFImm = false;
+        int offset = 0;
+        int cnt = 0;
+        for (var block : func.asElementView()) {
+            for (var inst : block.asElementView()) {
+                if (inst.isLoadFImm()) {
+                    haveLoadFImm = true;
+                }
+                if (inst.haveLtorg()) {
+                    haveLoadFImm = false;
+                    offset = 0;
+                }
+                if (haveLoadFImm) {
+                    offset += inst.getPrintCnt();
+                }
+                if (offset > 1000) {
+                    var ltorg = new ArmInstLtorg(func.getName() + "_ltorg_" + cnt++);
+                    inst.insertAfterCO(ltorg);
+                    haveLoadFImm = false;
+                    offset = 0;
+                }
             }
         }
     }

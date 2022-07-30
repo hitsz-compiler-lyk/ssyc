@@ -3,6 +3,7 @@ package top.origami404.ssyc.backend.arm;
 import java.util.ArrayList;
 import java.util.List;
 
+import top.origami404.ssyc.backend.operand.FPhyReg;
 import top.origami404.ssyc.backend.operand.IPhyReg;
 import top.origami404.ssyc.backend.operand.Operand;
 import top.origami404.ssyc.utils.StringUtils;
@@ -19,26 +20,66 @@ public class ArmInstCall extends ArmInst {
         super(ArmInstKind.Call);
         this.func = func;
         block.asElementView().add(this);
-        int defCnt = Integer.min(func.getParamsCnt(), 4);
+        // int defCnt = Integer.min(func.getParamsCnt(), 4);
+        int defCnt = 4;
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < defCnt; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
         this.initOperands(ops.toArray(new Operand[ops.size()]));
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstCall(ArmBlock block, ArmFunction func, boolean isFloat) {
+        super(ArmInstKind.Call);
+        this.func = func;
+        block.asElementView().add(this);
+        // int defCnt = Integer.min(func.getParamsCnt(), 4);
+        int defCnt = 4;
+        List<Operand> ops = new ArrayList<>();
+        for (int i = 0; i < defCnt; i++) {
+            ops.add(new IPhyReg(i));
+        }
+        ops.add(new IPhyReg("lr"));
+        if (isFloat) {
+            ops.add(new FPhyReg("s0"));
+        }
+        this.initOperands(ops.toArray(new Operand[ops.size()]));
+        this.setPrintCnt(1);
     }
 
     public ArmInstCall(ArmBlock block, String funcName, int paramsCnt) {
         super(ArmInstKind.Call);
         this.funcName = funcName;
         block.asElementView().add(this);
-        int defCnt = Integer.min(paramsCnt, 4);
+        // int defCnt = Integer.min(paramsCnt, 4);
+        int defCnt = 4;
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < defCnt; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
         this.initOperands(ops.toArray(new Operand[ops.size()]));
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, boolean isFloat) {
+        super(ArmInstKind.Call);
+        this.funcName = funcName;
+        block.asElementView().add(this);
+        // int defCnt = Integer.min(paramsCnt, 4);
+        int defCnt = 4;
+        List<Operand> ops = new ArrayList<>();
+        for (int i = 0; i < defCnt; i++) {
+            ops.add(new IPhyReg(i));
+        }
+        ops.add(new IPhyReg("lr"));
+        if (isFloat) {
+            ops.add(new FPhyReg("s0"));
+        }
+        this.initOperands(ops.toArray(new Operand[ops.size()]));
+        this.setPrintCnt(1);
     }
 
     public void setFunc(ArmFunction func) {

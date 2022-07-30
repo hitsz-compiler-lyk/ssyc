@@ -16,51 +16,59 @@ public class ArmInstStroe extends ArmInst {
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, new IImm(0));
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, offset);
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(src, addr, offset);
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(Operand src, Operand addr) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(0));
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(Operand src, Operand addr, ArmCondType cond) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(Operand src, Operand addr, Operand offset) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         this.initOperands(src, addr, offset);
+        this.setPrintCnt(1);
     }
 
     public ArmInstStroe(Operand src, Operand addr, Operand offset, ArmCondType cond) {
-        super(ArmInstKind.STORE);
+        super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, offset);
+        this.setPrintCnt(1);
     }
 
     public Operand getSrc() {

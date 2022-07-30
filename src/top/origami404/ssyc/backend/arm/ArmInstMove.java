@@ -18,11 +18,35 @@ public class ArmInstMove extends ArmInst {
         super(ArmInstKind.MOV);
         block.asElementView().add(this);
         this.initOperands(dst, src);
+        if (src.IsIImm()) {
+            int imm = ((IImm) src).getImm();
+            if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
+                this.setPrintCnt(1);
+            } else {
+                this.setPrintCnt(2);
+            }
+        } else if (src.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstMove(Operand dst, Operand src) {
         super(ArmInstKind.MOV);
         this.initOperands(dst, src);
+        if (src.IsIImm()) {
+            int imm = ((IImm) src).getImm();
+            if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
+                this.setPrintCnt(1);
+            } else {
+                this.setPrintCnt(2);
+            }
+        } else if (src.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstMove(ArmBlock block, Operand dst, Operand src, ArmCondType cond) {
@@ -30,12 +54,36 @@ public class ArmInstMove extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, src);
+        if (src.IsIImm()) {
+            int imm = ((IImm) src).getImm();
+            if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
+                this.setPrintCnt(1);
+            } else {
+                this.setPrintCnt(2);
+            }
+        } else if (src.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public ArmInstMove(Operand dst, Operand src, ArmCondType cond) {
         super(ArmInstKind.MOV);
         this.setCond(cond);
         this.initOperands(dst, src);
+        if (src.IsIImm()) {
+            int imm = ((IImm) src).getImm();
+            if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
+                this.setPrintCnt(1);
+            } else {
+                this.setPrintCnt(2);
+            }
+        } else if (src.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
     }
 
     public Operand getDst() {
@@ -60,13 +108,8 @@ public class ArmInstMove extends ArmInst {
             isVector = "v";
         }
 
-        if (src.IsImm()) {
-            int imm = 0;
-            if (src.IsIImm()) {
-                imm = ((IImm) src).getImm();
-            } else {
-                imm = Float.floatToIntBits(((FImm) src).getImm());
-            }
+        if (src.IsIImm()) {
+            int imm = ((IImm) src).getImm();
             // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-immediate-values-using-mov-and-mvn?lang=en
             if (CodeGenManager.checkEncodeImm(~imm)) {
                 return "\t" + isVector + "mvn" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
@@ -74,11 +117,6 @@ public class ArmInstMove extends ArmInst {
             } else if (CodeGenManager.checkEncodeImm(imm)) {
                 return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + "#"
                         + Integer.toString(imm) + "\n";
-            } else if (src.IsFImm()) {
-                // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-32-bit-immediate-values-to-a-register-using-ldr-rd---const?lang=en
-                // VLDR Rn =Const
-                return "\t" + "vldr" + getCond().toString() + "\t" + dst.print() + ",\t" + "="
-                        + ((FImm) src).toHexString() + "\n";
             } else {
                 // MOVW 把 16 位立即数放到寄存器的底16位，高16位清0
                 // MOVT 把 16 位立即数放到寄存器的高16位，低16位不影响
@@ -93,8 +131,15 @@ public class ArmInstMove extends ArmInst {
                 }
                 return ret;
             }
+        } else if (src.IsFImm()) {
+            // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-32-bit-immediate-values-to-a-register-using-ldr-rd---const?lang=en
+            // VLDR Rn =Const
+            return "\t" + "vldr" + getCond().toString() + "\t" + dst.print() + ",\t" + "="
+                    + ((FImm) src).toHexString() + "\n";
         } else if (src.IsAddr()) {
             Log.ensure(!dst.IsFloat(), "load addr into vfp");
+            // return "\tldr" + getCond().toString() + "\t" + dst.print() + ",\t=" +
+            // src.print() + "\n";
             return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + src.print() + "\n" +
                     "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + src.print() + "\n";
         } else {
