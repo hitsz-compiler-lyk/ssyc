@@ -5,9 +5,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import top.origami404.ssyc.ir.BasicBlock;
+import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.GlobalVar;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.ir.Parameter;
@@ -26,11 +28,41 @@ import top.origami404.ssyc.pass.ir.dataflow.DataFlowInfo;
 import top.origami404.ssyc.pass.ir.dataflow.ForwardDataFlowPass;
 import top.origami404.ssyc.utils.Log;
 
-public class MemoryAnalysis implements IRPass {
+public class ReplaceUnessaryLoad implements IRPass {
     @Override
     public void runPass(Module module) {
         (new CollectMemoryDefination()).runPass(module);
+        module.getNonExternalFunction().forEach(this::runOnFunction);
+    }
 
+    void runOnFunction(Function function) {
+        for (final var block : function) {
+            final var current = block.getAnalysisInfo(MemoryInfo.class).in();
+
+            for (final var inst : block) {
+                // Def
+                if (inst instanceof MemInitInst) {
+                    current.setByInit((MemInitInst) inst);
+                } else if (inst instanceof StoreInst) {
+                    current.setByStore((StoreInst) inst);
+                } else if (inst instanceof CallInst) {
+                    current.setByCall((CallInst) inst);
+                }
+                // Use
+                else if (inst instanceof LoadInst) {
+                    final var load = (LoadInst) inst;
+                    final var newInst = current.getByLoad(load);
+
+                    if (newInst == load) {
+                        load.replaceAllUseWith(newInst);
+                        load.freeFromIList();
+                        load.freeFromUseDef();
+                    } else {
+                        current.setByLoad(load);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -93,32 +125,18 @@ class MemCache {
     }
 
     public void setByInit(MemInitInst init) {
-        final var pos = MemPosition.getPositionWithPointer(init.getArrayPtr()).orElseThrow();
+        final var pos = MemPosition.createWithMemInit(init);
         cache.put(pos, new MemHandler(init.getInit()));
     }
 
     public void setByStore(StoreInst store) {
-        final var pos = MemPosition.getPositionWithPointer(store.getPtr()).orElseThrow();
-
-        cache.computeIfAbsent(pos, key -> new MemHandler());
-        final var handler = cache.get(pos);
-
-        final var ptr = store.getPtr();
-        if (ptr instanceof GEPInst) {
-            final var info = getInfoFromGEP((GEPInst) ptr, handler);
+        dealWithPointer(store.getPtr(), info -> {
             if (info.isExhausted) {
                 info.handler.setValue(store.getVal());
             } else {
                 info.handler.setUndef();
             }
-        } else if (ptr instanceof GlobalVar) {
-            final var gv = (GlobalVar) ptr;
-            Log.ensure(!gv.getType().getBaseType().isPtr());
-
-            handler.setValue(store.getVal());
-        } else {
-            Log.ensure(false, "Unknown structure: (Store " + ptr + ")");
-        }
+        }, handler -> handler.setValue(store.getVal()));
     }
 
     public void setByCall(CallInst call) {
@@ -127,13 +145,59 @@ class MemCache {
 
         final var localsInArg = call.getArgList().stream()
             .filter(arg -> arg.getType().isPtr())
-            .map(MemPosition::getPositionWithPointer)
+            .map(MemPosition::createWithPointer)
             .filter(Optional::isPresent).map(Optional::get)
             .filter(MemPosition::isLocal);
 
         Stream.concat(globals, localsInArg)
-            .map(cache::get).filter(Objects::nonNull)
+            .map(this::getInitHandler).filter(Objects::nonNull)
             .forEach(MemHandler::setUndef);
+    }
+
+    public void setByLoad(LoadInst load) {
+        dealWithPointer(load.getPtr(), info -> {
+            if (info.isExhausted && info.handler.isUndef()) {
+                info.handler.setValue(load);
+            }
+        }, handler -> {
+            if (handler.isUndef()) {
+                handler.setValue(load);
+            }
+        });
+    }
+
+    private void dealWithPointer(Value ptr, Consumer<IndicesInfo> whenGEP, Consumer<MemHandler> whenGlobalVar) {
+        MemPosition.createWithPointer(ptr).ifPresent(pos -> {
+            final var handler = getInitHandler(pos);
+
+            if (ptr instanceof GEPInst) {
+                final var gep = (GEPInst) ptr;
+                final var info = getInfoFromGEP(gep, handler);
+                whenGEP.accept(info);
+            } else if (ptr instanceof GlobalVar) {
+                final var gv = (GlobalVar) ptr;
+                Log.ensure(gv.isVariable());
+                whenGlobalVar.accept(handler);
+            } else {
+                Log.ensure(false, "Unknown structure in pointer: " + ptr);
+            }
+        });
+    }
+
+    public Value getByLoad(LoadInst load) {
+        final var resultHandler = new MemHandler(load);
+
+        dealWithPointer(load.getPtr(), info -> {
+            if (info.isExhausted && !info.handler.isUndef()) {
+                resultHandler.setValue(info.handler.getValue());
+            }
+        }, handler -> {
+            if (!handler.isUndef()) {
+                resultHandler.setValue(handler.getValue());
+            }
+        });
+
+        return resultHandler.getValue();
     }
 
     public static MemCache merge(MemCache lhs, MemCache rhs) {
@@ -193,6 +257,17 @@ class MemCache {
 
         return new IndicesInfo(handler, isExhausted);
     }
+    private IndicesInfo getInfoFromGEP(GEPInst inst, MemPosition pos) {
+        return getInfoFromGEP(inst, getInitHandler(pos));
+    }
+    private Optional<IndicesInfo> getInfoFromGEP(GEPInst inst) {
+        return MemPosition.createWithPointer(inst).map(pos -> getInfoFromGEP(inst, pos));
+    }
+
+    private MemHandler getInitHandler(MemPosition position) {
+        cache.computeIfAbsent(position, pos -> new MemHandler());
+        return cache.get(position);
+    }
 
     private MemCache(MemCache other) {
         this.cache = new HashMap<>(other.cache);
@@ -206,7 +281,24 @@ class MemCache {
 }
 
 class MemPosition {
-    public static Optional<MemPosition> getPositionWithPointer(Value ptr) {
+    public static Optional<MemPosition> createWithLoad(LoadInst load) {
+        return createWithPointer(load.getPtr());
+    }
+
+    public static MemPosition createWithStore(StoreInst store) {
+        return createWithPointer(store.getPtr())
+            .orElseThrow(() -> new RuntimeException("Pointer in Store must point to a real memory position"));
+    }
+
+    public static MemPosition createWithMemInit(MemInitInst memInit) {
+        return createWithPointer(memInit.getArrayPtr())
+            .orElseThrow(() -> new RuntimeException("Pointer in MemInit must point to a real memory position"));
+    }
+
+    /**
+     * 根据指针 (如 LoadInst/StoreInst/MemInitInst 中的 getPtr() 方法获得的 Value) 来构造内存位置
+     */
+    public static Optional<MemPosition> createWithPointer(Value ptr) {
         Log.ensure(ptr.getType().isPtr());
         if (ptr instanceof GlobalVar) {
             final var gv = (GlobalVar) ptr;

@@ -24,6 +24,14 @@ public class GlobalVar extends Value {
         return init;
     }
 
+    public boolean isVariable() {
+        return !isArray();
+    }
+
+    public boolean isArray() {
+        return getType().getBaseType().isPtr();
+    }
+
     @Override
     public void verify() throws IRVerifyException {
         ensure(getSymbolOpt().isPresent(), "Global variable must own a symbol");
