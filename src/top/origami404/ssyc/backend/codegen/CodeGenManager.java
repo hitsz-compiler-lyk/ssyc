@@ -24,7 +24,7 @@ import top.origami404.ssyc.backend.arm.ArmInst.ArmCondType;
 import top.origami404.ssyc.backend.arm.ArmInst.ArmInstKind;
 import top.origami404.ssyc.backend.arm.ArmInstMove;
 import top.origami404.ssyc.backend.arm.ArmInstReturn;
-import top.origami404.ssyc.backend.arm.ArmInstStroe;
+import top.origami404.ssyc.backend.arm.ArmInstStore;
 import top.origami404.ssyc.backend.arm.ArmInstTernay;
 import top.origami404.ssyc.backend.arm.ArmInstUnary;
 import top.origami404.ssyc.backend.operand.FImm;
@@ -601,7 +601,7 @@ public class CodeGenManager {
         var addrReg = resolveOperand(addr, block, funcinfo);
         var varReg = resolveLhsOperand(var, block, funcinfo);
         // STR inst.getVal() inst.getPtr()
-        new ArmInstStroe(block, varReg, addrReg);
+        new ArmInstStore(block, varReg, addrReg);
     }
 
     private void resolveGEPInst(GEPInst inst, ArmBlock block, FunctionInfo funcinfo) {
@@ -678,7 +678,7 @@ public class CodeGenManager {
             var offsetOp = resolveOffset(-offset + (i - 4) * 4, block, funcinfo);
             // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
             // 越后面的参数越靠近栈顶
-            new ArmInstStroe(block, src, new IPhyReg("sp"), offsetOp);
+            new ArmInstStore(block, src, new IPhyReg("sp"), offsetOp);
         }
         var argOp = new ArrayList<Operand>();
         for (int i = 0; i < Integer.min(4, args.size()); i++) {
@@ -1187,7 +1187,7 @@ public class CodeGenManager {
                         isFix |= fixStackInst(load, actualOffset);
                     }
                 } else if (inst.isStackStore()) {
-                    var store = (ArmInstStroe) inst;
+                    var store = (ArmInstStore) inst;
                     if (store.getOffset() instanceof IImm) {
                         var addr = (IImm) store.getOffset();
                         Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
@@ -1210,7 +1210,7 @@ public class CodeGenManager {
                     isFix |= fixStackInst(load, actualOffset);
                 }
             } else if (inst.isStackStore()) {
-                var store = (ArmInstStroe) inst;
+                var store = (ArmInstStore) inst;
                 if (store.getAddr() instanceof IImm) {
                     var addr = (IImm) store.getAddr();
                     var actualOffset = addr.getImm() + stackSize + 4 * regCnt;
@@ -1230,6 +1230,7 @@ public class CodeGenManager {
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 load.setFixOffset(true);
                 load.insertBeforeCO(move);
+                load.replaceAddr(vr);
             } else {
                 var prevInst = load.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
@@ -1242,7 +1243,7 @@ public class CodeGenManager {
         return isFix;
     }
 
-    private boolean fixStackInst(ArmInstStroe store, int actualOffset) {
+    private boolean fixStackInst(ArmInstStore store, int actualOffset) {
         boolean isFix = false;
         if (!checkOffsetRange(actualOffset)) {
             if (!store.isFixOffset()) {
@@ -1251,6 +1252,7 @@ public class CodeGenManager {
                 var move = new ArmInstMove(vr, new IImm(actualOffset));
                 store.setFixOffset(true);
                 store.insertBeforeCO(move);
+                store.replaceAddr(vr);
             } else {
                 var prevInst = store.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");

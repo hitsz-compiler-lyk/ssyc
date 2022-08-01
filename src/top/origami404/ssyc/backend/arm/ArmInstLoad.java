@@ -135,6 +135,10 @@ public class ArmInstLoad extends ArmInst {
         this.trueOffset = null;
     }
 
+    public void replaceAddr(Operand addr) {
+        this.replaceOperand(1, addr);
+    }
+
     @Override
     public String print() {
         var dst = getDst();

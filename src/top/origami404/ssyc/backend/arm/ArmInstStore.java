@@ -104,6 +104,10 @@ public class ArmInstStore extends ArmInst {
         this.trueOffset = null;
     }
 
+    public void replaceAddr(Operand addr) {
+        this.replaceOperand(1, addr);
+    }
+
     @Override
     public String print() {
         var src = getSrc();
