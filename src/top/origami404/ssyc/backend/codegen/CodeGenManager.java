@@ -78,6 +78,7 @@ public class CodeGenManager {
     private List<ArmFunction> externalFunctions;
     private Map<GlobalVar, Operand> globalMap;
     private boolean isResolvePhi;
+    private SimpleRegisterAssignment regAllocator;
     private static final Map<InstKind, ArmCondType> condMap = new HashMap<>() {
         {
             put(InstKind.ICmpEq, ArmCondType.Eq);
@@ -104,6 +105,7 @@ public class CodeGenManager {
         externalFunctions = new ArrayList<>();
         globalMap = new HashMap<>();
         isResolvePhi = false;
+        regAllocator = new SimpleRegisterAssignment();
     }
 
     public List<ArmFunction> getFunctions() {
@@ -902,58 +904,148 @@ public class CodeGenManager {
 
         arm.append("\n.text\n");
         for (var func : functions) {
-            fixStack(func);
-            var funcInfo = func.getFuncInfo();
-            var stackSize = funcInfo.getFinalstackSize();
-            String prologuePrint = "";
-            if (stackSize > 0) {
-                if (CodeGenManager.checkEncodeImm(stackSize)) {
-                    prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
-                } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                    prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
-                } else {
-                    var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
-                    prologuePrint += move.print();
-                    prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
-                }
-            }
-
-            arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
-            var iuse = new StringBuilder();
-            var first = true;
-            for (var reg : funcInfo.getiUsedRegs()) {
-                if (!first) {
-                    iuse.append(", ");
-                    first = false;
-                }
-                iuse.append(reg.print());
-            }
-
-            var fuse = new StringBuilder();
-            first = true;
-            for (var reg : funcInfo.getfUsedRegs()) {
-                if (!first) {
-                    fuse.append(", ");
-                    first = false;
-                }
-                fuse.append(reg.print());
-            }
-
-            if (!funcInfo.getiUsedRegs().isEmpty()) {
-                prologuePrint += "\tpop\t{" + iuse.toString() + "}\n";
-            }
-
-            if (!funcInfo.getfUsedRegs().isEmpty()) {
-                prologuePrint += "\tvpop\t{" + iuse.toString() + "}\n";
-            }
-            arm.append(prologuePrint);
-
-            fixLtorg(func);
-
+            arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
             for (var block : func.asElementView()) {
-                arm.append(block.getLabel() + ":\n");
+                arm.append("@" + block.getLabel() + ":\n");
+                if (block.getTrueSuccBlock() != null) {
+                    arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+                    if (block.getFalseSuccBlock() == null) {
+                        arm.append("\n");
+                    } else {
+                        arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
+                    }
+                }
                 for (var inst : block.asElementView()) {
-                    arm.append(inst.print());
+                    inst.InitSymbol();
+                    arm.append(inst.getSymbol());
+                }
+            }
+
+            boolean isFix = true;
+            fixStack(func);
+            while (isFix) {
+                var allocatorMap = regAllocator.getAssignMap(func);
+                isFix = fixStack(func);
+                Set<IPhyReg> iPhyRegs = new HashSet<>();
+                Set<FPhyReg> fPhyRegs = new HashSet<>();
+                for (var block : func.asElementView()) {
+                    for (var inst : block.asElementView()) {
+                        for (var op : inst.getOperands()) {
+                            if (allocatorMap.containsKey(op)) {
+                                op = allocatorMap.get(op);
+                            }
+                            if (op instanceof IPhyReg) {
+                                iPhyRegs.add((IPhyReg) op);
+                            }
+                            if (op instanceof FPhyReg) {
+                                fPhyRegs.add((FPhyReg) op);
+                            }
+                        }
+                    }
+                }
+                calcIUseRegs(func, iPhyRegs);
+                calcFUseRegs(func, fPhyRegs);
+
+                var funcInfo = func.getFuncInfo();
+                var stackSize = funcInfo.getFinalstackSize();
+                String prologuePrint = "";
+                if (stackSize > 0) {
+                    if (CodeGenManager.checkEncodeImm(stackSize)) {
+                        prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
+                    } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
+                        prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
+                    } else {
+                        var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                        prologuePrint += move.print();
+                        prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
+                    }
+                }
+
+                var iuse = new StringBuilder();
+                var first = true;
+                for (var reg : funcInfo.getiUsedRegs()) {
+                    if (!first) {
+                        iuse.append(", ");
+                        first = false;
+                    }
+                    iuse.append(reg.print());
+                }
+
+                var fuse = new StringBuilder();
+                first = true;
+                for (var reg : funcInfo.getfUsedRegs()) {
+                    if (!first) {
+                        fuse.append(", ");
+                        first = false;
+                    }
+                    fuse.append(reg.print());
+                }
+
+                if (!funcInfo.getiUsedRegs().isEmpty()) {
+                    prologuePrint += "\tpop\t{" + iuse.toString() + "}\n";
+                }
+
+                if (!funcInfo.getfUsedRegs().isEmpty()) {
+                    prologuePrint += "\tvpop\t{" + iuse.toString() + "}\n";
+                }
+
+                fixLtorg(func);
+                if (isFix) {
+                    arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
+                    arm.append(getSymbol(prologuePrint));
+                    for (var block : func.asElementView()) {
+                        arm.append("@" + block.getLabel() + ":\n");
+                        if (block.getTrueSuccBlock() != null) {
+                            arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+                            if (block.getFalseSuccBlock() == null) {
+                                arm.append("\n");
+                            } else {
+                                arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
+                            }
+                        }
+                        for (var inst : block.asElementView()) {
+                            inst.InitSymbol();
+                            arm.append(inst.getSymbol());
+                        }
+                    }
+                    continue;
+                } else {
+                    for (var block : func.asElementView()) {
+                        for (var inst : block.asElementView()) {
+                            inst.InitSymbol();
+                            String symbol = "@";
+                            for (var op : inst.getOperands()) {
+                                if (op.IsVirtual()) {
+                                    Log.ensure(allocatorMap.containsKey(op),
+                                            "virtual reg:" + op.print() + " not exist in allocator map");
+                                    inst.replaceOperand(op, allocatorMap.get(op));
+                                    symbol += op.print() + ":" + allocatorMap.get(op).print() + "\t";
+                                }
+                            }
+                            symbol += "\n";
+                            if (symbol.length() > 2) {
+                                inst.addSymbol(symbol);
+                            }
+                        }
+                    }
+                }
+
+                arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
+                arm.append(prologuePrint);
+                for (var block : func.asElementView()) {
+                    arm.append(block.getLabel() + ":\n");
+                    if (block.getTrueSuccBlock() != null) {
+                        arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+                        if (block.getFalseSuccBlock() == null) {
+                            arm.append("\n");
+                        } else {
+                            arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
+                        }
+                    }
+                    for (var inst : block.asElementView()) {
+                        arm.append(inst.print());
+                        arm.append(inst.getSymbol());
+                    }
                 }
             }
         }
@@ -1085,21 +1177,19 @@ public class CodeGenManager {
         var blocks = func.asElementView();
         for (int i = 1; i < blocks.size(); i++) {
             var block = blocks.get(i);
-            var instIt = block.getIList().iterator();
-            while (instIt.hasNext()) {
-                var inst = instIt.next();
+            for (var inst : block.asElementView()) {
                 if (inst.isStackLoad()) {
                     var load = (ArmInstLoad) inst;
-                    if (load.getAddr() instanceof IImm) {
-                        var addr = (IImm) load.getAddr();
+                    if (load.getOffset() instanceof IImm) {
+                        var addr = (IImm) load.getOffset();
                         Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
                         var actualOffset = stackMap.get(addr.getImm());
                         isFix |= fixStackInst(load, actualOffset);
                     }
                 } else if (inst.isStackStore()) {
                     var store = (ArmInstStroe) inst;
-                    if (store.getAddr() instanceof IImm) {
-                        var addr = (IImm) store.getAddr();
+                    if (store.getOffset() instanceof IImm) {
+                        var addr = (IImm) store.getOffset();
                         Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
                         var actualOffset = stackMap.get(addr.getImm());
                         isFix |= fixStackInst(store, actualOffset);
@@ -1177,7 +1267,10 @@ public class CodeGenManager {
         var funcInfo = func.getFuncInfo();
         var iUseRegs = funcInfo.getiUsedRegs();
         iUseRegs.clear();
-        for (int i = 4; i <= 15; i++) {
+        for (int i = 4; i <= 14; i++) {
+            if (i == 13) {
+                continue;
+            }
             if (regs.contains(new IPhyReg(i))) {
                 iUseRegs.add(new IPhyReg(i));
             }
@@ -1219,5 +1312,15 @@ public class CodeGenManager {
                 }
             }
         }
+    }
+
+    private String getSymbol(String symbol) {
+        var sb = new StringBuffer("@" + symbol);
+        int p = sb.indexOf("\n");
+        while (p != sb.length() - 1 && p != -1) {
+            sb.insert(p + 1, "@");
+            p = sb.indexOf("\n", p + 1);
+        }
+        return sb.toString();
     }
 }

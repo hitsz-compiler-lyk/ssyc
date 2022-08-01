@@ -8,22 +8,22 @@ import top.origami404.ssyc.utils.Log;
 // 0: src     RegUse
 // 1: addr    RegUse
 // 2: offset  RegUse
-public class ArmInstStroe extends ArmInst {
+public class ArmInstStore extends ArmInst {
     boolean isFixOffset = false;
     Operand trueOffset;
 
-    public ArmInstStroe(ArmInstKind inst) {
+    public ArmInstStore(ArmInstKind inst) {
         super(inst);
     }
 
-    public ArmInstStroe(ArmBlock block, Operand src, Operand addr) {
+    public ArmInstStore(ArmBlock block, Operand src, Operand addr) {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
+    public ArmInstStore(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.setCond(cond);
@@ -31,14 +31,14 @@ public class ArmInstStroe extends ArmInst {
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset) {
+    public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
+    public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.setCond(cond);
@@ -46,26 +46,26 @@ public class ArmInstStroe extends ArmInst {
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(Operand src, Operand addr) {
+    public ArmInstStore(Operand src, Operand addr) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(Operand src, Operand addr, ArmCondType cond) {
+    public ArmInstStore(Operand src, Operand addr, ArmCondType cond) {
         super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(Operand src, Operand addr, Operand offset) {
+    public ArmInstStore(Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
     }
 
-    public ArmInstStroe(Operand src, Operand addr, Operand offset, ArmCondType cond) {
+    public ArmInstStore(Operand src, Operand addr, Operand offset, ArmCondType cond) {
         super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, offset);

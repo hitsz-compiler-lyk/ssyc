@@ -276,7 +276,7 @@ public class SimpleRegisterAssignment {
                 reg.replaceRegAfter(currentInst, currentReg);
             }
             regMemMap.put(currentReg, mem);
-            currentInst.insertAfterCO(new ArmInstStroe(
+            currentInst.insertAfterCO(new ArmInstStore(
                     reg, new IPhyReg("sp"), new IImm(offset + mem.offset)
             ));
         }
@@ -300,7 +300,7 @@ public class SimpleRegisterAssignment {
             reg.replaceRegAfter(currentInst, currentReg);
         }
         regMemMap.put(currentReg, mem);
-        currentInst.insertBeforeCO(new ArmInstStroe(
+        currentInst.insertBeforeCO(new ArmInstStore(
                 reg, new IPhyReg("sp"), new IImm(offset + mem.offset)
         ));
     }

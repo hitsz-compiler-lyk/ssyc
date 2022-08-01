@@ -1,6 +1,6 @@
-float a;
+float a = 1.0, b = 2.0;
 int main(){
-    a = 1.0;
+    a = a + b + 1.0;
     putfloat(a);
     putch(10);
     return 0;

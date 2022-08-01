@@ -120,6 +120,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     private List<Operand> operands;
     private ArmCondType cond;
     private int printCnt;
+    private String symbol;
 
     public ArmInst(ArmInstKind inst) {
         this.inst = inst;
@@ -271,6 +272,24 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public abstract String print();
+
+    public void InitSymbol() {
+        var sb = new StringBuffer("@" + print());
+        int p = sb.indexOf("\n");
+        while (p != sb.length() - 1 && p != -1) {
+            sb.insert(p + 1, "@");
+            p = sb.indexOf("\n", p + 1);
+        }
+        symbol = sb.toString();
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public void addSymbol(String symbol) {
+        this.symbol += symbol;
+    }
 
     @Override
     public INode<ArmInst, ArmBlock> getINode() {
