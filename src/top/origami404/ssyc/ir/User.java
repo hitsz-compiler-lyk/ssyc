@@ -50,6 +50,7 @@ public class User extends Value {
     public void freeFromUseDef() {
         ensure(getUserList().isEmpty(), "Can NOT call freeFromUseDef on value that are current being used");
         removeOperandAllCO();
+        GlobalModifitationStatus.current().markAsChanged();
     }
 
     @Override

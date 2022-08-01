@@ -1,65 +1,58 @@
 package top.origami404.ssyc.pass.ir;
 
+import top.origami404.ssyc.ir.GlobalModifitationStatus;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.utils.Log;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class IRPassManager {
-    public void runAllPass(Module module) {
-        final var size = irPasses.size();
-        for (int i = 0; i < size; i++) {
-            runOne(i, module);
-        }
+    public IRPassManager(Module module) {
+        this.module = module;
+        this.passCount = 0;
     }
 
-    public void addDefaultPasses() {
-        addDefaultBlockClearUpPasses();
-        addPass(new FunctionInline());
-        addPass(new ClearUselessFunction());
-        addDefaultBlockClearUpPasses();
-        addPass(new ConstructDominatorInfo());
-        addPass(new SimpleGVN());
-        addDefaultBlockClearUpPasses();
+    public void runAllPasses() {
+        runDefaultBlockClearUpPasses();
+        runPass(new FunctionInline());
+        runPass(new ClearUselessFunction());
+        runDefaultBlockClearUpPasses();
+        runPass(new ConstructDominatorInfo());
+        runPass(new SimpleGVN());
+        runDefaultBlockClearUpPasses();
     }
 
-    public void addDefaultBlockClearUpPasses() {
-        // TODO: 思考到底应该如何调和这堆东西
-        addPass(new ClearUnreachableBlock());
-        addDefaultInstructionClearUpPasses();
-        addPass(new MergeDirectBranch());
-        addDefaultInstructionClearUpPasses();
-        addPass(new ClearUnreachableBlock());
-        addDefaultInstructionClearUpPasses();
-        addPass(new ClearUnreachableBlock());
+    public void runDefaultBlockClearUpPasses() {
+        GlobalModifitationStatus.doUntilNoChange(() -> {
+            runDefaultInstructionClearUpPasses();
+            runPass(new ClearUnreachableBlock());
+            runDefaultInstructionClearUpPasses();
+            runPass(new MergeDirectBranch());
+        });
     }
 
-    public void addDefaultInstructionClearUpPasses() {
-        addPass(new ConstantFold());
-        addPass(new RemoveTravialPhi());
-        addPass(new ConstantFold());
+    public void runDefaultInstructionClearUpPasses() {
+        GlobalModifitationStatus.doUntilNoChange(() -> {
+            runPass(new ConstantFold());
+            runPass(new RemoveTravialPhi());
+        });
     }
 
-    private void runOne(int index, Module module) {
+    private final Module module;
+    private int passCount;
+
+    public void runPass(IRPass pass) {
+        final var index = passCount++;
+        final var name = pass.getPassName();
         try {
-            final var pass = irPasses.get(index);
-            Log.info("Begin run #%d:%s".formatted(index, pass.getPassName()));
+            Log.info("Begin run #%d:%s".formatted(index, name));
             pass.runPass(module);
         } catch (Exception e) {
-            throw new IRPassException(index, e);
+            throw new IRPassException(index, name, e);
         }
     }
 
-    private void addPass(IRPass pass) {
-        irPasses.add(pass);
-    }
-
-    private final List<IRPass> irPasses = new ArrayList<>();
-
     public class IRPassException extends RuntimeException {
-        IRPassException(int index, Exception cause) {
-            super("IRPass exception on #%d:%s".formatted(index, irPasses.get(index).getPassName()), cause);
+        IRPassException(int index, String passName, Exception cause) {
+            super("IRPass exception on #%d:%s".formatted(index, passName), cause);
         }
     }
 }

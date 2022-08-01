@@ -38,9 +38,8 @@ public class Main {
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
 
-                final var mgr = new IRPassManager();
-                mgr.addDefaultPasses();
-                mgr.runAllPass(module);
+                final var mgr = new IRPassManager(module);
+                mgr.runAllPasses();
                 module.verifyAll();
 
                 final var dumper = new LLVMDumper(outputStream);

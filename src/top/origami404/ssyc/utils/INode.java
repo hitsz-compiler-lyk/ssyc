@@ -2,6 +2,8 @@ package top.origami404.ssyc.utils;
 
 import java.util.Optional;
 
+import top.origami404.ssyc.ir.GlobalModifitationStatus;
+
 /**
  * 带反向引用的侵入式链表的节点
  * @param <E> 包含列表元素的类的类型
@@ -68,6 +70,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
     public void freeFromIList() {
         getParentOpt().ifPresent(p -> p.asINodeView().remove(this));
+        GlobalModifitationStatus.current().markAsChanged();
     }
 
     public void insertBeforeCO(INode<E, P> newPrev) {
