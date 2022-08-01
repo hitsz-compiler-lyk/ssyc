@@ -2,8 +2,6 @@ package top.origami404.ssyc.pass.ir;
 
 import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.analysis.AnalysisInfo;
 import top.origami404.ssyc.utils.Log;
 import top.origami404.ssyc.pass.ir.dataflow.*;
 
