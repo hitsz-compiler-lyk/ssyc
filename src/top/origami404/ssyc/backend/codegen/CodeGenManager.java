@@ -904,6 +904,7 @@ public class CodeGenManager {
 
         arm.append("\n.text\n");
         for (var func : functions) {
+            fixStack(func);
             arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
             for (var block : func.asElementView()) {
                 arm.append("@" + block.getLabel() + ":\n");
@@ -922,10 +923,8 @@ public class CodeGenManager {
             }
 
             boolean isFix = true;
-            fixStack(func);
             while (isFix) {
                 var allocatorMap = regAllocator.getAssignMap(func);
-                isFix = fixStack(func);
                 Set<IPhyReg> iPhyRegs = new HashSet<>();
                 Set<FPhyReg> fPhyRegs = new HashSet<>();
                 for (var block : func.asElementView()) {
@@ -945,6 +944,7 @@ public class CodeGenManager {
                 }
                 calcIUseRegs(func, iPhyRegs);
                 calcFUseRegs(func, fPhyRegs);
+                isFix = fixStack(func);
 
                 var funcInfo = func.getFuncInfo();
                 var stackSize = funcInfo.getFinalstackSize();
