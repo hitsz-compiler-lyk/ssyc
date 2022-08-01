@@ -36,7 +36,7 @@ public class Module {
         }
     }
 
-    private final Set<Function> functions = new HashSet<>();
-    private final Set<GlobalVar> variables = new HashSet<>();
-    private final Set<ArrayConst> arrayConst = new HashSet<>();
+    private final Set<Function> functions = new LinkedHashSet<>();
+    private final Set<GlobalVar> variables = new LinkedHashSet<>();
+    private final Set<ArrayConst> arrayConst = new LinkedHashSet<>();
 }
