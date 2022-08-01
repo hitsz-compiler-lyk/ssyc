@@ -1,5 +1,7 @@
 package top.origami404.ssyc.pass.ir;
 
+import java.util.List;
+
 import top.origami404.ssyc.ir.GlobalModifitationStatus;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.utils.Log;
@@ -11,13 +13,17 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
-        runDefaultBlockClearUpPasses();
-        runPass(new FunctionInline());
-        runPass(new ClearUselessFunction());
-        runDefaultBlockClearUpPasses();
-        runPass(new ConstructDominatorInfo());
-        runPass(new SimpleGVN());
-        runDefaultBlockClearUpPasses();
+        GlobalModifitationStatus.doUntilNoChange(() -> {
+            runDefaultBlockClearUpPasses();
+            runPass(new FunctionInline());
+            runPass(new ClearUselessFunction());
+            runDefaultBlockClearUpPasses();
+            runPass(new ConstructDominatorInfo());
+            runPass(new SimpleGVN());
+            runDefaultBlockClearUpPasses();
+            // runPass(new ReplaceUnessaryLoad());
+            runDefaultBlockClearUpPasses();
+        });
     }
 
     public void runDefaultBlockClearUpPasses() {
@@ -33,6 +39,7 @@ public class IRPassManager {
         GlobalModifitationStatus.doUntilNoChange(() -> {
             runPass(new ConstantFold());
             runPass(new RemoveTravialPhi());
+            runPass(new ClearUselessInstruction());
         });
     }
 
