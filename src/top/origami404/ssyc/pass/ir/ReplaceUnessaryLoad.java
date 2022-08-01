@@ -53,7 +53,7 @@ public class ReplaceUnessaryLoad implements IRPass {
                     final var load = (LoadInst) inst;
                     final var newInst = current.getByLoad(load);
 
-                    if (newInst == load) {
+                    if (newInst != load) {
                         load.replaceAllUseWith(newInst);
                         load.freeFromIList();
                         load.freeFromUseDef();
@@ -291,8 +291,7 @@ class MemPosition {
     }
 
     public static MemPosition createWithMemInit(MemInitInst memInit) {
-        return createWithPointer(memInit.getArrayPtr())
-            .orElseThrow(() -> new RuntimeException("Pointer in MemInit must point to a real memory position"));
+        return new MemPosition(LocationKind.LocalArray, memInit.getArrayPtr());
     }
 
     /**
