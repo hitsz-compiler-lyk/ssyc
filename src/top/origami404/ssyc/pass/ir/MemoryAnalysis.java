@@ -26,6 +26,8 @@ import top.origami404.ssyc.ir.inst.Instruction;
 import top.origami404.ssyc.ir.inst.LoadInst;
 import top.origami404.ssyc.ir.inst.MemInitInst;
 import top.origami404.ssyc.ir.inst.StoreInst;
+import top.origami404.ssyc.pass.ir.dataflow.DataFlowInfo;
+import top.origami404.ssyc.pass.ir.dataflow.ForwardDataFlowPass;
 import top.origami404.ssyc.utils.Log;
 
 public class MemoryAnalysis implements IRPass {
@@ -34,29 +36,57 @@ public class MemoryAnalysis implements IRPass {
         return;
     }
 
-    void collectDefinition(BasicBlock block, MemCache previous) {
-        final var current = MemCache.copyFrom(previous);
+    static class MemoryDefinationInfo extends DataFlowInfo<MemCache> {}
+    static class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryDefinationInfo> {
+        @Override
+        protected MemCache transfer(BasicBlock block, MemCache in) {
+            final var current = MemCache.copyFrom(in);
 
-        for (final var inst : block) {
-            if (inst instanceof MemInitInst) {
-                current.setByInit((MemInitInst) inst);
-            } else if (inst instanceof StoreInst) {
-                current.setByStore((StoreInst) inst);
-            } else if (inst instanceof CallInst) {
-                current.setByCall((CallInst) inst);
+            for (final var inst : block) {
+                if (inst instanceof MemInitInst) {
+                    current.setByInit((MemInitInst) inst);
+                } else if (inst instanceof StoreInst) {
+                    current.setByStore((StoreInst) inst);
+                } else if (inst instanceof CallInst) {
+                    current.setByCall((CallInst) inst);
+                }
             }
+
+            return current;
         }
 
-        // add analysis info
-    }
+        @Override
+        protected MemCache meet(BasicBlock block, List<MemCache> predOuts) {
+            // TODO Auto-generated method stub
+            return null;
+        }
 
-    void meet(BasicBlock block) {
-        for (final var pred : block.getPredecessors()) {
-            // pred
+        @Override
+        protected MemCache topElement(BasicBlock block) {
+            return MemCache.empty();
+        }
+
+        @Override
+        protected MemCache entryIn(BasicBlock block) {
+            return MemCache.empty();
+        }
+
+        @Override
+        protected MemoryDefinationInfo createInfo(BasicBlock block) {
+            return new MemoryDefinationInfo();
+        }
+
+        @Override
+        protected Class<MemoryDefinationInfo> getInfoClass() {
+            return MemoryDefinationInfo.class;
         }
     }
 
     static class MemCache {
+        public static MemCache empty() {
+            return new MemCache();
+        }
+
         public static MemCache copyFrom(MemCache other) {
             return new MemCache(other);
         }
@@ -135,6 +165,10 @@ public class MemoryAnalysis implements IRPass {
 
         private MemCache(MemCache other) {
             this.cache = new HashMap<>(other.cache);
+        }
+
+        private MemCache() {
+            this.cache = new HashMap<>();
         }
 
         Map<MemPosition, MemHandler> cache;
