@@ -10,6 +10,9 @@ import top.origami404.ssyc.utils.Log;
 // 1: lhs RegUse
 // 2: rhs RegUse
 public class ArmInstBinary extends ArmInst {
+    boolean isFixOffset = false;
+    Operand trueOffset;
+
     private static final Map<ArmInstKind, String> binaryMap = new HashMap<ArmInstKind, String>() {
         {
             put(ArmInstKind.IAdd, "add");
@@ -24,6 +27,10 @@ public class ArmInstBinary extends ArmInst {
         }
     };
 
+    public static boolean isBinary(ArmInstKind kind) {
+        return binaryMap.containsKey(kind);
+    }
+
     public ArmInstBinary(ArmInstKind inst) {
         super(inst);
     }
@@ -33,6 +40,7 @@ public class ArmInstBinary extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.isFixOffset = false;
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -41,12 +49,14 @@ public class ArmInstBinary extends ArmInst {
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.isFixOffset = false;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.isFixOffset = false;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -54,6 +64,7 @@ public class ArmInstBinary extends ArmInst {
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.isFixOffset = false;
     }
 
     public Operand getDst() {
@@ -68,12 +79,34 @@ public class ArmInstBinary extends ArmInst {
         return this.getOperand(2);
     }
 
+    public void replaceRhs(Operand rhs) {
+        this.replaceOperand(2, rhs);
+    }
+
+    public void setTrueOffset(Operand trueOffset) {
+        this.trueOffset = trueOffset;
+    }
+
+    public void setFixOffset(boolean isFixOffset) {
+        this.isFixOffset = isFixOffset;
+    }
+
+    public boolean isFixOffset() {
+        return isFixOffset;
+    }
+
     @Override
     public String print() {
         String op = binaryMap.get(getInst());
+        var dst = getDst();
+        var lhs = getLhs();
+        var rhs = getRhs();
+        if (trueOffset != null) {
+            rhs = trueOffset;
+        }
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + getDst().print() + ",\t" + getLhs().print() + ",\t"
-                + getRhs().print() + "\n";
+        String ret = "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
+                + rhs.print() + "\n";
         return ret;
     }
 }

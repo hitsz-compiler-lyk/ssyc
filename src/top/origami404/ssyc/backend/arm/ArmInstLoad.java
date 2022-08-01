@@ -135,8 +135,8 @@ public class ArmInstLoad extends ArmInst {
         this.trueOffset = null;
     }
 
-    public void replaceAddr(Operand addr) {
-        this.replaceOperand(1, addr);
+    public void replaceOffset(Operand offset) {
+        this.replaceOperand(2, offset);
     }
 
     @Override

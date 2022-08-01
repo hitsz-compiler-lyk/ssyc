@@ -261,6 +261,10 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         return inst.equals(ArmInstKind.Store) && getOperand(1).equals(new IPhyReg("sp"));
     }
 
+    public boolean isStackBinary() {
+        return ArmInstBinary.isBinary(inst) && getOperand(1).equals(new IPhyReg("sp"));
+    }
+
     public boolean isLoadFImm() {
         return inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm();
     }

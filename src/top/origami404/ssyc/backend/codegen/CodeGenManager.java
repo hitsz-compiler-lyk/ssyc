@@ -989,7 +989,6 @@ public class CodeGenManager {
                     prologuePrint += "\tvpop\t{" + iuse.toString() + "}\n";
                 }
 
-                fixLtorg(func);
                 if (isFix) {
                     arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
                     arm.append(getSymbol(prologuePrint));
@@ -1000,7 +999,8 @@ public class CodeGenManager {
                             if (block.getFalseSuccBlock() == null) {
                                 arm.append("\n");
                             } else {
-                                arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
+                                arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+                                        "\n");
                             }
                         }
                         for (var inst : block.asElementView()) {
@@ -1032,6 +1032,7 @@ public class CodeGenManager {
 
                 arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
                 arm.append(prologuePrint);
+                fixLtorg(func);
                 for (var block : func.asElementView()) {
                     arm.append(block.getLabel() + ":\n");
                     if (block.getTrueSuccBlock() != null) {
@@ -1039,7 +1040,8 @@ public class CodeGenManager {
                         if (block.getFalseSuccBlock() == null) {
                             arm.append("\n");
                         } else {
-                            arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
+                            arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+                                    "\n");
                         }
                     }
                     for (var inst : block.asElementView()) {
@@ -1178,22 +1180,61 @@ public class CodeGenManager {
         for (int i = 1; i < blocks.size(); i++) {
             var block = blocks.get(i);
             for (var inst : block.asElementView()) {
+                int actualOffset = 0;
                 if (inst.isStackLoad()) {
                     var load = (ArmInstLoad) inst;
                     if (load.getOffset() instanceof IImm) {
-                        var addr = (IImm) load.getOffset();
-                        Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
-                        var actualOffset = stackMap.get(addr.getImm());
-                        isFix |= fixStackInst(load, actualOffset);
+                        var offset = (IImm) load.getOffset();
+                        Log.ensure(stackMap.containsKey(offset.getImm()), "stack offset not present");
+                        actualOffset = stackMap.get(offset.getImm());
+                    } else if (load.getOffset() instanceof IVirtualReg) {
+                        var prevInst = load.getINode().getPrev().get().getValue();
+                        Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                        var move = (ArmInstMove) prevInst;
+                        Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                        var offset = ((IImm) move.getSrc()).getImm();
+                        Log.ensure(stackMap.containsKey(offset), "stack offset not present");
+                        actualOffset = stackMap.get(offset);
+                    } else {
+                        Log.ensure(false, "stack load offset is not a IImm or IVirtualReg");
                     }
+                    isFix |= fixStackInst(load, actualOffset);
                 } else if (inst.isStackStore()) {
                     var store = (ArmInstStore) inst;
                     if (store.getOffset() instanceof IImm) {
-                        var addr = (IImm) store.getOffset();
-                        Log.ensure(stackMap.containsKey(addr.getImm()), "stack offset not present");
-                        var actualOffset = stackMap.get(addr.getImm());
-                        isFix |= fixStackInst(store, actualOffset);
+                        var offset = (IImm) store.getOffset();
+                        Log.ensure(stackMap.containsKey(offset.getImm()), "stack offset not present");
+                        actualOffset = stackMap.get(offset.getImm());
+                    } else if (store.getOffset() instanceof IVirtualReg) {
+                        var prevInst = store.getINode().getPrev().get().getValue();
+                        Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                        var move = (ArmInstMove) prevInst;
+                        Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                        var offset = ((IImm) move.getSrc()).getImm();
+                        Log.ensure(stackMap.containsKey(offset), "stack offset not present");
+                        actualOffset = stackMap.get(offset);
+                    } else {
+                        Log.ensure(false, "stack store offset is not a IImm or IVirtualReg");
                     }
+                    isFix |= fixStackInst(store, actualOffset);
+                } else if (inst.isStackBinary()) {
+                    var binary = (ArmInstBinary) inst;
+                    if (binary.getRhs() instanceof IImm) {
+                        var offset = (IImm) binary.getRhs();
+                        Log.ensure(stackMap.containsKey(offset.getImm()), "stack offset not present");
+                        actualOffset = stackMap.get(offset.getImm());
+                    } else if (binary.getRhs() instanceof IVirtualReg) {
+                        var prevInst = binary.getINode().getPrev().get().getValue();
+                        Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                        var move = (ArmInstMove) prevInst;
+                        Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                        var offset = ((IImm) move.getSrc()).getImm();
+                        Log.ensure(stackMap.containsKey(offset), "stack offset not present");
+                        actualOffset = stackMap.get(offset);
+                    } else {
+                        Log.ensure(false, "stack binary offset is not a IImm or IVirtualReg");
+                    }
+                    isFix |= fixStackInst(binary, actualOffset);
                 }
             }
         }
@@ -1202,19 +1243,50 @@ public class CodeGenManager {
         stackSize = funcInfo.getFinalstackSize();
         while (instIt.hasNext()) {
             var inst = instIt.next();
+            int actualOffset = 0;
             if (inst.isStackLoad()) {
                 var load = (ArmInstLoad) inst;
-                if (load.getAddr() instanceof IImm) {
-                    var addr = (IImm) load.getAddr();
-                    var actualOffset = addr.getImm() + stackSize + 4 * regCnt;
-                    isFix |= fixStackInst(load, actualOffset);
+                if (load.getOffset() instanceof IImm) {
+                    var addr = (IImm) load.getOffset();
+                    actualOffset = addr.getImm() + stackSize + 4 * regCnt;
+                } else if (load.getOffset() instanceof IVirtualReg) {
+                    var prevInst = load.getINode().getPrev().get().getValue();
+                    Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                    var move = (ArmInstMove) prevInst;
+                    Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                    actualOffset = ((IImm) move.getSrc()).getImm() + stackSize + 4 * regCnt;
+                } else {
+                    Log.ensure(false, "stack load offset is not a IImm or IVirtualReg");
                 }
+                isFix |= fixStackInst(load, actualOffset);
             } else if (inst.isStackStore()) {
                 var store = (ArmInstStore) inst;
-                if (store.getAddr() instanceof IImm) {
-                    var addr = (IImm) store.getAddr();
-                    var actualOffset = addr.getImm() + stackSize + 4 * regCnt;
-                    isFix |= fixStackInst(store, actualOffset);
+                if (store.getOffset() instanceof IImm) {
+                    var addr = (IImm) store.getOffset();
+                    actualOffset = addr.getImm() + stackSize + 4 * regCnt;
+                } else if (store.getOffset() instanceof IVirtualReg) {
+                    var prevInst = store.getINode().getPrev().get().getValue();
+                    Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                    var move = (ArmInstMove) prevInst;
+                    Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                    actualOffset = ((IImm) move.getSrc()).getImm() + stackSize + 4 * regCnt;
+                } else {
+                    Log.ensure(false, "stack store offset is not a IImm or IVirtualReg");
+                }
+                isFix |= fixStackInst(store, actualOffset);
+            } else if (inst.isStackBinary()) {
+                var binary = (ArmInstBinary) inst;
+                if (binary.getRhs() instanceof IImm) {
+                    var addr = (IImm) binary.getRhs();
+                    actualOffset = addr.getImm() + stackSize + 4 * regCnt;
+                } else if (binary.getRhs() instanceof IVirtualReg) {
+                    var prevInst = binary.getINode().getPrev().get().getValue();
+                    Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                    var move = (ArmInstMove) prevInst;
+                    Log.ensure(move.getSrc() instanceof IImm, "fix stack prev inst src not IImm");
+                    actualOffset = ((IImm) move.getSrc()).getImm() + stackSize + 4 * regCnt;
+                } else {
+                    Log.ensure(false, "stack store offset is not a IImm or IVirtualReg");
                 }
             }
         }
@@ -1227,15 +1299,18 @@ public class CodeGenManager {
             if (!load.isFixOffset()) {
                 isFix = true;
                 var vr = new IVirtualReg();
-                var move = new ArmInstMove(vr, new IImm(actualOffset));
+                var offset = load.getOffset();
+                Log.ensure(offset instanceof IImm, "load offset is not IImm");
+                var move = new ArmInstMove(vr, offset);
+                move.setTrueOffset(new IImm(actualOffset));
                 load.setFixOffset(true);
                 load.insertBeforeCO(move);
-                load.replaceAddr(vr);
+                load.replaceOffset(vr);
             } else {
                 var prevInst = load.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
                 var move = (ArmInstMove) prevInst;
-                move.replaceSrc(new IImm(actualOffset));
+                move.setTrueOffset(new IImm(actualOffset));
             }
         } else {
             load.setTrueOffset(new IImm(actualOffset));
@@ -1249,18 +1324,46 @@ public class CodeGenManager {
             if (!store.isFixOffset()) {
                 isFix = true;
                 var vr = new IVirtualReg();
-                var move = new ArmInstMove(vr, new IImm(actualOffset));
+                var offset = store.getOffset();
+                Log.ensure(offset instanceof IImm, "store offset is not IImm");
+                var move = new ArmInstMove(vr, offset);
+                move.setTrueOffset(new IImm(actualOffset));
                 store.setFixOffset(true);
                 store.insertBeforeCO(move);
-                store.replaceAddr(vr);
+                store.replaceOffset(vr);
             } else {
                 var prevInst = store.getINode().getPrev().get().getValue();
                 Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
                 var move = (ArmInstMove) prevInst;
-                move.replaceSrc(new IImm(actualOffset));
+                move.setTrueOffset(new IImm(actualOffset));
             }
         } else {
             store.setTrueOffset(new IImm(actualOffset));
+        }
+        return isFix;
+    }
+
+    private boolean fixStackInst(ArmInstBinary binary, int actualOffset) {
+        boolean isFix = false;
+        if (!checkOffsetRange(actualOffset)) {
+            if (!binary.isFixOffset()) {
+                isFix = true;
+                var vr = new IVirtualReg();
+                var offset = binary.getRhs();
+                Log.ensure(offset instanceof IImm, "stack binary rhs is not IImm");
+                var move = new ArmInstMove(vr, offset);
+                move.setTrueOffset(new IImm(actualOffset));
+                binary.setFixOffset(true);
+                binary.insertBeforeCO(move);
+                binary.replaceRhs(vr);
+            } else {
+                var prevInst = binary.getINode().getPrev().get().getValue();
+                Log.ensure(prevInst instanceof ArmInstMove, "fix stack prev inst not move");
+                var move = (ArmInstMove) prevInst;
+                move.setTrueOffset(new IImm(actualOffset));
+            }
+        } else {
+            binary.setTrueOffset(new IImm(actualOffset));
         }
         return isFix;
     }
