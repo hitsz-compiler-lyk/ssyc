@@ -29,9 +29,9 @@ public class ArmInstReturn extends ArmInst {
             } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
                 ret += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
-                var move = new ArmInstMove(new IPhyReg("r1"), new IImm(stackSize));
-                ret += move.toString();
-                ret += "\tadd\tsp,\tsp,\tr1\n";
+                var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                ret += move.print();
+                ret += "\tadd\tsp,\tsp,\tr4\n";
             }
         }
 

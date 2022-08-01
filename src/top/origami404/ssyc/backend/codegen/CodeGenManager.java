@@ -1345,7 +1345,7 @@ public class CodeGenManager {
 
     private boolean fixStackInst(ArmInstBinary binary, int actualOffset) {
         boolean isFix = false;
-        if (!checkOffsetRange(actualOffset)) {
+        if (!checkEncodeImm(actualOffset)) {
             if (!binary.isFixOffset()) {
                 isFix = true;
                 var vr = new IVirtualReg();
