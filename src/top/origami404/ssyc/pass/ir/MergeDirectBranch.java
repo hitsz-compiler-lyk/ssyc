@@ -1,19 +1,19 @@
 package top.origami404.ssyc.pass.ir;
 
 import top.origami404.ssyc.ir.Function;
+import top.origami404.ssyc.ir.GlobalModifitationStatus;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.utils.Log;
 
 public class MergeDirectBranch implements IRPass {
     @Override
     public void runPass(final Module module) {
-        for (final var func : module.getNonExternalFunction()) {
-            runUntilFalse(() -> mergeBlock(func));
-        }
+        GlobalModifitationStatus.doUntilNoChange(() ->
+            module.getNonExternalFunction().forEach(this::mergeBlock));
     }
 
     /** 合并两个紧密相连的块 (若 A -> B, A 的后继只有 B, B 的前继只有 A, 则它们是紧密相联的) */
-    public static boolean mergeBlock(Function function) {
+    public void mergeBlock(Function function) {
         for (final var block : function) {
             final var isUniqueSucc = block.getSuccessors().size() == 1;
             if (!isUniqueSucc) {
@@ -39,9 +39,6 @@ public class MergeDirectBranch implements IRPass {
             // 最后删除 succ
             succ.freeAll();
             // 基本块的后继是通过访问跳转指令获取的, 所以不需要额外维护
-            return true;
         }
-
-        return false;
     }
 }

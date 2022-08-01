@@ -6,10 +6,6 @@ import top.origami404.ssyc.ir.Module;
 public class ConstantFold implements IRPass {
     @Override
     public void runPass(final Module module) {
-        for (final var func : module.getNonExternalFunction()) {
-            for (final var block : func) {
-                block.allInst().forEach(IRBuilder::refold);
-            }
-        }
+        IRPass.instructionStream(module).forEach(IRBuilder::refold);
     }
 }

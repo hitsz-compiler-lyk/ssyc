@@ -15,37 +15,24 @@ import java.util.stream.Collectors;
 public class FunctionInline implements IRPass {
     @Override
     public void runPass(final Module module) {
-        runUntilFalse(() -> module.getNonExternalFunction().stream().anyMatch(FunctionInline::run));
+        GlobalModifitationStatus.doUntilNoChange(() ->
+            IRPass.instructionStream(module)
+                .filter(CallInst.class::isInstance).map(CallInst.class::cast)
+                .filter(this::canInline)
+                .forEach(this::doInline)
+        );
     }
 
-    public static boolean run(Function func) {
-        boolean hasChanged = false;
-        for (final var block : func) {
-            for (final var inst : block.nonPhiAndTerminator()) {
-                if (inst instanceof CallInst) {
-                    final var call = (CallInst) inst;
-                    final var callee = call.getCallee();
-                    if (!callee.isExternal() && isSimpleFunction(callee)) {
-                        doInline(call);
-                        hasChanged = true;
-                    }
-                }
-            }
-        }
-
-        return hasChanged;
+    private boolean canInline(CallInst call) {
+        final var callee = call.getCallee();
+        return !callee.isExternal() && isSimpleFunction(callee);
     }
 
-    private static boolean isSimpleFunction(Function func) {
-        for (final var block : func) {
-            for (final var inst : block.nonPhiAndTerminator()) {
-                if ((inst instanceof CallInst) && !((CallInst) inst).getCallee().isExternal()) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+    private boolean isSimpleFunction(Function func) {
+        return func.stream()
+            .flatMap(List<Instruction>::stream)
+            .filter(CallInst.class::isInstance).map(CallInst.class::cast)
+            .allMatch(call -> call.getCallee().isExternal());
     }
 
     private static Random rng = new Random();
@@ -60,7 +47,7 @@ public class FunctionInline implements IRPass {
         return new String(buffer);
     }
 
-    static void doInline(CallInst callInst) {
+    void doInline(CallInst callInst) {
         /*
          *                                           │   │    │
          *       │    │    │                         │   │    │ BB_inline_front
