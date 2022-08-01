@@ -32,3 +32,6 @@ test-data/**/*.exec
 
 # Test script log
 ssyc.log
+
+# Personal data
+.vscode/java.code-snippets
