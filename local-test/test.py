@@ -66,6 +66,7 @@ def ssyc(option: str) -> Callable[[str, str], None]:
             with open('ssyc.log', 'r') as f:
                 for line in f.readlines():
                     print(line, end='')
+            console.log(f'[red bold]Compiler failed on {src}')
             exit(1)
     return do
 
