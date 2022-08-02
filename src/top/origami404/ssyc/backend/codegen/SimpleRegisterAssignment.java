@@ -80,7 +80,10 @@ public class SimpleRegisterAssignment {
         for (var armInst : armBlock.getIList()) {
             assignInst(armInst);
         }
-        pushAllReg();
+        // 基本块有后继则溢出所有寄存器
+        if (armBlock.getSucc().size() != 0) {
+            pushAllReg();
+        }
     }
 
     private void assignInst(ArmInst armInst) {
