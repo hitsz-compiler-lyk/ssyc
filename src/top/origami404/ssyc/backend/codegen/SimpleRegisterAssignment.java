@@ -51,6 +51,7 @@ public class SimpleRegisterAssignment {
         fPhyRegPool = new RegPool<>(allFPhyRegs);
         virtualPhyReg = new HashMap<>();
         memPool = new MemPool();
+        currentUsedRegMap = new HashMap<>();
     }
 
     public Map<Reg, Reg> getAssignMap(ArmFunction armFunction) {
@@ -60,7 +61,11 @@ public class SimpleRegisterAssignment {
         for (var block : armFunction.getIList()) {
             assignBlock(block);
         }
-        armFunction.addStackSize(memPool.getSize());
+
+        for (int i = 0; i < memPool.getSize(); i++) {
+            armFunction.addStackSize(4);
+        }
+
         return virtualPhyReg;
     }
 

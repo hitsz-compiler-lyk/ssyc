@@ -42,7 +42,9 @@ public class MemPool {
             add();
         }
         freeMem.sort(Comparator.comparingInt(Mem::getOffset));
-        return freeMem.remove(0);
+        final var mem = freeMem.remove(0);
+        takenMem.add(mem);
+        return mem;
     }
 
     public int getSize() {
