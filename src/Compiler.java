@@ -1,5 +1,3 @@
-import top.origami404.ssyc.Main;
-
 import java.io.IOException;
 
 public class Compiler {
