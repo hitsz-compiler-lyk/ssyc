@@ -12,7 +12,7 @@
             "label": "debug",
             "dependsOn": "build",
             "type": "shell",
-            "command": "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -cp \"lib/*:target\" top.origami404.ssyc.FunctionalDebug",
+            "command": "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -cp \"lib/*:target\" FunctionalDebug",
             "isBackground": true,
             "problemMatcher": [{
                 "pattern": [{

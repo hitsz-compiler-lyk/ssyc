@@ -4,7 +4,7 @@ import org.antlr.v4.runtime.*;
 
 import backend.codegen.CodeGenManager;
 import frontend.*;
-import ir.IRPassManager;
+import pass.ir.IRPassManager;
 import utils.LLVMDumper;
 
 public class Main {
@@ -51,9 +51,8 @@ public class Main {
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
 
-                final var mgr = new IRPassManager();
-                mgr.addDefaultPasses();
-                mgr.runAllPass(module);
+                final var mgr = new IRPassManager(module);
+                mgr.runAllPasses();
                 module.verifyAll();
 
                 final var codeGenManager = new CodeGenManager();

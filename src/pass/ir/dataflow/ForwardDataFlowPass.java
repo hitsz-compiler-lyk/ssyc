@@ -1,13 +1,13 @@
-package top.origami404.ssyc.pass.ir.dataflow;
+package pass.ir.dataflow;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.pass.ir.IRPass;
+import ir.BasicBlock;
+import ir.Function;
+import ir.Module;
+import pass.ir.IRPass;
 
 public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implements IRPass {
     protected abstract T transfer(BasicBlock block, T in);

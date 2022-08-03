@@ -2,7 +2,7 @@ package utils;
 
 import java.util.Optional;
 
-import top.origami404.ssyc.ir.GlobalModifitationStatus;
+import ir.GlobalModifitationStatus;
 
 /**
  * 带反向引用的侵入式链表的节点

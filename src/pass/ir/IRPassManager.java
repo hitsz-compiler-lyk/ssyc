@@ -1,10 +1,8 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import java.util.List;
-
-import top.origami404.ssyc.ir.GlobalModifitationStatus;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.utils.Log;
+import ir.GlobalModifitationStatus;
+import ir.Module;
+import utils.Log;
 
 public class IRPassManager {
     public IRPassManager(Module module) {
@@ -21,7 +19,7 @@ public class IRPassManager {
             runPass(new ConstructDominatorInfo());
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
-            // runPass(new ReplaceUnessaryLoad());
+            runPass(new ReplaceUnessaryLoad());
             runDefaultBlockClearUpPasses();
         });
     }

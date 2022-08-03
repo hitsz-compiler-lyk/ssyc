@@ -1,6 +1,7 @@
-package ir;
+package pass.ir;
 
 import frontend.IRBuilder;
+import ir.Module;
 
 public class ConstantFold implements IRPass {
     @Override

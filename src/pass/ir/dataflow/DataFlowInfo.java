@@ -1,6 +1,6 @@
-package top.origami404.ssyc.pass.ir.dataflow;
+package pass.ir.dataflow;
 
-import top.origami404.ssyc.ir.analysis.AnalysisInfo;
+import ir.analysis.AnalysisInfo;
 
 public class DataFlowInfo<T> implements AnalysisInfo {
     public T in() { return in; }

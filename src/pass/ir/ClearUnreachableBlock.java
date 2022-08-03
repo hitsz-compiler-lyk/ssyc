@@ -1,4 +1,8 @@
-package ir;
+package pass.ir;
+
+import ir.BasicBlock;
+import ir.Function;
+import ir.Module;
 
 import java.util.HashSet;
 import java.util.Set;

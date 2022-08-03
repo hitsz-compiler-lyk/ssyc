@@ -1,6 +1,8 @@
-package ir;
+package pass.ir;
 
 import frontend.SourceCodeSymbol;
+import ir.*;
+import ir.Module;
 import ir.constant.Constant;
 import ir.inst.*;
 import ir.visitor.InstructionVisitor;
@@ -33,16 +35,30 @@ public class FunctionInline implements IRPass {
             .allMatch(call -> call.getCallee().isExternal());
     }
 
-    private static Random rng = new Random();
-    static String randomPrefix() {
-        final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    // private static Random rng = new Random();
+    // static String randomPrefix() {
+    //     final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-        final var buffer = new char[4];
-        for (int i = 0; i < 4; i++) {
-            buffer[i] = str.charAt(rng.nextInt(str.length()));
+    //     final var buffer = new char[4];
+    //     for (int i = 0; i < 4; i++) {
+    //         buffer[i] = str.charAt(rng.nextInt(str.length()));
+    //     }
+
+    //     return new String(buffer);
+    // }
+
+    private static int blockCount = 0;
+    static String randomPrefix() {
+        final var prefix = new char[4];
+
+        var exp = 1;
+        for (int i = prefix.length - 1; i > 0; i--) {
+            prefix[i] = Character.forDigit(blockCount / exp % 10, 10);
+            exp *= 10;
         }
 
-        return new String(buffer);
+        blockCount += 1;
+        return new String(prefix);
     }
 
     void doInline(CallInst callInst) {

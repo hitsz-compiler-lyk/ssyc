@@ -16,6 +16,7 @@ import ir.inst.*;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import utils.Log;
+import utils.CollectionTools;
 
 public class IRBuilder {
     public IRBuilder() {
@@ -70,7 +71,6 @@ public class IRBuilder {
     public LoadInst insertLoad(Value ptr) { return direct(new LoadInst(ptr)); }
     public void insertStore(Value ptr, Value val) { direct(new StoreInst(ptr, val)); }
 
-    // GEP 指令是需要被加进 Cache 里的, 因为底层的指针偏移运算肯定是可复用并且越少越好的
     public GEPInst insertGEP(Value ptr, List<? extends Value> indices) { return direct(new GEPInst(ptr, indices)); }
 
     public GEPInst insertGEPByInts(Value ptr, List<Integer> indices) {
@@ -154,6 +154,9 @@ public class IRBuilder {
                 Log.ensure(val.isUseless(), "Br can NOT be used");
             }
 
+        } else if (val instanceof GEPInst) {
+            tryFoldGEP((GEPInst) val);
+
         } else {
             final var exp = foldExp(val);
             if (exp != val) {
@@ -162,6 +165,36 @@ public class IRBuilder {
                 val.replaceAllUseWith(exp);
                 val.freeFromIList();
             }
+        }
+    }
+
+    // (GEP (GEP %a, [*xs,x]), [y,*ys]) <==> (GEP %a [*xs, x+y, *ys])
+    private static void tryFoldGEP(GEPInst gep) {
+        var currGEP = gep;
+        while (currGEP.getPtr() instanceof GEPInst) {
+            final var ptr = (GEPInst) currGEP.getPtr();
+
+            final var xs = CollectionTools.head(ptr.getIndices());
+            final var x = CollectionTools.tail(ptr.getIndices());
+            final var y = CollectionTools.car(currGEP.getIndices());
+            final var ys = CollectionTools.cdr(currGEP.getIndices());
+
+            final var middle = foldExp(new BinaryOpInst(InstKind.IAdd, x, y));
+            if (middle instanceof Instruction) {
+                gep.insertBeforeCO((Instruction) middle);
+            }
+
+            final var newIndices = CollectionTools.concat(xs, List.of(middle), ys);
+            currGEP = new GEPInst(ptr.getPtr(), newIndices);
+
+            Log.debug("New GEP type: " + currGEP.getType() + " for " + gep);
+            Log.ensure(currGEP.getType().equals(gep.getType()));
+        }
+
+        if (currGEP != gep) {
+            gep.replaceAllUseWith(currGEP);
+            gep.replaceInIList(currGEP);
+            gep.freeAll();
         }
     }
 

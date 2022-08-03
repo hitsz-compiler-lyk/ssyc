@@ -34,13 +34,14 @@ public class Log {
         final var filename = callerStackTrace.getFileName();
         final var basename = filename.replace(".java", "");
 
-        return color + "[%5s][%15s:%4d] | %s".formatted(level, basename, lineNo, message) + colorNormal;
+        return color + "[%5s][%25s:%4d] | %s".formatted(level, basename, lineNo, message) + colorNormal;
     }
 
-    private static final String colorRed = "\033[31;1m";
-    private static final String colorYellow = "\033[33;1m";
-    private static final String colorWhite = "\033[37;1m";
-    private static final String colorNormal = "\033[0m";
+    private static final boolean needColor = false;
+    private static final String colorRed    = needColor ? "\033[31;1m" : "";
+    private static final String colorYellow = needColor ? "\033[33;1m" : "";
+    private static final String colorWhite  = needColor ? "\033[37;1m" : "";
+    private static final String colorNormal = needColor ? "\033[0m"    : "";
 
     private static PrintStream out = System.err;
 }

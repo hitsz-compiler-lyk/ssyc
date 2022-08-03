@@ -73,5 +73,34 @@ public final class CollectionTools {
         return Collections.unmodifiableList(list.subList(1, list.size()));
     }
 
+    public static <T> List<T> head(List<T> list) {
+        Log.ensure(!list.isEmpty());
+        return Collections.unmodifiableList(list.subList(0, list.size() - 2));
+    }
+
+    public static <T> T tail(List<T> list) {
+        Log.ensure(!list.isEmpty());
+        return list.get(list.size() - 1);
+    }
+
+    public static class TwoList<T> {
+        public TwoList(List<T> first, List<T> second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        public List<T> first() { return first; }
+        public List<T> second() { return second; }
+
+        public final List<T> first;
+        public final List<T> second;
+    }
+
+    public static <T> TwoList<T> split(List<T> list, int i) {
+        final var first = Collections.unmodifiableList(list.subList(0, i));
+        final var second = Collections.unmodifiableList(list.subList(i, list.size()));
+        return new TwoList<>(first, second);
+    }
+
     private CollectionTools() {}
 }

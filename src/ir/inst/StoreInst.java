@@ -40,6 +40,6 @@ public class StoreInst extends Instruction {
         assert ptrType instanceof PointerIRTy;
         final var baseType = ((PointerIRTy) ptrType).getBaseType();
         ensure(baseType.isInt() || baseType.isFloat(),
-                "Type of an argument of Store must be a pointer to Int or Float");
+                "Type of an argument of Store must be a pointer to Int or Float, now: " + baseType);
     }
 }

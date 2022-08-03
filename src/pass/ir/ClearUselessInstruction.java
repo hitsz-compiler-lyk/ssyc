@@ -1,8 +1,8 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.inst.CallInst;
-import top.origami404.ssyc.ir.inst.Instruction;
+import ir.Module;
+import ir.inst.CallInst;
+import ir.inst.Instruction;
 
 public class ClearUselessInstruction implements IRPass {
     @Override

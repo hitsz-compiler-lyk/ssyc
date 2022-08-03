@@ -1,7 +1,9 @@
-package ir;
+package pass.ir;
 
+import ir.BasicBlock;
+import ir.Module;
 import ir.inst.*;
-import ir.ConstructDominatorInfo.DominatorInfo;
+import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import utils.ChainMap;
 
 import java.util.*;

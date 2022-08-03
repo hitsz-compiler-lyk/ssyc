@@ -1,12 +1,12 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.inst.Instruction;
+import ir.BasicBlock;
+import ir.Module;
+import ir.inst.Instruction;
 
 import java.util.*;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
+
 public interface IRPass {
     default String getPassName() {
         return getClass().getSimpleName();

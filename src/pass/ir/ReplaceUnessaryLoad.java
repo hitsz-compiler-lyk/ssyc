@@ -1,4 +1,4 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
 import java.util.HashMap;
 import java.util.List;
@@ -8,25 +8,29 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.GlobalVar;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.Parameter;
-import top.origami404.ssyc.ir.Value;
-import top.origami404.ssyc.ir.constant.ArrayConst;
-import top.origami404.ssyc.ir.constant.Constant;
-import top.origami404.ssyc.ir.constant.IntConst;
-import top.origami404.ssyc.ir.inst.CAllocInst;
-import top.origami404.ssyc.ir.inst.CallInst;
-import top.origami404.ssyc.ir.inst.GEPInst;
-import top.origami404.ssyc.ir.inst.Instruction;
-import top.origami404.ssyc.ir.inst.LoadInst;
-import top.origami404.ssyc.ir.inst.MemInitInst;
-import top.origami404.ssyc.ir.inst.StoreInst;
-import top.origami404.ssyc.pass.ir.dataflow.DataFlowInfo;
-import top.origami404.ssyc.pass.ir.dataflow.ForwardDataFlowPass;
-import top.origami404.ssyc.utils.Log;
+import ir.BasicBlock;
+import ir.Function;
+import ir.GlobalVar;
+import ir.Module;
+import ir.Parameter;
+import ir.Value;
+import ir.constant.ArrayConst;
+import ir.constant.Constant;
+import ir.constant.IntConst;
+import ir.inst.CAllocInst;
+import ir.inst.CallInst;
+import ir.inst.GEPInst;
+import ir.inst.Instruction;
+import ir.inst.LoadInst;
+import ir.inst.MemInitInst;
+import ir.inst.StoreInst;
+import pass.ir.dataflow.DataFlowInfo;
+import pass.ir.dataflow.ForwardDataFlowPass;
+import utils.Log;
+
+// TODO: 缓存相同变量的内存位置
+// TODO: 将全局数组的定义放入 Entry 块
+// TODO: 如果一个数组完全没有读取, 就删掉
 
 public class ReplaceUnessaryLoad implements IRPass {
     @Override
@@ -88,7 +92,7 @@ class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryInfo> 
 
     @Override
     protected MemCache meet(BasicBlock block, List<MemCache> predOuts) {
-        Log.ensure(predOuts.isEmpty() || block == block.getParent().getEntryBBlock(),
+        Log.ensure(predOuts.isEmpty() == (block == block.getParent().getEntryBBlock()),
             "Only entry block could have no pred");
 
         return predOuts.stream().reduce(MemCache::merge).orElse(MemCache.empty());
@@ -313,23 +317,25 @@ class MemPosition {
             final var gep = (GEPInst) ptr;
             final var gepPtr = gep.getPtr();
 
-            if (gepPtr instanceof LoadInst) {
-                final var load = (LoadInst) gepPtr;
-                Log.ensure(load.getPtr() instanceof GlobalVar);
-                return Optional.of(new MemPosition(LocationKind.GlobalArray, load.getPtr()));
-
-            } else if (gepPtr instanceof CAllocInst) {
-                final var calloc = (CAllocInst) gepPtr;
-                return Optional.of(new MemPosition(LocationKind.LocalArray, calloc));
-
-            } else if (gepPtr instanceof Parameter) {
-                final var param = (Parameter) gepPtr;
-                Log.ensure(param.getType().isPtr());
-                return Optional.of(new MemPosition(LocationKind.LocalArray, param));
-
-            } else {
-                throw new RuntimeException("Unknown structure: (GEP " + gepPtr + ")");
+            try {
+                return createWithPointer(gepPtr);
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Unknown structure: (" + gep + " with " + gepPtr + ")");
             }
+
+        } else if (ptr instanceof LoadInst) {
+            final var load = (LoadInst) ptr;
+            Log.ensure(load.getPtr() instanceof GlobalVar);
+            return Optional.of(new MemPosition(LocationKind.GlobalArray, load.getPtr()));
+
+        } else if (ptr instanceof CAllocInst) {
+            final var calloc = (CAllocInst) ptr;
+            return Optional.of(new MemPosition(LocationKind.LocalArray, calloc));
+
+        } else if (ptr instanceof Parameter) {
+            final var param = (Parameter) ptr;
+            Log.ensure(param.getType().isPtr());
+            return Optional.of(new MemPosition(LocationKind.LocalArray, param));
 
         } else {
             throw new RuntimeException("Unknown structure: " + ptr);
@@ -404,10 +410,13 @@ class MemHandler {
 
     public MemHandler get(int idx) {
         Log.ensure(!isVariable(), "get can only be called on array (or undef)");
-        // 如果本身是 undef 或者是 Array 但是没有对应位置的缓存就直接返回一个新的 undef
-        return Optional.ofNullable(elements)
-            .map(elms -> elms.get(idx))
-            .orElse(new MemHandler());
+        if (elements == null) {
+            Log.ensure(value == null);
+            elements = new HashMap<>();
+        }
+
+        elements.computeIfAbsent(idx, i -> new MemHandler());
+        return elements.get(idx);
     }
 
     public Value getValue() {

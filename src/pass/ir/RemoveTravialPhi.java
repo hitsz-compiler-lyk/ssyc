@@ -1,10 +1,10 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.GlobalModifitationStatus;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.ir.Value;
-import top.origami404.ssyc.ir.inst.PhiInst;
+import ir.Function;
+import ir.GlobalModifitationStatus;
+import ir.Module;
+import ir.Value;
+import ir.inst.PhiInst;
 
 import java.util.HashSet;
 

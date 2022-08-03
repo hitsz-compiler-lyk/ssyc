@@ -1,4 +1,7 @@
-package ir;
+package pass.ir;
+
+import ir.Module;
+import ir.Value;
 
 public class ClearUselessFunction implements IRPass {
     @Override

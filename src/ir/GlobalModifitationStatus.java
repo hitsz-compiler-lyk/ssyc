@@ -1,4 +1,4 @@
-package top.origami404.ssyc.ir;
+package ir;
 
 public class GlobalModifitationStatus {
     public void resetStatus() {

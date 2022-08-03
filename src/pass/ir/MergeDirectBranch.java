@@ -1,9 +1,9 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.ir.GlobalModifitationStatus;
-import top.origami404.ssyc.ir.Module;
-import top.origami404.ssyc.utils.Log;
+import ir.Function;
+import ir.GlobalModifitationStatus;
+import ir.Module;
+import utils.Log;
 
 public class MergeDirectBranch implements IRPass {
     @Override

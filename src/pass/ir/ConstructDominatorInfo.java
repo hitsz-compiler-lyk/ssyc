@@ -1,9 +1,11 @@
-package top.origami404.ssyc.pass.ir;
+package pass.ir;
 
-import top.origami404.ssyc.ir.BasicBlock;
-import top.origami404.ssyc.ir.Function;
-import top.origami404.ssyc.utils.Log;
-import top.origami404.ssyc.pass.ir.dataflow.*;
+import ir.BasicBlock;
+import ir.Function;
+import pass.ir.ConstructDominatorInfo.DominatorInfo;
+import pass.ir.dataflow.DataFlowInfo;
+import pass.ir.dataflow.ForwardDataFlowPass;
+import utils.Log;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -11,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 public class ConstructDominatorInfo
-    extends ForwardDataFlowPass<Set<BasicBlock>, ConstructDominatorInfo.DominatorInfo>
+    extends ForwardDataFlowPass<Set<BasicBlock>, DominatorInfo>
 {
     @Override
     protected Set<BasicBlock> transfer(BasicBlock block, Set<BasicBlock> in) {
