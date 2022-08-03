@@ -46,4 +46,8 @@ public class FPhyReg extends Reg {
         return name;
     }
 
+    @Override
+    public String toString() {
+        return name;
+    }
 }

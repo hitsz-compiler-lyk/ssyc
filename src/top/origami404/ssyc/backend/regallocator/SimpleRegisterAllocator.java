@@ -1,12 +1,13 @@
-package top.origami404.ssyc.backend.codegen;
+package top.origami404.ssyc.backend.regallocator;
 
+import top.origami404.ssyc.backend.Consts;
 import top.origami404.ssyc.backend.arm.*;
 import top.origami404.ssyc.backend.operand.*;
 import top.origami404.ssyc.utils.Log;
 
 import java.util.*;
 
-public class SimpleRegisterAssignment {
+public class SimpleRegisterAllocator implements RegAllocator {
 
     /**
      * 虚拟寄存器到被分配的物理寄存器的映射
@@ -32,35 +33,50 @@ public class SimpleRegisterAssignment {
     MemPool memPool;
     ArmInst currentInst;
     int offset;
-    List<IPhyReg> allIPhyRegs = new ArrayList<>(){{
-        for (int i = 0; i <= 12; i += 1) {
-            add(new IPhyReg(i));
+    List<IPhyReg> allIPhyRegs = new ArrayList<>() {
+        {
+            for (int i = 0; i <= 12; i += 1) {
+                add(new IPhyReg(i));
+            }
+            add(new IPhyReg(14));
         }
-        add(new IPhyReg(14));
-    }};
-    List<FPhyReg> allFPhyRegs = new ArrayList<>(){{
-        for (int i = 0; i <= 7; i++) {
-            add(new FPhyReg(i));
+    };
+    List<FPhyReg> allFPhyRegs = new ArrayList<>() {
+        {
+            for (int i = 0; i <= 7; i++) {
+                add(new FPhyReg(i));
+            }
         }
-    }};
+    };
 
     public void Init() {
-//        spiltReg = new HashMap<>();
+        // spiltReg = new HashMap<>();
         regMemMap = new HashMap<>();
         iPhyRegPool = new RegPool<>(allIPhyRegs);
         fPhyRegPool = new RegPool<>(allFPhyRegs);
         virtualPhyReg = new HashMap<>();
         memPool = new MemPool();
+        currentUsedRegMap = new HashMap<>();
     }
 
-    public Map<Reg, Reg> getAssignMap(ArmFunction armFunction) {
+    @Override
+    public String getName() {
+        return Consts.SimpleRegisterAllocator;
+    }
+
+    @Override
+    public Map<Reg, Reg> run(ArmFunction armFunction) {
         Init();
 
         offset = armFunction.getStackSize();
         for (var block : armFunction.getIList()) {
             assignBlock(block);
         }
-        armFunction.addStackSize(memPool.getSize());
+
+        for (int i = 0; i < memPool.getSize(); i++) {
+            armFunction.addStackSize(4);
+        }
+
         return virtualPhyReg;
     }
 
@@ -71,11 +87,14 @@ public class SimpleRegisterAssignment {
      * @param armBlock 进行分配操作的基本块
      */
     private void assignBlock(ArmBlock armBlock) {
-        //块内需维护虚拟寄存器到 Imm 的映射
+        // 块内需维护虚拟寄存器到 Imm 的映射
         for (var armInst : armBlock.getIList()) {
             assignInst(armInst);
         }
-        pushAllReg();
+        // 基本块有后继则溢出所有寄存器
+        if (armBlock.getSucc().size() != 0) {
+            pushAllReg();
+        }
     }
 
     private void assignInst(ArmInst armInst) {
@@ -150,7 +169,7 @@ public class SimpleRegisterAssignment {
                 }
                 final var optionalReg = iPhyRegPool.findAndTake(iPhyReg);
                 Log.ensure(optionalReg.isPresent());
-                //直接使用, 无需pop
+                // 直接使用, 无需pop
                 clear(iPhyReg);
                 assign(iPhyReg, iPhyReg);
             } else if (regDef instanceof FPhyReg) {
@@ -169,54 +188,52 @@ public class SimpleRegisterAssignment {
                 }
                 final var optionalReg = fPhyRegPool.findAndTake(fPhyReg);
                 Log.ensure(optionalReg.isPresent());
-                //直接使用, 无需pop
+                // 直接使用, 无需pop
                 clear(fPhyReg);
                 assign(fPhyReg, fPhyReg);
             }
         }
         // 分配虚拟寄存器
         for (var regUse : armInst.getRegUse()) {
-             if (regUse instanceof IVirtualReg) {
-                 if (usedRegs.contains(regUse)) {
-                     break;
-                 } else {
-                     usedRegs.add(regUse);
-                 }
+            if (regUse instanceof IVirtualReg) {
+                if (usedRegs.contains(regUse)) {
+                    break;
+                } else {
+                    usedRegs.add(regUse);
+                }
 
                 final var iVReg = (IVirtualReg) regUse;
-                 if (currentUsedRegMap.containsValue(iVReg)) {
-                     break;
-                 }
-                 if (iPhyRegPool.isAllTaken()) {
-                     pushAnyIV();
-                 }
-                 final var optionalReg = iPhyRegPool.take();
-                 Log.ensure(optionalReg.isPresent());
-                 pop(iVReg);
-                 assign(iVReg, optionalReg.get());
+                if (currentUsedRegMap.containsValue(iVReg)) {
+                    break;
+                }
+                if (iPhyRegPool.isAllTaken()) {
+                    pushAnyIV();
+                }
+                final var optionalReg = iPhyRegPool.take();
+                Log.ensure(optionalReg.isPresent());
+                pop(iVReg);
+                assign(iVReg, optionalReg.get());
 
             } else if (regUse instanceof FVirtualReg) {
-                 if (usedRegs.contains(regUse)) {
-                     break;
-                 } else {
-                     usedRegs.add(regUse);
-                 }
+                if (usedRegs.contains(regUse)) {
+                    break;
+                } else {
+                    usedRegs.add(regUse);
+                }
 
                 final var fVReg = (FVirtualReg) regUse;
-                 if (currentUsedRegMap.containsValue(fVReg)) {
-                     break;
-                 }
-                 if (fPhyRegPool.isAllTaken()) {
-                     pushAnyFV();
-                 }
-                 final var optionalReg = fPhyRegPool.take();
-                 Log.ensure(optionalReg.isPresent());
-                 pop(fVReg);
-                 assign(fVReg, optionalReg.get());
+                if (currentUsedRegMap.containsValue(fVReg)) {
+                    break;
+                }
+                if (fPhyRegPool.isAllTaken()) {
+                    pushAnyFV();
+                }
+                final var optionalReg = fPhyRegPool.take();
+                Log.ensure(optionalReg.isPresent());
+                pop(fVReg);
+                assign(fVReg, optionalReg.get());
             }
         }
-
-
 
         // 虚拟定值寄存器
         for (var regDef : armInst.getRegDef()) {
@@ -236,7 +253,7 @@ public class SimpleRegisterAssignment {
                 }
                 final var optionalReg = iPhyRegPool.take();
                 Log.ensure(optionalReg.isPresent());
-                //直接使用, 无需pop
+                // 直接使用, 无需pop
                 clear(iVReg);
                 assign(iVReg, optionalReg.get());
 
@@ -256,7 +273,7 @@ public class SimpleRegisterAssignment {
                 }
                 final var optionalReg = fPhyRegPool.take();
                 Log.ensure(optionalReg.isPresent());
-                //直接使用, 无需pop
+                // 直接使用, 无需pop
                 clear(fVReg);
                 assign(fVReg, optionalReg.get());
             }
@@ -277,16 +294,15 @@ public class SimpleRegisterAssignment {
             }
             regMemMap.put(currentReg, mem);
             currentInst.insertAfterCO(new ArmInstStore(
-                    reg, new IPhyReg("sp"), new IImm(offset + mem.offset)
-            ));
+                    reg, new IPhyReg("sp"), new IImm(offset + mem.offset)));
         }
     }
-
 
     /**
      *
      * 维护映射
      * 不维护 currentusedRegMap
+     *
      * @param reg
      */
     private void push(Reg reg) {
@@ -301,8 +317,7 @@ public class SimpleRegisterAssignment {
         }
         regMemMap.put(currentReg, mem);
         currentInst.insertBeforeCO(new ArmInstStore(
-                reg, new IPhyReg("sp"), new IImm(offset + mem.offset)
-        ));
+                reg, new IPhyReg("sp"), new IImm(offset + mem.offset)));
     }
 
     private void pushAnyFV() {
@@ -321,21 +336,20 @@ public class SimpleRegisterAssignment {
     /**
      * 不维护映射
      * 有pop后必定进行一次assign, 占用映射在 assign 维护
+     *
      * @param reg
      */
     private void pop(Reg reg) {
         final var mem = regMemMap.remove(reg);
         memPool.put(mem);
         currentInst.insertBeforeCO(new ArmInstLoad(
-                reg, new IPhyReg("sp"), new IImm(offset + mem.getOffset())
-        ));
+                reg, new IPhyReg("sp"), new IImm(offset + mem.getOffset())));
     }
 
     private void clear(Reg reg) {
         final var mem = regMemMap.remove(reg);
         memPool.put(mem);
     }
-
 
     private void assign(Reg Vreg, Reg Preg) {
         currentUsedRegMap.put(Preg, Vreg);

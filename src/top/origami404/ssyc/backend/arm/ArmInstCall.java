@@ -27,6 +27,10 @@ public class ArmInstCall extends ArmInst {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
+        // 如果是外部函数 则会因为链接器从而把r12定值
+        if (func.isExternal()) {
+            ops.add(new IPhyReg("r12"));
+        }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
     }
@@ -42,6 +46,10 @@ public class ArmInstCall extends ArmInst {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
+        // 如果是外部函数 则会因为链接器从而把r12定值
+        if (func.isExternal()) {
+            ops.add(new IPhyReg("r12"));
+        }
         if (isFloat) {
             ops.add(new FPhyReg("s0"));
         }
@@ -60,6 +68,8 @@ public class ArmInstCall extends ArmInst {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
+        // 如果是外部函数 则会因为链接器从而把r12定值
+        ops.add(new IPhyReg("r12")); // memset 和 memcpy不会?
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
     }
@@ -75,6 +85,8 @@ public class ArmInstCall extends ArmInst {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
+        // 如果是外部函数 则会因为链接器从而把r12定值
+        ops.add(new IPhyReg("r12")); // memset 和 memcpy不会?
         if (isFloat) {
             ops.add(new FPhyReg("s0"));
         }

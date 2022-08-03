@@ -1,15 +1,15 @@
 package top.origami404.ssyc.backend.regallocator;
 
-import java.util.Arrays;
 import java.util.HashSet;
 
 import top.origami404.ssyc.backend.arm.ArmFunction;
-import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.backend.operand.Reg;
 
 public class LivenessAnalysis {
     public static void funcLivenessAnalysis(ArmFunction func) {
         for (var block : func.asElementView()) {
             var blockLiveInfo = block.getBlockLiveInfo();
+            blockLiveInfo.clear();
 
             for (var inst : block.asElementView()) {
                 for (var reg : inst.getRegUse()) {
@@ -33,9 +33,9 @@ public class LivenessAnalysis {
             changed = false;
             for (var block : func.asElementView()) {
                 var blockLiveInfo = block.getBlockLiveInfo();
-                var liveOut = new HashSet<Operand>();
+                var liveOut = new HashSet<Reg>();
 
-                for (var succ : Arrays.asList(block.getTrueSuccBlock(), block.getFalseSuccBlock())) {
+                for (var succ : block.getSucc()) {
                     if (succ != null) {
                         liveOut.addAll(succ.getBlockLiveInfo().getLiveIn());
                     }

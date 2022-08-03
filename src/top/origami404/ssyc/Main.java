@@ -1,8 +1,6 @@
 package top.origami404.ssyc;
 
 import java.io.*;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.*;
 
@@ -54,6 +52,11 @@ public class Main {
             case "asm" -> {
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
+                module.verifyAll();
+
+                final var mgr = new IRPassManager();
+                mgr.addDefaultPasses();
+                mgr.runAllPass(module);
                 module.verifyAll();
 
                 final var codeGenManager = new CodeGenManager();

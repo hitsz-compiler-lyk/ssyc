@@ -19,4 +19,9 @@ public class IVirtualReg extends Reg {
     public String print() {
         return "@IV" + this.getId();
     }
+
+    @Override
+    public String toString() {
+        return "@IV" + this.getId();
+    }
 }

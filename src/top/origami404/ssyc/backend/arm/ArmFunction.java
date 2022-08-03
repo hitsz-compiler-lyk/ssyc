@@ -88,12 +88,11 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     }
 
     private String name;
-
     private IList<ArmBlock, ArmFunction> blocks;
-
     private FunctionInfo funcInfo;
-
     private int paramsCnt;
+    private boolean isReturnFloat;
+    private boolean isExternal;
 
     @Override
     public IList<ArmBlock, ArmFunction> getIList() {
@@ -120,11 +119,29 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.funcInfo.addStackSize(n);
     }
 
+    public void setReturnFloat(boolean isReturnFloat) {
+        this.isReturnFloat = isReturnFloat;
+    }
+
+    public boolean isReturnFloat() {
+        return isReturnFloat;
+    }
+
+    public void setExternal(boolean isExternal) {
+        this.isExternal = isExternal;
+    }
+
+    public boolean isExternal() {
+        return isExternal;
+    }
+
     public ArmFunction(String name) {
         this.name = name;
         this.blocks = new IList<>(this);
         this.funcInfo = new FunctionInfo(this);
         this.paramsCnt = 0;
+        this.isReturnFloat = false;
+        this.isExternal = false;
     }
 
     public ArmFunction(String name, int paramsCnt) {
@@ -132,5 +149,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.blocks = new IList<ArmBlock, ArmFunction>(this);
         this.funcInfo = new FunctionInfo(this);
         this.paramsCnt = paramsCnt;
+        this.isReturnFloat = false;
+        this.isExternal = false;
     }
 }

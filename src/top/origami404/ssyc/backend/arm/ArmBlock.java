@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import top.origami404.ssyc.backend.operand.Operand;
+import top.origami404.ssyc.backend.operand.Reg;
 import top.origami404.ssyc.utils.IList;
 import top.origami404.ssyc.utils.IListOwner;
 import top.origami404.ssyc.utils.INode;
@@ -13,7 +13,7 @@ import top.origami404.ssyc.utils.INodeOwner;
 
 public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBlock, ArmFunction> {
     public static class BlockLiveInfo {
-        private Set<Operand> liveUse, liveDef, liveIn, liveOut;
+        private Set<Reg> liveUse, liveDef, liveIn, liveOut;
 
         BlockLiveInfo() {
             this.liveUse = new HashSet<>();
@@ -22,35 +22,42 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
             this.liveOut = new HashSet<>();
         }
 
-        public Set<Operand> getLiveUse() {
+        public void clear() {
+            this.liveUse.clear();
+            this.liveDef.clear();
+            this.liveIn.clear();
+            this.liveOut.clear();
+        }
+
+        public Set<Reg> getLiveUse() {
             return liveUse;
         }
 
-        public Set<Operand> getLiveDef() {
+        public Set<Reg> getLiveDef() {
             return liveDef;
         }
 
-        public Set<Operand> getLiveIn() {
+        public Set<Reg> getLiveIn() {
             return liveIn;
         }
 
-        public Set<Operand> getLiveOut() {
+        public Set<Reg> getLiveOut() {
             return liveOut;
         }
 
-        public void setLiveUse(Set<Operand> liveUse) {
+        public void setLiveUse(Set<Reg> liveUse) {
             this.liveUse = liveUse;
         }
 
-        public void setLiveDef(Set<Operand> liveDef) {
+        public void setLiveDef(Set<Reg> liveDef) {
             this.liveDef = liveDef;
         }
 
-        public void setLiveIn(Set<Operand> liveIn) {
+        public void setLiveIn(Set<Reg> liveIn) {
             this.liveIn = liveIn;
         }
 
-        public void setLiveOut(Set<Operand> liveOut) {
+        public void setLiveOut(Set<Reg> liveOut) {
             this.liveOut = liveOut;
         }
     }
@@ -125,6 +132,7 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.pred = new ArrayList<ArmBlock>();
         this.insts = new IList<ArmInst, ArmBlock>(this);
         this.inode = new INode<ArmBlock, ArmFunction>(this);
+        this.blockLiveInfo = new BlockLiveInfo();
         func.asElementView().add(this);
     }
 

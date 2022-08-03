@@ -1,4 +1,4 @@
-package top.origami404.ssyc.backend.codegen;
+package top.origami404.ssyc.backend.regallocator;
 
 import top.origami404.ssyc.utils.Log;
 

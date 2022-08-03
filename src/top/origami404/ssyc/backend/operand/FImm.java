@@ -21,4 +21,9 @@ public class FImm extends Imm {
     public String print() {
         return "#" + imm;
     }
+
+    @Override
+    public String toString() {
+        return "#" + imm;
+    }
 }

@@ -3,6 +3,7 @@ package top.origami404.ssyc.backend.operand;
 import java.util.ArrayList;
 import java.util.List;
 
+import top.origami404.ssyc.backend.Consts;
 import top.origami404.ssyc.backend.arm.ArmInst;
 
 public abstract class Reg extends Operand {
@@ -59,6 +60,10 @@ public abstract class Reg extends Operand {
 
     public int getInstNum() {
         return instSet.size();
+    }
+
+    public boolean allocable() {
+        return Consts.allocableRegs.contains(this);
     }
 
 }

@@ -109,6 +109,18 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 case Ge -> Le;
                 case Gt -> Lt;
                 case Lt -> Gt;
+                case Eq -> Ne;
+                case Ne -> Eq;
+                default -> this;
+            };
+        }
+
+        public ArmCondType getEqualOppCondType() {
+            return switch (this) {
+                case Le -> Ge;
+                case Ge -> Le;
+                case Gt -> Lt;
+                case Lt -> Gt;
                 default -> this;
             };
         }
@@ -254,15 +266,23 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public boolean isStackLoad() {
-        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"));
+        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"))
+                && ((ArmInstLoad) this).isStack();
+    }
+
+    public boolean isStackParamsLoad() {
+        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"))
+                && ((ArmInstLoad) this).isStack() && ((ArmInstLoad) this).isParamsLoad();
     }
 
     public boolean isStackStore() {
-        return inst.equals(ArmInstKind.Store) && getOperand(1).equals(new IPhyReg("sp"));
+        return inst.equals(ArmInstKind.Store) && getOperand(1).equals(new IPhyReg("sp"))
+                && ((ArmInstStore) this).isStack();
     }
 
     public boolean isStackBinary() {
-        return ArmInstBinary.isBinary(inst) && getOperand(1).equals(new IPhyReg("sp"));
+        return ArmInstBinary.isBinary(inst) && getOperand(1).equals(new IPhyReg("sp"))
+                && ((ArmInstBinary) this).isStack();
     }
 
     public boolean isLoadFImm() {

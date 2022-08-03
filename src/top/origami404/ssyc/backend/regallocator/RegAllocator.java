@@ -1,9 +1,12 @@
 package top.origami404.ssyc.backend.regallocator;
 
-import top.origami404.ssyc.backend.codegen.CodeGenManager;
+import java.util.Map;
+
+import top.origami404.ssyc.backend.arm.ArmFunction;
+import top.origami404.ssyc.backend.operand.Reg;
 
 public interface RegAllocator {
     String getName();
 
-    void run(CodeGenManager manager);
+    Map<Reg, Reg> run(ArmFunction func);
 }

@@ -11,7 +11,10 @@ import top.origami404.ssyc.utils.Log;
 // 2: rhs RegUse
 public class ArmInstBinary extends ArmInst {
     boolean isFixOffset = false;
+    boolean isStack = false;
     Operand trueOffset;
+    ArmInstMove offsetMove;
+
 
     private static final Map<ArmInstKind, String> binaryMap = new HashMap<ArmInstKind, String>() {
         {
@@ -41,6 +44,7 @@ public class ArmInstBinary extends ArmInst {
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
         this.isFixOffset = false;
+        this.isStack = false;
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -50,6 +54,7 @@ public class ArmInstBinary extends ArmInst {
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
         this.isFixOffset = false;
+        this.isStack = false;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
@@ -57,6 +62,7 @@ public class ArmInstBinary extends ArmInst {
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
         this.isFixOffset = false;
+        this.isStack = false;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -65,6 +71,7 @@ public class ArmInstBinary extends ArmInst {
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
         this.isFixOffset = false;
+        this.isStack = false;
     }
 
     public Operand getDst() {
@@ -93,6 +100,22 @@ public class ArmInstBinary extends ArmInst {
 
     public boolean isFixOffset() {
         return isFixOffset;
+    }
+
+    public void setOffsetMove(ArmInstMove offsetMove) {
+        this.offsetMove = offsetMove;
+    }
+
+    public ArmInstMove getOffsetMove() {
+        return offsetMove;
+    }
+
+    public void setStack(boolean isStack) {
+        this.isStack = isStack;
+    }
+
+    public boolean isStack() {
+        return isStack;
     }
 
     @Override

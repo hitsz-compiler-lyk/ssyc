@@ -9,7 +9,10 @@ import top.origami404.ssyc.utils.Log;
 // 2: offset  RegUse
 public class ArmInstLoad extends ArmInst {
     boolean isFixOffset = false;
+    boolean isStack = true;
+    boolean isParamsLoad = false;
     Operand trueOffset;
+    ArmInstMove offsetMove;
 
     public ArmInstLoad(ArmInstKind inst) {
         super(inst);
@@ -24,6 +27,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, ArmCondType cond) {
@@ -36,6 +41,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(Operand dst, Operand addr) {
@@ -46,6 +53,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, ArmCondType cond) {
@@ -57,6 +66,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset) {
@@ -68,6 +79,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -80,6 +93,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset) {
@@ -90,6 +105,20 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
+    }
+
+    public ArmInstLoad(Operand dst, Operand addr, int offset) {
+        super(ArmInstKind.Load);
+        this.initOperands(dst, addr, new IImm(offset));
+        if (addr.IsAddr()) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -101,6 +130,8 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isStack = true;
+        this.isParamsLoad = false;
     }
 
     public Operand getDst() {
@@ -137,6 +168,30 @@ public class ArmInstLoad extends ArmInst {
 
     public void replaceOffset(Operand offset) {
         this.replaceOperand(2, offset);
+    }
+
+    public void setOffsetMove(ArmInstMove offsetMove) {
+        this.offsetMove = offsetMove;
+    }
+
+    public ArmInstMove getOffsetMove() {
+        return offsetMove;
+    }
+
+    public void setStack(boolean isStack) {
+        this.isStack = isStack;
+    }
+
+    public boolean isStack() {
+        return isStack;
+    }
+
+    public void setParamsLoad(boolean isParamsLoad) {
+        this.isParamsLoad = isParamsLoad;
+    }
+
+    public boolean isParamsLoad() {
+        return isParamsLoad;
     }
 
     @Override

@@ -40,4 +40,9 @@ public class Addr extends Operand {
     public String print() {
         return label;
     }
+
+    @Override
+    public String toString() {
+        return label;
+    }
 }

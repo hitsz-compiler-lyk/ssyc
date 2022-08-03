@@ -40,9 +40,9 @@ public class ArmInstUnary extends ArmInst {
         var src = getSrc();
 
         if (getInst() == ArmInstKind.INeg) {
-            return "\t" + "neg" + getCond().toString() + "\t" + dst.print() + "\t" + src.print();
+            return "\t" + "neg" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
         } else if (getInst() == ArmInstKind.FNeg) {
-            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.print() + "\t" + src.print();
+            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
         } else {
             Log.ensure(false);
             return "";

@@ -105,4 +105,7 @@ public abstract class Operand {
     }
 
     public abstract String print();
+
+    @Override
+    public abstract String toString();
 }

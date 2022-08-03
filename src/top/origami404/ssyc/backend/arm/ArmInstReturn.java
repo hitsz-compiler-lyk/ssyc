@@ -41,7 +41,6 @@ public class ArmInstReturn extends ArmInst {
         for (var reg : funcInfo.getiUsedRegs()) {
             if (!first) {
                 iuse.append(", ");
-                first = false;
             }
             if (reg.equals(new IPhyReg("lr"))) {
                 iuse.append("pc");
@@ -49,6 +48,7 @@ public class ArmInstReturn extends ArmInst {
             } else {
                 iuse.append(reg.print());
             }
+            first = false;
         }
 
         var fuse = new StringBuilder();
@@ -56,13 +56,13 @@ public class ArmInstReturn extends ArmInst {
         for (var reg : funcInfo.getfUsedRegs()) {
             if (!first) {
                 fuse.append(", ");
-                first = false;
             }
             fuse.append(reg.print());
+            first = false;
         }
 
         if (!funcInfo.getfUsedRegs().isEmpty()) {
-            ret += "\tvpop\t{" + iuse.toString() + "}\n";
+            ret += "\tvpop\t{" + fuse.toString() + "}\n";
         }
 
         if (!funcInfo.getiUsedRegs().isEmpty()) {

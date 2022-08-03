@@ -49,9 +49,25 @@ public class IPhyReg extends Reg {
         this.name = name;
     }
 
+    public boolean isCallerSave() {
+        return this.getId() < 4;
+    }
+
+    public boolean isSpecial() {
+        return this.getId() == 13 || this.getId() >= 15;
+    }
+
+    public boolean isCalleeSave() {
+        return !this.isCallerSave() && !this.isSpecial();
+    }
+
     @Override
     public String print() {
         return name;
     }
 
+    @Override
+    public String toString() {
+        return name;
+    }
 }

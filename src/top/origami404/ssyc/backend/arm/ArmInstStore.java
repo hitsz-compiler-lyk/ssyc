@@ -10,7 +10,9 @@ import top.origami404.ssyc.utils.Log;
 // 2: offset  RegUse
 public class ArmInstStore extends ArmInst {
     boolean isFixOffset = false;
+    boolean isStack = true;
     Operand trueOffset;
+    ArmInstMove offsetMove;
 
     public ArmInstStore(ArmInstKind inst) {
         super(inst);
@@ -21,6 +23,7 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
@@ -29,6 +32,7 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset) {
@@ -36,6 +40,7 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
@@ -44,12 +49,14 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(Operand src, Operand addr) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(Operand src, Operand addr, ArmCondType cond) {
@@ -57,12 +64,21 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
+        this.isStack = true;
+    }
+
+    public ArmInstStore(Operand src, Operand addr, int offset) {
+        super(ArmInstKind.Store);
+        this.initOperands(src, addr, new IImm(offset));
+        this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public ArmInstStore(Operand src, Operand addr, Operand offset, ArmCondType cond) {
@@ -70,6 +86,7 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
+        this.isStack = true;
     }
 
     public Operand getSrc() {
@@ -106,6 +123,22 @@ public class ArmInstStore extends ArmInst {
 
     public void replaceOffset(Operand offset) {
         this.replaceOperand(2, offset);
+    }
+
+    public void setOffsetMove(ArmInstMove offsetMove) {
+        this.offsetMove = offsetMove;
+    }
+
+    public ArmInstMove getOffsetMove() {
+        return offsetMove;
+    }
+
+    public void setStack(boolean isStack) {
+        this.isStack = isStack;
+    }
+
+    public boolean isStack() {
+        return isStack;
     }
 
     @Override

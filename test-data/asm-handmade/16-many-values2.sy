@@ -1,0 +1,26 @@
+int a;
+int main(){
+    int b0 = a;
+    int b1 = b0;
+    int b2 = b0 + b1;
+    int b3 = b0 + b1 + b2;
+    int b4 = b0 + b1 + b2 + b3;
+    int b5 = b0 + b1 + b3 + b3 + b4;
+    int b6 = b0 + b1 + b3 + b3 + b4 + b5;
+    int b7 = b0 + b1 + b3 + b3 + b4 + b5 + b6;
+    int b8 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7;
+    int b9 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8;
+    int b10 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9;
+    int b11 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10;
+    int b12 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11;
+    int b13 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12;
+    int b14 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13;
+    int b15 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14;
+    int b16 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15;
+    int b17 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16;
+    int b18 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16 + b17;
+    int b19 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16 + b17 + b18;
+    int b20 = b0 + b1 + b3 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16 + b17 + b18 + b19;
+    putint(b20);
+    return 0;
+}
