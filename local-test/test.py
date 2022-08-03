@@ -195,6 +195,53 @@ def run(exec: str, result_file: str):
     os.remove(pgm_return)
     os.remove(pgm_stderr)
 
+
+fail_list = []
+@one_pass('run-for-long-time', '.exec', '.res', show=False)
+def run_for_long_time(exec: str, result_file: str):
+    base_name = exec.removesuffix('.exec')
+
+    input_file = f'{base_name}.in'
+    output_file = f'{base_name}.out'
+
+    pgm_output = f'{base_name}.stdout'
+    pgm_return = f'{base_name}.return'
+    pgm_stderr = f'{base_name}.stderr'
+
+    input_redir = f'< {input_file}' if exists(input_file) else ''
+
+    sh(f'qemu-arm-static {exec} {input_redir} > {pgm_output} 2> {pgm_stderr}; echo "$?" > {pgm_return}')
+
+    lines: list[bytes] = []
+    with open(pgm_output, 'rb') as f:
+        lines.extend(f.readlines())
+    with open(pgm_return, 'rb') as f:
+        lines.extend(f.readlines())
+    for idx, line in enumerate(lines):
+        if not line.endswith(b'\n'):
+            lines[idx] = line + b'\n'
+    with open(result_file, 'wb') as f:
+        f.writelines(lines)
+
+
+    nick_name = fill_end_space(os.path.split(base_name)[-1], 40)
+    if os.system(f'diff {output_file} {result_file} > /dev/null') != 0:
+        prompt = f'[red bold]Fail [cyan]{nick_name} [red bold]: Wrong Answer, check [cyan]{result_file} [red bold]for details.'
+        echo(prompt)
+        fail_list.append(prompt)
+
+    else:
+        with open(pgm_stderr, 'r') as f:
+            echo(f'[green bold]Pass [cyan]{nick_name} [green bold]: {f.readlines()}')
+
+    os.remove(pgm_output)
+    os.remove(pgm_return)
+    os.remove(pgm_stderr)
+
+def print_fail(subdir: str):
+    for prompt in fail_list:
+        console.log(prompt)
+
 def clear_up():
     with console.status('[green bold]Clearing...') as status:
         for subdir in sorted(os.listdir(rel('test-data'))):
@@ -227,8 +274,13 @@ if __name__ == '__main__':
         test_items = {
             'ssyc_llvm': [build, ssyc_llvm, llc, gcc_as, run],
             'ssyc_asm': [build, ssyc_asm, gcc_as, run],
+
+            'ssyc_llvm_long': [build, ssyc_llvm, llc, gcc_as, run_for_long_time, print_fail],
+            'ssyc_asm_long': [build, ssyc_asm, llc, gcc_as, run_for_long_time, print_fail],
+
             'clang': [clang, gcc_as, run],
             'clang_O2': [clang_O2, gcc_as, run],
+
             'generate_stdout': [clang, gcc_as, generate_stdout]
         }
         funcs = test_items[test_item]
