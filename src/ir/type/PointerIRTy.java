@@ -29,5 +29,10 @@ public class PointerIRTy implements IRType {
         return false;
     }
 
+    @Override
+    public String toString() {
+        return "*%s".formatted(baseType);
+    }
+
     private IRType baseType;
 }

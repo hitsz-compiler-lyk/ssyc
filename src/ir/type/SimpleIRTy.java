@@ -24,6 +24,11 @@ public class SimpleIRTy implements IRType {
         return size;
     }
 
+    @Override
+    public String toString() {
+        return kind.toString();
+    }
+
     private IRTyKind kind;
     private int size;
 }

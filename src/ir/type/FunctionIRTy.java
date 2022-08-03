@@ -1,6 +1,7 @@
 package ir.type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class FunctionIRTy implements IRType {
     @Override
@@ -28,6 +29,12 @@ public class FunctionIRTy implements IRType {
 
     public IRType getParamType(int idx) {
         return paramTypes.get(idx);
+    }
+
+    @Override
+    public String toString() {
+        final var params = paramTypes.stream().map(IRType::toString).collect(Collectors.toList());
+        return "(%s) -> %s".formatted(String.join(", ", params), returnType);
     }
 
     private IRType returnType;

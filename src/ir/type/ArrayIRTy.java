@@ -43,6 +43,11 @@ public class ArrayIRTy implements IRType {
         return false;
     }
 
+    @Override
+    public String toString() {
+        return "[%d x %s]".formatted(elementNum, elementType);
+    }
+
     private int elementNum;
     private IRType elementType;
 }
