@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.GlobalModifitationStatus;
 import ir.Module;
+import pass.ir.memory.ReplaceUnessaryLoad;
 import utils.Log;
 
 public class IRPassManager {
