@@ -8,7 +8,9 @@ public class Log {
     }
 
     public static void debug(String message) {
-        out.println(makeFormattedOutput("debug", message, colorWhite));
+        if (!Log.closeDebug) {
+            out.println(makeFormattedOutput("debug", message, colorWhite));
+        }
     }
 
     public static void ensure(boolean cond) {
@@ -21,6 +23,11 @@ public class Log {
         }
 
         throw new AssertionError(makeFormattedOutput("assert", message, colorRed));
+    }
+
+    public static void inOnlineJudge() {
+        Log.needColor = false;
+        Log.closeDebug = true;
     }
 
     private static String makeFormattedOutput(String level, String message, String color) {
@@ -37,7 +44,9 @@ public class Log {
         return color + "[%5s][%25s:%4d] | %s".formatted(level, basename, lineNo, message) + colorNormal;
     }
 
-    private static final boolean needColor = false;
+    private static boolean needColor = true;
+    private static boolean closeDebug = false;
+
     private static final String colorRed    = needColor ? "\033[31;1m" : "";
     private static final String colorYellow = needColor ? "\033[33;1m" : "";
     private static final String colorWhite  = needColor ? "\033[37;1m" : "";
