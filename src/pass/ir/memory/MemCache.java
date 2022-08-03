@@ -64,6 +64,15 @@ class MemCache {
         });
     }
 
+    public void setByGlobalVar(GlobalVar array) {
+        final var pos = MemPosition.createWithGlobalVariable(array);
+        final var handler = new MemHandler(array.getInit());
+
+        // A global array can only be at when it is still undefined
+        Log.ensure(!cache.containsKey(pos));
+        cache.put(pos, handler);
+    }
+
     private void dealWithPointer(Value ptr, Consumer<IndicesInfo> whenGEP, Consumer<MemHandler> whenGlobalVar) {
         MemPosition.createWithPointer(ptr).ifPresent(pos -> {
             final var handler = getInitHandler(pos);

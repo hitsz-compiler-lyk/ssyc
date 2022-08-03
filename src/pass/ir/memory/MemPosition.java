@@ -66,6 +66,11 @@ class MemPosition {
         }
     }
 
+    static MemPosition createWithGlobalVariable(GlobalVar gv) {
+        final var kind = gv.isArray() ? LocationKind.GlobalArray : LocationKind.GlobalVariable;
+        return new MemPosition(kind, gv);
+    }
+
     public boolean isGlobal() {
         return kind == LocationKind.GlobalArray || kind == LocationKind.GlobalVariable;
     }

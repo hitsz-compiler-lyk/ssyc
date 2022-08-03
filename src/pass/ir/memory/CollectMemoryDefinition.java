@@ -1,6 +1,7 @@
 package pass.ir.memory;
 
 import ir.BasicBlock;
+import ir.GlobalVar;
 import ir.inst.CallInst;
 import ir.inst.MemInitInst;
 import ir.inst.StoreInst;
@@ -8,8 +9,9 @@ import pass.ir.dataflow.ForwardDataFlowPass;
 import utils.Log;
 
 import java.util.List;
+import java.util.Set;
 
-class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryInfo> {
+class CollectMemoryDefinition extends ForwardDataFlowPass<MemCache, MemoryInfo> {
     @Override
     protected MemCache transfer(BasicBlock block, MemCache in) {
         final var current = MemCache.copyFrom(in);
@@ -29,8 +31,14 @@ class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryInfo> 
 
     @Override
     protected MemCache meet(BasicBlock block, List<MemCache> predOuts) {
-        Log.ensure(predOuts.isEmpty() == (block == block.getParent().getEntryBBlock()),
+        final var isEntry = block == block.getParent().getEntryBBlock();
+        Log.ensure(predOuts.isEmpty() == isEntry,
             "Only entry block could have no pred");
+
+        if (isEntry) {
+            // Entry need special init
+            return block.getAnalysisInfo(MemoryInfo.class).in();
+        }
 
         return predOuts.stream().reduce(MemCache::merge).orElse(MemCache.empty());
     }
@@ -42,7 +50,17 @@ class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryInfo> 
 
     @Override
     protected MemCache entryIn(BasicBlock block) {
-        return MemCache.empty();
+        final var function = block.getParent();
+
+        // 只有 main 函数开头才能保证全局变量的值是本身
+        if (function.getFunctionSourceName().equals("main")) {
+            final var cache = MemCache.empty();
+            globalVars.forEach(cache::setByGlobalVar);
+            return cache;
+
+        } else {
+            return MemCache.empty();
+        }
     }
 
     @Override
@@ -54,4 +72,9 @@ class CollectMemoryDefination extends ForwardDataFlowPass<MemCache, MemoryInfo> 
     protected Class<MemoryInfo> getInfoClass() {
         return MemoryInfo.class;
     }
+
+    CollectMemoryDefinition(Set<GlobalVar> globalVars) {
+        this.globalVars = globalVars;
+    }
+    private final Set<GlobalVar> globalVars;
 }
