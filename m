@@ -11,11 +11,11 @@ download_dependence() {
     [ ! -d lib ] && mkdir lib
     [ ! -d bin ] && mkdir bin
 
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3-sources.jar \
-        -O lib/antlr4-runtime-4.9.3-sources.jar
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3.jar \
-        -O lib/antlr4-runtime-4.9.3.jar
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4/4.9.3/antlr4-4.9.3-complete.jar \
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.8/antlr4-runtime-4.8.jar' \
+        -O lib/antlr4-runtime-4.8.jar
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.8/antlr4-runtime-4.8-sources.jar' \
+        -O lib/antlr4-runtime-4.8-sources.jar
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4/4.8/antlr4-4.8-complete.jar' \
         -O bin/antlr4.jar
 }
 
