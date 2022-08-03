@@ -1,0 +1,50 @@
+// Call a func with many params.
+
+int a0;
+int a1;
+int a2;
+int a3;
+int a4;
+int a5;
+int a6;
+int a7;
+int a8;
+int a9;
+int a10;
+int a11;
+int a12;
+int a13;
+int a14;
+int a15;
+int a16;
+int a17;
+
+int main() {
+    a0 = 0;
+    a1 = 1;
+    a2 = 2;
+    a0 = 0;
+    a1 = 1;
+    a2 = 2;
+    a3 = 3;
+    a4 = 4;
+    a5 = 5;
+    a6 = 6;
+    a7 = 7;
+    a8 = 8;
+    a9 = 9;
+    a10 = 10;
+    a11 = 11;
+    a12 = 12;
+    a13 = 13;
+    a14 = 14;
+    a15 = 15;
+    a16 = 16;
+    a17 = 17;
+    if(a17 == 17) {
+        a17 = 18;
+    }
+    putint(a17 + a1 + a2);
+    putch(10);
+    return 0;
+}

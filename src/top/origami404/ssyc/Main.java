@@ -4,6 +4,7 @@ import java.io.*;
 
 import org.antlr.v4.runtime.*;
 
+import top.origami404.ssyc.backend.codegen.CodeGenManager;
 import top.origami404.ssyc.frontend.*;
 import top.origami404.ssyc.pass.ir.IRPassManager;
 import top.origami404.ssyc.utils.LLVMDumper;
@@ -49,11 +50,18 @@ public class Main {
             }
 
             case "asm" -> {
-                writer.append(".global main\n");
-                writer.append(".func main\n");
-                writer.append("main:\n");
-                writer.append("    mov r0, #1\n");
-                writer.append("    bx lr\n");
+                final var irGen = new IRGen();
+                final var module = irGen.visitCompUnit(ruleContext);
+                module.verifyAll();
+
+                final var mgr = new IRPassManager();
+                mgr.addDefaultPasses();
+                mgr.runAllPass(module);
+                module.verifyAll();
+
+                final var codeGenManager = new CodeGenManager();
+                codeGenManager.genArm(module);
+                writer.append(codeGenManager.codeGenArm());
                 writer.close();
             }
 
