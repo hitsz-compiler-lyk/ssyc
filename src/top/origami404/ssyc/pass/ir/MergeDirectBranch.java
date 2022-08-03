@@ -4,8 +4,6 @@ import top.origami404.ssyc.ir.Function;
 import top.origami404.ssyc.ir.Module;
 import top.origami404.ssyc.utils.Log;
 
-import java.util.ArrayList;
-
 public class MergeDirectBranch implements IRPass {
     @Override
     public void runPass(final Module module) {
@@ -32,7 +30,7 @@ public class MergeDirectBranch implements IRPass {
             Log.ensure(succ.getPredecessors().get(0) == block, "A -> B, B <- A");
             // 将 succ 的内容合并到 block 中去
             // succ 不可能有 phi. 因为若 succ 有 phi, 那么该 phi 必然都是一个参数的, 而这意味着它会被消除
-            Log.ensure(succ.phis().size() == 0, "Block with unique predecessor should NOT have any phi");
+            Log.ensure(succ.phis().isEmpty(), "Block with unique predecessor should NOT have any phi");
             // 然后删除 block 的跳转, 再把 succ 的全部指令加进去 (这一步之后 succ 的跳转就是 block 的跳转了)
             block.getTerminator().freeAll();
             block.addAll(succ.nonPhis());

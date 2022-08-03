@@ -61,11 +61,12 @@ def build(subdir: str):
 
 def ssyc(option: str) -> Callable[[str, str], None]:
     def do(src: str, dst: str):
-        result = os.system(f'java -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
+        result = os.system(f'java -Xss512m -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
         if result != 0:
             with open('ssyc.log', 'r') as f:
                 for line in f.readlines():
                     print(line, end='')
+            console.log(f'[red bold]Compiler failed on {src}')
             exit(1)
     return do
 

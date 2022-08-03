@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "${workspaceFolder}/m",
+            "args": ["build"],
+            "group": "build",
+        },
+        {
+            "label": "debug",
+            "dependsOn": "build",
+            "type": "shell",
+            "command": "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -cp \"lib/*:target\" top.origami404.ssyc.FunctionalDebug",
+            "isBackground": true,
+            "problemMatcher": [{
+                "pattern": [{
+                    "regexp": "\\b\\B",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                }],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*Listening for",
+                    "endsPattern": "^.*transport dt_socket at address.*"
+                }
+            }]
+        }
+    ]
+}

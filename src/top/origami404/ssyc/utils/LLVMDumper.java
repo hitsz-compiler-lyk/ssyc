@@ -74,13 +74,9 @@ public class LLVMDumper {
             recordLocal(param);
         }
 
-        for (final var block : function.getBasicBlocks()) {
+        for (final var block : function) {
             recordLocal(block);
-            for (final var inst : block.allInst()) {
-                if (!inst.getType().isVoid()) {
-                    recordLocal(inst);
-                }
-            }
+            block.stream().filter(i -> !i.getType().isVoid()).forEach(this::recordLocal);
         }
 
         ir("define dso_local <return-ty> <func-name>(<param*>) {",
@@ -194,7 +190,6 @@ public class LLVMDumper {
 
             if (phi.getIncomingSize() == 0) {
                 final var type = phi.getType();
-                // final var zero = Constant.getZeroByType(type);
                 if (type.isInt()) {
                     pir("add i32 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else if (type.isFloat()) {
@@ -242,7 +237,7 @@ public class LLVMDumper {
         } else if (inst instanceof LoadInst) {
             final var load = (LoadInst) inst;
             pir("load <ty>, <ptr>", load.getType(), load.getPtr());
-            
+
         } else if (inst instanceof StoreInst) {
             final var store = (StoreInst) inst;
             pir("store <val>, <ptr>", store.getVal(), store.getPtr());
@@ -345,7 +340,6 @@ public class LLVMDumper {
     }
 
     private String getBinOpName(BinaryOpInst bop) {
-        // final var kindName = bop.getKind().toString().toLowerCase();
         return switch (bop.getKind()) {
             case IAdd -> "add";
             case ISub -> "sub";

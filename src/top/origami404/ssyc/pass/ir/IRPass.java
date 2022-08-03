@@ -4,8 +4,6 @@ import top.origami404.ssyc.ir.Module;
 
 import java.util.*;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
-
 public interface IRPass {
     default String getPassName() {
         return getClass().getSimpleName();

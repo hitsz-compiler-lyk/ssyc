@@ -1,8 +1,8 @@
 package top.origami404.ssyc.frontend;
 
 import java.util.*;
-import java.util.List;
-import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -64,6 +64,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
         addExternalFunc("putarray", Void, Int, PtrInt);
         addExternalFunc("putfloat", Void, Float);
         addExternalFunc("putfarray", Void, Int, PtrFloat);
+
+        addExternalFunc("_sysy_starttime", Void, Int);
+        addExternalFunc("_sysy_stoptime", Void, Int);
     }
 
     private void addExternalFunc(String funcName, IRType returnType, IRType... paramTypes) {
@@ -124,22 +127,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
             }
         }
 
-        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
-
         // 翻译完所有基本块之后再填充翻译过程中遗留下来的空白 phi
         // 这样可以避免翻译的时候的未封闭的(unsealed)基本块带来的麻烦
-        function.getBasicBlocks().forEach(this::fillIncompletedPhiForBlock);
+        function.forEach(this::fillIncompletedPhiForBlock);
 
-        for (final var block : function.getBasicBlocks()) {
+        for (final var block : function) {
             for (final var inst : block.allInst()) {
                 IRBuilder.refold(inst);
             }
         }
-
-        // TODO: 死代码消除
-        // function.getIList().removeIf(block -> block.getPredecessors().size() == 0);
-
-        // TODO: 重新尝试删除在常量折叠里变得无用的 phi
 
         symbolTable.popScope();
         builder.switchToGlobal(); // return to global
@@ -321,7 +317,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             } else {
                 // 对局部数组, 需要特殊处理其初始值
 
-                // 分配数组空间, 并且定义数组;
+                // 分配数组空间, 并且定义数组
                 // 数组变量的定义永远是指向对应空间的指针 (即那个 AllocInst), 并且永远不应该被重定义
                 Log.ensure(type instanceof ArrayIRTy);
                 final var arrPtr = builder.insertCAlloc((ArrayIRTy) type);
@@ -567,7 +563,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
      * @return 零元素常量
      */
     private Constant getZeroElm(IRType baseType, List<Integer> shape) {
-        Log.ensure(shape.size() >= 1);
+        Log.ensure(!shape.isEmpty());
         final var elmShape = shape.subList(1, shape.size());
         return getZeroByShape(baseType, elmShape);
     }
@@ -672,13 +668,26 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         } else {
             // function call
-            final var funcName = ctx.Ident().getText();
+            final var funcNameRaw = ctx.Ident().getText();
+            final var funcName = switch (funcNameRaw) {
+                case "starttime" -> "_sysy_starttime";
+                case "stoptime" -> "_sysy_stoptime";
+                default -> funcNameRaw;
+            };
+
             final var func = symbolTable.resolveSymbolOpt(funcName)
                 .flatMap(finalInfo::getDefOpt)
                 .map(Function.class::cast)
                 .orElseThrow(() ->  new SemanticException(ctx, "Unknown func: " + funcName));
 
-            final var args = visitFuncArgList(ctx.funcArgList());
+            final List<Value> args = switch (funcName) {
+                // 处理性能样例里两个特殊的宏展开
+                case "_sysy_starttime", "_sysy_stoptime" -> {
+                    final var line = ctx.Ident().getSymbol().getLine();
+                    yield new ArrayList<>(List.of(Constant.createIntConstant(line)));
+                }
+                default -> visitFuncArgList(ctx.funcArgList());
+            };
             final var paramTypes = func.getType().getParamTypes();
 
             if (args.size() != paramTypes.size()) {
@@ -718,15 +727,15 @@ public class IRGen extends SysYBaseVisitor<Object> {
     @Override
     public Value visitAtomLVal(AtomLValContext ctx) {
         final var lValResult = visitLVal(ctx.lVal());
-        final var value = findVariable(lValResult.var);
+        final var value = findVariable(lValResult.symbol);
 
         if (value.isPresent()) {
             return getRightValue(value.get(), lValResult.indices);
         } else {
             final var versionInfo = getVersionInfo();
-            final var phi = builder.insertEmptyPhi(lValResult.type, lValResult.var);
+            final var phi = builder.insertEmptyPhi(lValResult.type, lValResult.symbol);
 
-            versionInfo.newDef(lValResult.var, phi);
+            versionInfo.newDef(lValResult.symbol, phi);
             return phi;
         }
     }
@@ -756,7 +765,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                 // 拿到 *i32 类型的值了
                 final var newIndices = new ArrayList<>(indices);
                 newIndices.add(Constant.INT_0);
-                return builder.insertGEP(value, newIndices); // TODO: 考虑基于 GEP 折叠的优雅方案?
+                return builder.insertGEP(value, newIndices);
             }
         }
     }
@@ -780,14 +789,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     static class LValResult {
-        public LValResult(final IRType type, final SourceCodeSymbol var, final List<Value> indices) {
+        public LValResult(final IRType type, final SourceCodeSymbol symbol, final List<Value> indices) {
             this.type = type;
-            this.var = var;
+            this.symbol = symbol;
             this.indices = indices;
         }
 
         final IRType type;
-        final SourceCodeSymbol var;
+        final SourceCodeSymbol symbol;
         final List<Value> indices;
     }
 
@@ -799,20 +808,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return new LValResult(entry.type, entry.symbol, indices);
     }
 
-    private static class LogNotAsUnaryExpException extends RuntimeException {
-        LogNotAsUnaryExpException(Value arg) {
-            super("LogNot exist in UnaryExp");
-            this.arg = arg;
-        }
-
-        Value arg;
-    }
-
     private Value insertConvertForBinary(
         Value lhs,
         Value rhs,
-        BiFunction<Value, Value, Value> intMerger,
-        BiFunction<Value, Value, Value> floatMerger
+        BinaryOperator<Value> intMerger,
+        BinaryOperator<Value> floatMerger
     ) {
         final var commonType = findCommonType(lhs.getType(), rhs.getType());
         final var newLHS = insertConvertByType(commonType, lhs);
@@ -827,8 +827,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     private Value insertConvertForUnaryOp(
         Value arg,
-        java.util.function.Function<Value, Value> intMerger,
-        java.util.function.Function<Value, Value> floatMerger
+        UnaryOperator<Value> intMerger,
+        UnaryOperator<Value> floatMerger
     ) {
         if (arg.getType().isInt()) {
             return intMerger.apply(arg);
@@ -887,11 +887,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
             // 赋值语句
             final var lValResult = visitLVal(ctx.lVal());
             final var exp = visitExp(ctx.exp());
-            final var valueOpt = findVariable(lValResult.var);
+            final var valueOpt = findVariable(lValResult.symbol);
 
             if (valueOpt.isEmpty()) {
                 final var versionInfo = getVersionInfo();
-                versionInfo.newDef(lValResult.var, genCastTo(lValResult.type, exp, ctx));
+                versionInfo.newDef(lValResult.symbol, genCastTo(lValResult.type, exp, ctx));
 
             } else {
                 final var value = valueOpt.get();
@@ -899,7 +899,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
                 if (leftValue.isEmpty()) {
                     final var versionInfo = getVersionInfo();
-                    versionInfo.kill(lValResult.var, genCastTo(value.getType(), exp, ctx));
+                    versionInfo.kill(lValResult.symbol, genCastTo(value.getType(), exp, ctx));
                 } else {
                     final var baseType = ((PointerIRTy) leftValue.get().getType()).getBaseType();
                     builder.insertStore(leftValue.get(), genCastTo(baseType, exp, ctx));
@@ -934,7 +934,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else {
             /* 空语句, 啥也不干 */
             assert true;
-            // throw new SemanticException(ctx, "Unknown stmt: " + ctx.getText());
         }
 
         return null;
@@ -1046,8 +1045,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
     private Value insertConvertForCmp(
             Value lhs,
             Value rhs,
-            BiFunction<Value, Value, Value> intMerger,
-            BiFunction<Value, Value, Value> floatMerger
+            BinaryOperator<Value> intMerger,
+            BinaryOperator<Value> floatMerger
     ) {
         if (lhs.getType().isBool()) {
             lhs = builder.insertB2I(lhs);
@@ -1173,8 +1172,8 @@ public class IRGen extends SysYBaseVisitor<Object> {
         final var incoming = new HashSet<>(phi.getIncomingValues());
         incoming.remove(phi);
 
-        final var isDeadBlock = phi.getParentOpt().orElseThrow().getPredecessors().size() == 0;
-        if (incoming.size() == 0 && !isDeadBlock) {
+        final var isDeadBlock = phi.getParentOpt().orElseThrow().getPredecessors().isEmpty();
+        if (incoming.isEmpty() && !isDeadBlock) {
             // 暂时让死代码中的 phi 可以有零个参数
             throw new RuntimeException("Phi for undefined: " + phi);
         } else if (incoming.size() == 1) {
@@ -1285,16 +1284,6 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else {
             return type;
         }
-    }
-
-    private String nameWithLineAndColumn(ParserRuleContext ctx, String prefix) {
-        final var lineNo = ctx.getStart().getLine();
-        final var column = ctx.getStart().getCharPositionInLine();
-        return prefix + "_" + lineNo + "_" + column;
-    }
-
-    private static String nameWithLine(ParserRuleContext ctx, String prefix) {
-        return prefix + "_" + ctx.getStart().getLine();
     }
 
     private static class WhileBBInfo {

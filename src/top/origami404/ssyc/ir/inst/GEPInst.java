@@ -2,7 +2,6 @@ package top.origami404.ssyc.ir.inst;
 
 import java.util.List;
 
-import top.origami404.ssyc.ir.BasicBlock;
 import top.origami404.ssyc.ir.IRVerifyException;
 import top.origami404.ssyc.ir.Value;
 import top.origami404.ssyc.ir.constant.IntConst;
@@ -23,7 +22,7 @@ public class GEPInst extends Instruction {
     public Value getPtr() {
         return getOperand(0);
     }
-    public List<? extends Value> getIndices() {
+    public List<Value> getIndices() {
         return getOperands().subList(1, getOperandSize());
     }
     public Value getIndex(int idx) {
@@ -78,7 +77,7 @@ public class GEPInst extends Instruction {
 
             if (currType instanceof PointerIRTy) {
                 // ensure(indexConst == null || indexConst == 0,
-                //         "Constant index over a pointer must be exactly zero");
+                //         "Constant index over a pointer must be exactly zero")
                 currType = ((PointerIRTy) currType).getBaseType();
             } else if (currType instanceof ArrayIRTy) {
                 final var arrayType = (ArrayIRTy) currType;
@@ -93,7 +92,7 @@ public class GEPInst extends Instruction {
         // functional/61_sort_test7.sy:43
         // 存在将数组的一部分传给函数的情况!
         // ensure(currType.isInt() || currType.isFloat(),
-        //         "Shape of ptr of GEP must match the length of indices");
+        //         "Shape of ptr of GEP must match the length of indices")
         ensure(currType.equals(getType().getBaseType()), "The final baseType of ptr must match the type of GEP");
     }
 }

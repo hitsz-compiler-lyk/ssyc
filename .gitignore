@@ -30,5 +30,8 @@ test-data/**/*.exec
 .idea
 *.iml
 
-# Log
-*.log
+# Test script log
+ssyc.log
+
+# Personal data
+.vscode/java.code-snippets
