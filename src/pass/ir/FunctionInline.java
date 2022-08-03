@@ -52,7 +52,7 @@ public class FunctionInline implements IRPass {
         final var prefix = new char[4];
 
         var exp = 1;
-        for (int i = prefix.length - 1; i > 0; i--) {
+        for (int i = prefix.length - 1; i >= 0; i--) {
             prefix[i] = Character.forDigit(blockCount / exp % 10, 10);
             exp *= 10;
         }

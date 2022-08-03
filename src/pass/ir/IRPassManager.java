@@ -2,7 +2,7 @@ package pass.ir;
 
 import ir.GlobalModifitationStatus;
 import ir.Module;
-import pass.ir.memory.ReplaceUnessaryLoad;
+import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
 
 public class IRPassManager {
@@ -20,7 +20,7 @@ public class IRPassManager {
             runPass(new ConstructDominatorInfo());
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
-            runPass(new ReplaceUnessaryLoad());
+            runPass(new ReplaceUnnecessaryLoad());
             runDefaultBlockClearUpPasses();
         });
     }

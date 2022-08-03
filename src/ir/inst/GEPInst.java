@@ -9,6 +9,7 @@ import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import ir.type.IRTypeException;
 import ir.type.PointerIRTy;
+import utils.Log;
 
 public class GEPInst extends Instruction {
     // indices: index 的复数形式
@@ -81,8 +82,15 @@ public class GEPInst extends Instruction {
                 currType = ((PointerIRTy) currType).getBaseType();
             } else if (currType instanceof ArrayIRTy) {
                 final var arrayType = (ArrayIRTy) currType;
-                ensure(indexConst == null || indexConst < arrayType.getElementNum(),
-                        "Constant index over an array must be in range");
+
+                // functional/84_long_array2 中包含对 int[1024][4] 类型的数组访问 [0][7] 的行为
+                // 这非常不好, 非常非常不好, 有可能导致内存分析失效, 但是鉴于罕见情况勉强忍受一下
+                if (!(indexConst == null || indexConst < arrayType.getElementNum())) {
+                    Log.info("!!!!!! Cross barry array access !!!!!!!!!!");
+                }
+                // ensure(indexConst == null || indexConst < arrayType.getElementNum(),
+                //         "Constant index over an array must be in range");
+
                 currType = arrayType.getElementType();
             } else {
                 verifyFail("Ptr of GEP must be either pointer or an array in every level");

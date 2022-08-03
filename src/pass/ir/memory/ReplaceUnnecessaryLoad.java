@@ -12,7 +12,7 @@ import pass.ir.IRPass;
 // TODO: 将全局数组的定义放入 Entry 块
 // TODO: 如果一个数组完全没有读取, 就删掉
 
-public class ReplaceUnessaryLoad implements IRPass {
+public class ReplaceUnnecessaryLoad implements IRPass {
     @Override
     public void runPass(Module module) {
         (new CollectMemoryDefination()).runPass(module);

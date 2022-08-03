@@ -75,7 +75,7 @@ public final class CollectionTools {
 
     public static <T> List<T> head(List<T> list) {
         Log.ensure(!list.isEmpty());
-        return Collections.unmodifiableList(list.subList(0, list.size() - 2));
+        return Collections.unmodifiableList(list.subList(0, list.size() - 1));
     }
 
     public static <T> T tail(List<T> list) {
