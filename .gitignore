@@ -5,11 +5,6 @@ lib
 # Build target
 target
 
-# Generated frontend codes
-*.tokens
-src/top/origami404/ssyc/frontend/SysY*
-!src/top/origami404/ssyc/frontend/SysY.g4
-
 # Dustbin
 _trash
 

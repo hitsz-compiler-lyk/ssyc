@@ -1,0 +1,16 @@
+int f(int a1,int a2,int a3,int a4,int a5,int a6,int a7){
+    return a1 + a2 + a3 + a4 + a5 + a6 + a7;
+}
+
+int main(){
+    int a1 = getint();
+    int a2 = getint();
+    int a3 = getint();
+    int a4 = getint();
+    int a5 = getint();
+    int a6 = getint();
+    int a7 = getint();
+    putint(f(a1, a2, a3, a4, a5, a6, a7));
+    putch(10);
+    return 0;
+}

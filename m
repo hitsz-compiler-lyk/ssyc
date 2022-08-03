@@ -11,11 +11,11 @@ download_dependence() {
     [ ! -d lib ] && mkdir lib
     [ ! -d bin ] && mkdir bin
 
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3-sources.jar \
-        -O lib/antlr4-runtime-4.9.3-sources.jar
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.9.3/antlr4-runtime-4.9.3.jar \
-        -O lib/antlr4-runtime-4.9.3.jar
-    wget https://repo1.maven.org/maven2/org/antlr/antlr4/4.9.3/antlr4-4.9.3-complete.jar \
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.8/antlr4-runtime-4.8.jar' \
+        -O lib/antlr4-runtime-4.8.jar
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.8/antlr4-runtime-4.8-sources.jar' \
+        -O lib/antlr4-runtime-4.8-sources.jar
+    wget 'https://repo1.maven.org/maven2/org/antlr/antlr4/4.8/antlr4-4.8-complete.jar' \
         -O bin/antlr4.jar
 }
 
@@ -43,7 +43,7 @@ make_jar() {
     touch META-INF/MANIFEST.MF
 
     echo 'Manifest-Version: 1.0' >> META-INF/MANIFEST.MF
-    echo 'Main-Class: top.origami404.ssyc.Main' >> META-INF/MANIFEST.MF
+    echo 'Main-Class: Main' >> META-INF/MANIFEST.MF
     echo 'Class-Path: . ../lib/antlr-runtime-3.5.2.jar' >> META-INF/MANIFEST.MF
 
     # Make Jar
@@ -53,7 +53,7 @@ make_jar() {
 }
 
 run() {
-    java -cp "lib/*:target" top.origami404.ssyc.Main $@
+    java -cp "lib/*:target" Main $@
 }
 
 run_jar() {

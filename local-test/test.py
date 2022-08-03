@@ -61,7 +61,7 @@ def build(subdir: str):
 
 def ssyc(option: str) -> Callable[[str, str], None]:
     def do(src: str, dst: str):
-        result = os.system(f'java -Xss512m -cp "lib/*:target" top.origami404.ssyc.Main {option} {src} {dst} 2> ssyc.log')
+        result = os.system(f'java -Xss512m -cp "lib/*:target" Main {option} {src} {dst} 2> ssyc.log')
         if result != 0:
             with open('ssyc.log', 'r') as f:
                 for line in f.readlines():
@@ -129,6 +129,32 @@ def clang_O2(src: str, dst: str):
 @one_pass('gcc-as', '.s', '.exec', show=False)
 def gcc_as(src: str, dst: str):
     sh(f'arm-linux-gnueabihf-gcc  -march=armv7-a -static -g {src} {rel("util", "libsysy.a")} -o {dst}')
+
+@one_pass('generate-stdout', '.exec', '.out')
+def generate_stdout(src: str, dst: str):
+    base_name = src.removesuffix('.exec')
+
+    input_file = f'{base_name}.in'
+    pgm_output = f'{base_name}.stdout'
+    pgm_return = f'{base_name}.return'
+
+    input_redir = f'< {input_file}' if exists(input_file) else ''
+    sh(f'qemu-arm-static {src} {input_redir} > {pgm_output} 2> /dev/null; echo "$?" > {pgm_return}')
+
+    lines: list[bytes] = []
+    with open(pgm_output, 'rb') as f:
+        lines.extend(f.readlines())
+    with open(pgm_return, 'rb') as f:
+        lines.extend(f.readlines())
+    for idx, line in enumerate(lines):
+        if not line.endswith(b'\n'):
+            lines[idx] = line + b'\n'
+    with open(dst, 'wb') as f:
+        f.writelines(lines)
+
+    os.remove(pgm_output)
+    os.remove(pgm_return)
+
 
 @one_pass('run', '.exec', '.res', show=False)
 def run(exec: str, result_file: str):
@@ -199,10 +225,11 @@ if __name__ == '__main__':
         pgm, subdir, test_item = sys.argv
 
         test_items = {
-            'ssyc_llvm': [build, ssyc_llvm, llc],
-            'ssyc_asm': [build, ssyc_asm],
-            'clang': [clang],
-            'clang_O2': [clang_O2]
+            'ssyc_llvm': [build, ssyc_llvm, llc, gcc_as, run],
+            'ssyc_asm': [build, ssyc_asm, gcc_as, run],
+            'clang': [clang, gcc_as, run],
+            'clang_O2': [clang_O2, gcc_as, run],
+            'generate_stdout': [clang, gcc_as, generate_stdout]
         }
         funcs = test_items[test_item]
         # check_funcs(funcs)
@@ -210,8 +237,6 @@ if __name__ == '__main__':
         clear_up()
         for func in funcs:
             func(subdir)
-        gcc_as(subdir)
-        run(subdir)
 
     except ValueError:
         console.print('[white bold]Usage: ./m test <data-subdir> <test-item>')
