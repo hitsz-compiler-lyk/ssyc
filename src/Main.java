@@ -14,9 +14,29 @@ public class Main {
             throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
         }
 
-        final var target = args[0];
-        final var inputStream = openInput(args[1]);
-        final var outputStream = openOutput(args[2]);
+        runWithLargeStack(args[0], args[1], args[2]);
+    }
+
+    static void runWithLargeStack(String target, String inputFileName, String outputFileName) {
+        try {
+            final var thread = new Thread(null, () -> {
+                try {
+                    Main.runNormal(target, inputFileName, outputFileName);
+                } catch (IOException e) {
+                    throw new RuntimeException("IO exception on main", e);
+                }
+            }, "", 1 << 30);
+
+            thread.start();
+            thread.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Exception in thread", e);
+        }
+    }
+
+    public static void runNormal(String target, String inputFileName, String outputFileName) throws IOException {
+        final var inputStream = openInput(inputFileName);
+        final var outputStream = openOutput(outputFileName);
         final var writer = new OutputStreamWriter(outputStream);
 
         final var input = CharStreams.fromStream(inputStream);
