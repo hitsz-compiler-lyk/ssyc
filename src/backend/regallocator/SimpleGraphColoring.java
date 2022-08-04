@@ -78,10 +78,14 @@ public class SimpleGraphColoring implements RegAllocator {
                 this.fcnt++;
             }
         }
+
+        @Override
+        public String toString() {
+            return regs.toString();
+        }
     }
 
     private Map<Reg, InterfereRegs> adj;
-    private Set<Reg> exist;
     private Set<Reg> remainNodes; // 必须是一个虚拟寄存器
     private Queue<Reg> simplifyQueue;
     private List<Pair<Reg, List<Reg>>> simplifyWorkLists;
@@ -107,7 +111,7 @@ public class SimpleGraphColoring implements RegAllocator {
         for (var ent : adj.entrySet()) {
             var reg = ent.getKey();
             var regInfo = ent.getValue();
-            if (reg.allocable() || !exist.contains(reg)) {
+            if (reg.IsPhy()) {
                 continue;
             }
             remainNodes.add(reg);
@@ -130,7 +134,7 @@ public class SimpleGraphColoring implements RegAllocator {
         Map<Reg, Reg> ans = new HashMap<>();
         Set<Reg> used = new HashSet<>();
         for (var reg : Consts.allocableRegs) {
-            if (exist.contains(reg)) {
+            if (adj.containsKey(reg)) {
                 used.add(reg);
             }
         }
@@ -190,7 +194,6 @@ public class SimpleGraphColoring implements RegAllocator {
         remainNodes = new HashSet<>();
         simplifyQueue = new ArrayDeque<>();
         adj = new HashMap<>();
-        exist = new HashSet<>();
         haveSimplify = new HashSet<>();
         for (var block : func.asElementView()) {
             for (var inst : block.asElementView()) {
@@ -202,78 +205,24 @@ public class SimpleGraphColoring implements RegAllocator {
             }
         }
         LivenessAnalysis.funcLivenessAnalysis(func);
-        List<Reg> liveList = new ArrayList<>();
-        List<Reg> newNodes = new ArrayList<>();
         for (var block : func.asElementView()) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
-            liveList.clear();
-            for (var reg : live) {
-                if (reg.IsVirtual() || reg.allocable()) {
-                    liveList.add(reg);
-                }
-            }
             var insts = block.asElementView();
-            if (insts.size() > 0) {
-                for (var reg : insts.get(insts.size() - 1).getRegDef()) {
-                    if (reg.IsVirtual() || reg.allocable()) {
-                        liveList.add(reg);
-                    }
-                }
-            }
-
-            for (int i = 0; i < liveList.size(); i++) {
-                for (int j = 0; j < i; j++) {
-                    if (liveList.get(i).equals(liveList.get(j))) {
-                        continue;
-                    }
-                    adj.get(liveList.get(i)).add(liveList.get(j));
-                    adj.get(liveList.get(j)).add(liveList.get(i));
-                }
-            }
-
             for (int i = insts.size() - 1; i >= 0; i--) {
                 var inst = insts.get(i);
-                newNodes.clear();
-                for (var reg : inst.getRegDef()) {
-                    if (reg.IsVirtual() || reg.allocable()) {
-                        exist.add(reg);
-                        live.remove(reg);
-                    }
-                }
-                for (var reg : inst.getRegUse()) {
-                    if (reg.IsVirtual() || reg.allocable()) {
-                        exist.add(reg);
-                        newNodes.add(reg);
-                        if (!live.contains(reg)) {
-                            for (var u : live) {
-                                adj.get(reg).add(u);
-                                adj.get(u).add(reg);
-                            }
-                            live.add(reg);
+                for (var def : inst.getRegDef()) {
+                    for (var reg : live) {
+                        if (!def.equals(reg)) {
+                            adj.get(reg).add(def);
+                            adj.get(def).add(reg);
                         }
                     }
                 }
-                if (i != 0) {
-                    for (var reg : insts.get(i - 1).getRegDef()) {
-                        if (reg.IsVirtual() || reg.allocable()) {
-                            newNodes.add(reg);
-                            if (!live.contains(reg)) {
-                                for (var u : live) {
-                                    adj.get(reg).add(u);
-                                    adj.get(u).add(reg);
-                                }
-                            }
-                        }
-                    }
+                for (var def : inst.getRegDef()) {
+                    live.remove(def);
                 }
-                for (int j = 0; j < newNodes.size(); j++) {
-                    for (int k = 0; k < j; k++) {
-                        if (newNodes.get(j).equals(newNodes.get(j))) {
-                            continue;
-                        }
-                        adj.get(newNodes.get(j)).add(newNodes.get(k));
-                        adj.get(newNodes.get(k)).add(newNodes.get(j));
-                    }
+                for (var use : inst.getRegUse()) {
+                    live.add(use);
                 }
             }
         }

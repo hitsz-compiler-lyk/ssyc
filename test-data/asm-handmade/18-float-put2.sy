@@ -1,0 +1,47 @@
+float a[3][3][2] = {3.11, 3.234, 4.42112};
+
+int main() {
+    float b = getfloat();
+    float x = 3.123;
+    x = x / b;
+    // putfloat(x);
+    // putch(10);
+    int n = getfarray(a[1][0]);
+    putint(n);
+    putch(10);
+    float y = 0;
+    int i = 0, j = 0, k = 0;
+    // putfloat(x);
+    // putch(10);
+    while(i < 3){
+        putint(i);
+        putch(9);
+        putint(j);
+        putch(9);
+        putint(k);
+        putch(9);
+        putfloat(y);
+        putch(10);
+        putfloat(x);
+        putch(10);
+        while(j < 3){
+            putfloat(x);
+            putch(10);
+            while(k < 2){
+                putfloat(y);
+                putch(10);
+                putfloat(x);
+                putch(10);
+                y = y + x * a[i][j][k];
+                k = k + 1;
+                putfloat(y);
+                putch(10);
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    putfloat(y);
+    putch(10);
+    return 0;
+}
