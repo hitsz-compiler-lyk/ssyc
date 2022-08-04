@@ -8,6 +8,9 @@ import utils.INodeOwner;
 
 import java.util.List;
 
+/**
+ * 将只有写入没有读取的内存变量整个消除
+ */
 public class RemoveUnnecessaryArray implements IRPass {
     @Override
     public void runPass(final Module module) {
