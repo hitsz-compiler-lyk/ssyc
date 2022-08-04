@@ -1,5 +1,7 @@
 import utils.Log;
 
+import java.io.IOException;
+
 public class Compiler {
     public static void main(String[] args)  {
         // 功能测试：compiler -S -o testcase.s testcase.sy
@@ -10,10 +12,12 @@ public class Compiler {
             final var needOptimize = args.length == 6;
 
             Log.inOnlineJudge();
-            Main.main(new String[]{"asm", inputFileName, outputFileName});
+            Main.runWithLargeStack("asm", inputFileName, outputFileName);
 
         } catch (Exception e) {
             throw new RuntimeException("Fail at arg: [" + String.join(", ", args) + "]", e);
         }
     }
+
+
 }
