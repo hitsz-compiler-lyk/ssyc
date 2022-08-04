@@ -241,8 +241,10 @@ public class CodeGenManager {
             // MOVE Phi Incoming.Value
             isResolvePhi = true;
             Map<ArmBlock, ArmInst> fristBranch = new HashMap<>();
+            Map<ArmBlock, List<ArmInstMove>> phiMoveLists = new HashMap<>();
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
+                phiMoveLists.put(armBlock, new ArrayList<>());
                 for (var inst : armBlock.asElementView()) {
                     if (inst instanceof ArmInstBranch) {
                         fristBranch.put(armBlock, inst);
@@ -262,20 +264,38 @@ public class CodeGenManager {
                         var incomingInfo = incomingInfoIt.next();
                         var src = incomingInfo.getValue();
                         var incomingBlock = blockMap.get(incomingInfo.getBlock());
-                        var srcReg = resolveOperand(src, incomingBlock, funcInfo);
-                        if (fristBranch.containsKey(incomingBlock)) {
-                            var branch = fristBranch.get(incomingBlock);
-                            var move = new ArmInstMove(phiReg, srcReg);
-                            branch.insertBeforeCO(move);
-                            if (globalMove != null) {
-                                move.insertBeforeCO(globalMove);
-                            }
-                        } else {
+                        var srcReg = resolvePhiOperand(src, incomingBlock, funcInfo);
+                        var incomingPhiList = phiMoveLists.get(incomingBlock);
+                        if (srcReg.IsImm()) {
                             var move = new ArmInstMove(incomingBlock, phiReg, srcReg);
-                            if (globalMove != null) {
-                                move.insertBeforeCO(globalMove);
+                            incomingPhiList.add(move);
+                        } else {
+                            Operand vr;
+                            if (phiReg.IsInt()) {
+                                vr = new IVirtualReg();
+                            } else {
+                                vr = new FVirtualReg();
                             }
+                            var move = new ArmInstMove(vr, srcReg);
+                            incomingPhiList.add(0, move);
+                            move = new ArmInstMove(phiReg, vr);
+                            incomingPhiList.add(move);
                         }
+                    }
+                }
+            }
+
+            for (var block : func.asElementView()) {
+                var armBlock = blockMap.get(block);
+                var phiList = phiMoveLists.get(armBlock);
+                if (fristBranch.containsKey(armBlock)) {
+                    var branch = fristBranch.get(armBlock);
+                    for (var move : phiList) {
+                        branch.insertBeforeCO(move);
+                    }
+                } else {
+                    for (var move : phiList) {
+                        armBlock.asElementView().add(move);
                     }
                 }
             }
@@ -304,11 +324,7 @@ public class CodeGenManager {
             var vr = new IVirtualReg();
             var addr = new IImm(val.getValue());
             // MOV32 VR #imm32
-            if (isResolvePhi) {
-                globalMove = new ArmInstMove(vr, addr);
-            } else {
-                globalMove = new ArmInstMove(block, vr, addr);
-            }
+            globalMove = new ArmInstMove(block, vr, addr);
             return vr;
         }
     }
@@ -323,11 +339,7 @@ public class CodeGenManager {
             var vr = new IVirtualReg();
             var addr = new IImm(val);
             // MOV32 VR #imm32
-            if (isResolvePhi) {
-                globalMove = new ArmInstMove(vr, addr);
-            } else {
-                globalMove = new ArmInstMove(block, vr, addr);
-            }
+            globalMove = new ArmInstMove(block, vr, addr);
             return vr;
         }
     }
@@ -342,11 +354,7 @@ public class CodeGenManager {
             var vr = new IVirtualReg();
             var addr = new IImm(val);
             // MOV32 VR #imm32
-            if (isResolvePhi) {
-                globalMove = new ArmInstMove(vr, addr);
-            } else {
-                globalMove = new ArmInstMove(block, vr, addr);
-            }
+            globalMove = new ArmInstMove(block, vr, addr);
             return vr;
         }
     }
@@ -357,11 +365,7 @@ public class CodeGenManager {
         var vr = new IVirtualReg();
         var addr = new IImm(val);
         // MOV32 VR #imm32
-        if (isResolvePhi) {
-            globalMove = new ArmInstMove(vr, addr);
-        } else {
-            globalMove = new ArmInstMove(block, vr, addr);
-        }
+        globalMove = new ArmInstMove(block, vr, addr);
         return vr;
     }
 
@@ -371,11 +375,7 @@ public class CodeGenManager {
         var vr = new FVirtualReg();
         var addr = new FImm(val.getValue());
         // VlDR VR =imm32
-        if (isResolvePhi) {
-            globalMove = new ArmInstMove(vr, addr);
-        } else {
-            globalMove = new ArmInstMove(block, vr, addr);
-        }
+        globalMove = new ArmInstMove(block, vr, addr);
         return vr;
     }
 
@@ -439,12 +439,20 @@ public class CodeGenManager {
             var vr = new IVirtualReg();
             var addr = new IImm(((IntConst) val).getValue());
             // MOV32 VR #imm32
-            if (isResolvePhi) {
-                globalMove = new ArmInstMove(vr, addr);
-            } else {
-                globalMove = new ArmInstMove(block, vr, addr);
-            }
+            globalMove = new ArmInstMove(block, vr, addr);
             return vr;
+        } else {
+            return resolveOperand(val, block, funcinfo);
+        }
+    }
+
+    // Phi直接把Op返回 不用中转任何指令
+    private Operand resolvePhiOperand(Value val, ArmBlock block, FunctionInfo funcinfo) {
+        globalMove = null;
+        if (val instanceof IntConst) {
+            return new IImm(((IntConst) val).getValue());
+        } else if (val instanceof FloatConst) {
+            return new FImm(((FloatConst) val).getValue());
         } else {
             return resolveOperand(val, block, funcinfo);
         }
@@ -1106,7 +1114,7 @@ public class CodeGenManager {
                     }
                     for (var inst : block.asElementView()) {
                         arm.append(inst.print());
-                        arm.append(inst.getSymbol());
+                        // arm.append(inst.getSymbol());
                     }
                 }
             }
