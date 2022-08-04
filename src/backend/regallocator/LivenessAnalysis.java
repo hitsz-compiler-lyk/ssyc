@@ -36,9 +36,7 @@ public class LivenessAnalysis {
                 var liveOut = new HashSet<Reg>();
 
                 for (var succ : block.getSucc()) {
-                    if (succ != null) {
-                        liveOut.addAll(succ.getBlockLiveInfo().getLiveIn());
-                    }
+                    liveOut.addAll(succ.getBlockLiveInfo().getLiveIn());
                 }
 
                 if (!liveOut.equals(blockLiveInfo.getLiveOut())) {
