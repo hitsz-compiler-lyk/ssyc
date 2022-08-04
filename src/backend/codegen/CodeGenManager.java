@@ -1433,12 +1433,12 @@ public class CodeGenManager {
         int cnt = 0;
         for (var block : func.asElementView()) {
             for (var inst : block.asElementView()) {
-                if (inst.isLoadFImm()) {
+                if (inst.needLtorg()) {
                     haveLoadFImm = true;
                 }
                 if (inst.haveLtorg()) {
                     haveLoadFImm = false;
-                    offset = 0;
+                    offset = -1000;
                 }
                 if (haveLoadFImm) {
                     offset += inst.getPrintCnt();
