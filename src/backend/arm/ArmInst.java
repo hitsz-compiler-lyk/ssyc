@@ -285,8 +285,8 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 && ((ArmInstBinary) this).isStack();
     }
 
-    public boolean isLoadFImm() {
-        return inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm();
+    public boolean needLtorg() {
+        return (inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm()) || inst.equals(ArmInstKind.Branch);
     }
 
     public boolean haveLtorg() {

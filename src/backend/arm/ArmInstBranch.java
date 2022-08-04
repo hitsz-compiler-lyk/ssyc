@@ -28,7 +28,9 @@ public class ArmInstBranch extends ArmInst {
 
     @Override
     public String print() {
-        String ret = "\t" + "b" + getCond().toString() + "\t" + targetBlock.getLabel() + "\n";
+        // String ret = "\t" + "b" + getCond().toString() + "\t" +
+        // targetBlock.getLabel() + "\n";
+        String ret = "\tldr" + getCond().toString() + "\tpc,\t=" + targetBlock.getLabel() + "\n";
         if (getCond().equals(ArmCondType.Any)) {
             ret += ".ltorg\n";
         }
