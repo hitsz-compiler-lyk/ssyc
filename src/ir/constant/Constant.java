@@ -6,6 +6,7 @@ import ir.Value;
 import ir.constant.ArrayConst.ZeroArrayConst;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
+import utils.Log;
 
 public class Constant extends Value {
     protected Constant(IRType type) {
@@ -50,8 +51,25 @@ public class Constant extends Value {
         }
     }
 
+    private static boolean isZero(Constant constant) {
+        if (constant instanceof IntConst) {
+            return ((IntConst) constant).getValue() == 0;
+        } else if (constant instanceof FloatConst) {
+            return ((FloatConst) constant).getValue() == 0.0f;
+        } else {
+            return constant instanceof ZeroArrayConst;
+        }
+    }
+
     public static ArrayConst createArrayConst(List<Constant> elements) {
-        return new ArrayConst(elements);
+        Log.ensure(!elements.isEmpty(), "Array constant should be empty");
+
+        if (elements.stream().allMatch(Constant::isZero)) {
+            final var type = IRType.createArrayTy(elements.size(), elements.get(0).getType());
+            return createZeroArrayConst(type);
+        } else {
+            return new ArrayConst(elements);
+        }
     }
 
     public static ZeroArrayConst createZeroArrayConst(IRType type) {
