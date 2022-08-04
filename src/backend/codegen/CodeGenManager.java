@@ -1334,6 +1334,7 @@ public class CodeGenManager {
                 load.insertBeforeCO(move);
                 load.setOffsetMove(move);
                 load.replaceOffset(vr);
+                load.setTrueOffset(null);
             } else {
                 var move = load.getOffsetMove();
                 Log.ensure(move != null, "offset move is null");
@@ -1359,6 +1360,7 @@ public class CodeGenManager {
                 store.insertBeforeCO(move);
                 store.setOffsetMove(move);
                 store.replaceOffset(vr);
+                store.setTrueOffset(null);
             } else {
                 var move = store.getOffsetMove();
                 Log.ensure(move != null, "offset move is null");
@@ -1384,6 +1386,7 @@ public class CodeGenManager {
                 binary.insertBeforeCO(move);
                 binary.setOffsetMove(move);
                 binary.replaceRhs(vr);
+                binary.setTrueOffset(null);
             } else {
                 var move = binary.getOffsetMove();
                 Log.ensure(move != null, "offset move is null");
