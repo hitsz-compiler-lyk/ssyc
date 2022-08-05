@@ -124,11 +124,15 @@ public abstract class Value {
     }
 
     protected void ensureNot(boolean cond, String message) {
-        ensure(!cond, message);
+        if (cond) {
+            final var info = ReflectiveTools.getCallerInfo();
+            throw IRVerifyException.create(info.getLineNo(), this, message);
+        }
     }
 
     protected void verifyFail(String message) {
-        ensure(false, message);
+        final var info = ReflectiveTools.getCallerInfo();
+        throw IRVerifyException.create(info.getLineNo(), this, message);
     }
 
     private void checkPointerAndArrayType() {
