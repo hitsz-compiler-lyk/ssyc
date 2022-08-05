@@ -40,7 +40,7 @@ public class ArmInstCall extends ArmInst {
         // ops.add(new IPhyReg("r12"));
         // }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(2);
+        this.setPrintCnt(1);
         this.isFloatParam = false;
     }
 
@@ -66,7 +66,7 @@ public class ArmInstCall extends ArmInst {
         // ops.add(new FPhyReg("s0"));
         // }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(2);
+        this.setPrintCnt(1);
         this.isFloatParam = isFloatParam;
     }
 
@@ -86,7 +86,7 @@ public class ArmInstCall extends ArmInst {
         ops.add(new IPhyReg("r12")); // memset 和 memcpy不会?
         ops.add(new FPhyReg("s0"));
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(2);
+        this.setPrintCnt(1);
         this.isFloatParam = false;
     }
 
@@ -109,7 +109,7 @@ public class ArmInstCall extends ArmInst {
         // ops.add(new FPhyReg("s0"));
         // }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(2);
+        this.setPrintCnt(1);
         this.isFloatParam = isFloatParam;
     }
 
@@ -139,14 +139,14 @@ public class ArmInstCall extends ArmInst {
 
     @Override
     public String print() {
-        String ret = "\tmov\tlr,\tpc\n";
-        if (!StringUtils.isEmpty(funcName)) {
-            return ret + "\t" + "ldr" + "\tpc,\t=" + funcName + "\n";
-        }
-        return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
+        // String ret = "\tmov\tlr,\tpc\n";
         // if (!StringUtils.isEmpty(funcName)) {
-        // return "\t" + "bl" + "\t" + funcName + "\n";
+        // return ret + "\t" + "ldr" + "\tpc,\t=" + funcName + "\n";
         // }
-        // return "\t" + "bl" + "\t" + func.getName() + "\n";
+        // return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
+        if (!StringUtils.isEmpty(funcName)) {
+            return "\t" + "bl" + "\t" + funcName + "\n";
+        }
+        return "\t" + "bl" + "\t" + func.getName() + "\n";
     }
 }
