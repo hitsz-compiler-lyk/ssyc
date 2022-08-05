@@ -81,7 +81,7 @@ public class ConstructDominatorInfo
         }
     }
 
-    static class DominatorInfo extends DataFlowInfo<Set<BasicBlock>> {
+    public static class DominatorInfo extends DataFlowInfo<Set<BasicBlock>> {
         DominatorInfo(BasicBlock self) {
             this.self = self;
             this.idom = null;
