@@ -1,4 +1,5 @@
 import java.io.*;
+import java.lang.Thread.UncaughtExceptionHandler;
 
 import org.antlr.v4.runtime.*;
 
@@ -27,11 +28,37 @@ public class Main {
                 }
             }, "", 1 << 30);
 
+            final var exceptionSaver = new ExceptionSaver();
+            thread.setUncaughtExceptionHandler((t, exception) -> {
+                exceptionSaver.setException(exception);
+            });
+
             thread.start();
             thread.join();
+
+            if (exceptionSaver.hasException()) {
+                throw new RuntimeException("Exception in thread", exceptionSaver.getException());
+            }
+
         } catch (InterruptedException e) {
             throw new RuntimeException("Exception in thread", e);
         }
+    }
+
+    static class ExceptionSaver {
+        public Throwable getException() {
+            return exception;
+        }
+
+        public void setException(final Throwable exception) {
+            this.exception = exception;
+        }
+
+        public boolean hasException() {
+            return exception != null;
+        }
+
+        private Throwable exception = null;
     }
 
     public static void runNormal(String target, String inputFileName, String outputFileName) throws IOException {

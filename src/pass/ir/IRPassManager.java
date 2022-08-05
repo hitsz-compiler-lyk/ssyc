@@ -22,6 +22,7 @@ public class IRPassManager {
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
             runMemoryOptimizePass();
+            runDefaultBlockClearUpPasses();
         });
     }
 
@@ -36,6 +37,8 @@ public class IRPassManager {
 
     public void runDefaultBlockClearUpPasses() {
         GlobalModifitationStatus.doUntilNoChange(() -> {
+            runDefaultInstructionClearUpPasses();
+            runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();

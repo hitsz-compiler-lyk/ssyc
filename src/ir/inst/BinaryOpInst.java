@@ -44,7 +44,10 @@ public class BinaryOpInst extends Instruction {
 
         ensureNot(lhs instanceof Constant && rhs instanceof Constant,
                 "A BinaryOp shouldn't have two constants as its arguments");
-        ensureNot(rhs instanceof IntConst && ((IntConst) rhs).getValue() == 0,
-                "An IDiv shouldn't have a constant 0 as its RHS");
+
+        if (getKind().equals(InstKind.IDiv)) {
+            ensureNot(rhs instanceof IntConst && ((IntConst) rhs).getValue() == 0,
+                    "An IDiv shouldn't have a constant 0 as its RHS");
+        }
     }
 }

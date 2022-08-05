@@ -14,18 +14,22 @@ import java.util.List;
 public class RemoveUnnecessaryArray implements IRPass {
     @Override
     public void runPass(final Module module) {
-        module.getVariables().forEach(this::dealWithGlobalArray);
+        currModule = module;
+        IRPass.copyForChange(module.getVariables())
+            .forEach(this::dealWithGlobalArray);
         module.getNonExternalFunction().stream()
             .flatMap(List<BasicBlock>::stream)
             .forEach(this::dealWithLocalArray);
     }
 
+    Module currModule;
     void dealWithGlobalArray(GlobalVar gv) {
         final var hasNoLoad = gv.getUserList().stream()
             .noneMatch(gv.isArray() ? this::isGlobalArrayLoad : this::isGlobalVariableLoad);
 
         if (hasNoLoad) {
             removeUserTree(gv);
+            currModule.getVariables().remove(gv);
         }
     }
 
@@ -71,10 +75,9 @@ public class RemoveUnnecessaryArray implements IRPass {
 
     /** 递归删除所有 user 以及 user 的 user 以及 ... */
     void removeUserTree(Value value) {
+        IRPass.copyForChange(value.getUserList()).forEach(this::removeUserTree);
         if (value instanceof User) {
-            final var user = (User) value;
-            IRPass.copyForChange(user.getUserList()).forEach(this::removeUserTree);
-            user.freeFromUseDef();
+            ((User) value).freeFromUseDef();
         }
 
         if (value instanceof INodeOwner) {
