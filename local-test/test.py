@@ -242,6 +242,9 @@ def print_fail(subdir: str):
     for prompt in fail_list:
         console.log(prompt)
 
+def link_run_on_rpi():
+    pass
+
 def clear_up():
     with console.status('[green bold]Clearing...') as status:
         for subdir in sorted(os.listdir(rel('test-data'))):

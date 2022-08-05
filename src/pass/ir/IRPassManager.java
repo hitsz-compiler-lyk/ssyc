@@ -21,6 +21,13 @@ public class IRPassManager {
             runPass(new ConstructDominatorInfo());
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
+            runMemoryOptimizePass();
+            runDefaultBlockClearUpPasses();
+        });
+    }
+
+    public void runMemoryOptimizePass() {
+        GlobalModifitationStatus.doUntilNoChange(() -> {
             runPass(new ReplaceUnnecessaryLoad());
             runDefaultBlockClearUpPasses();
             runPass(new RemoveUnnecessaryArray());
@@ -30,6 +37,8 @@ public class IRPassManager {
 
     public void runDefaultBlockClearUpPasses() {
         GlobalModifitationStatus.doUntilNoChange(() -> {
+            runDefaultInstructionClearUpPasses();
+            runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
