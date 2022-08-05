@@ -7,6 +7,8 @@ import backend.codegen.CodeGenManager;
 import frontend.*;
 import pass.ir.IRPassManager;
 import utils.LLVMDumper;
+import utils.Log;
+import utils.LogFailException;
 
 public class Main {
     public static void main(String[] args) throws IOException {
@@ -37,7 +39,12 @@ public class Main {
             thread.join();
 
             if (exceptionSaver.hasException()) {
-                throw new RuntimeException("Exception in thread", exceptionSaver.getException());
+                final var exception = exceptionSaver.getException();
+                if (exception instanceof RuntimeException) {
+                    throw (RuntimeException) exception;
+                } else {
+                    throw new RuntimeException("Exception in thread", exceptionSaver.getException());
+                }
             }
 
         } catch (InterruptedException e) {
