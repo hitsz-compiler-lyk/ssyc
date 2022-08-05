@@ -1,4 +1,6 @@
+import ir.IRVerifyException;
 import utils.Log;
+import utils.LogFailException;
 
 import java.io.IOException;
 
@@ -14,6 +16,12 @@ public class Compiler {
             Log.inOnlineJudge();
             Main.runWithLargeStack("asm", inputFileName, outputFileName);
 
+        } catch (LogFailException e) {
+            e.printStackTrace();
+            System.exit(e.getLineNo() % 256);
+        } catch (IRVerifyException e) {
+            e.printStackTrace();
+            System.exit(233);
         } catch (Exception e) {
             throw new RuntimeException("Fail at arg: [" + String.join(", ", args) + "]", e);
         }

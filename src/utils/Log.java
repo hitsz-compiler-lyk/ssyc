@@ -22,7 +22,15 @@ public class Log {
             return;
         }
 
-        throw new AssertionError(makeFormattedOutput("assert", message, colorRed));
+        // 0 -- getStackTrace
+        // 1 -- ensure (curr method)
+        // 2 -- the caller
+        final var callerStackTrace = Thread.currentThread().getStackTrace()[2];
+        final var lineNo = callerStackTrace.getLineNumber();
+        final var filename = callerStackTrace.getFileName();
+        final var basename = filename.replace(".java", "");
+
+        throw new LogFailException(message, lineNo, basename);
     }
 
     public static void inOnlineJudge() {
