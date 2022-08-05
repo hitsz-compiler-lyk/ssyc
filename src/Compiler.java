@@ -2,8 +2,6 @@ import ir.IRVerifyException;
 import utils.Log;
 import utils.LogFailException;
 
-import java.io.IOException;
-
 public class Compiler {
     public static void main(String[] args)  {
         // 功能测试：compiler -S -o testcase.s testcase.sy
@@ -18,10 +16,10 @@ public class Compiler {
 
         } catch (LogFailException e) {
             e.printStackTrace();
-            System.exit(e.getLineNo() % 256);
+            System.exit(e.getLineNo() % 128);
         } catch (IRVerifyException e) {
             e.printStackTrace();
-            System.exit(233);
+            System.exit(e.getLineNo() % 128 + 128);
         } catch (Exception e) {
             throw new RuntimeException("Fail at arg: [" + String.join(", ", args) + "]", e);
         }

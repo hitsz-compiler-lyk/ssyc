@@ -1,14 +1,31 @@
 package ir;
 
+import utils.ReflectiveTools;
+
 public class IRVerifyException extends RuntimeException {
-    public IRVerifyException(Value value, String message) {
-        this(value, message, null);
+    public static IRVerifyException create(Value value, String message, Throwable cause) {
+        final var info = ReflectiveTools.getCallerInfo();
+        return new IRVerifyException(info.getLineNo(), value, message, cause);
     }
 
-    public IRVerifyException(Value value, String message, Throwable cause) {
-        super("%s (From: %s)".formatted(value.toString(), message), cause);
+    public static IRVerifyException create(Value value, String message) {
+        final var info = ReflectiveTools.getCallerInfo();
+        return new IRVerifyException(info.getLineNo(), value, message, null);
+    }
+
+    public static IRVerifyException create(int lineNo, Value value, String message) {
+        return new IRVerifyException(lineNo, value, message, null);
+    }
+
+    private IRVerifyException(int lineNo, Value value, String message, Throwable cause) {
+        super("%s (From: %s) (%d)".formatted(value.toString(), message, lineNo), cause);
+        this.lineNo = lineNo;
         this.value = value;
         this.message = message;
+    }
+
+    public int getLineNo() {
+        return lineNo;
     }
 
     public Value getFailedValue() {
@@ -20,11 +37,17 @@ public class IRVerifyException extends RuntimeException {
     }
 
     public static class SelfReferenceException extends IRVerifyException {
-        public SelfReferenceException(Value value) {
-            super(value, "Cannot use itself as an operand");
+        public static SelfReferenceException create(Value value) {
+            final var info = ReflectiveTools.getCallerInfo();
+            return new SelfReferenceException(info.getLineNo(), value);
+        }
+
+        private SelfReferenceException(int lineNo, Value value) {
+            super(lineNo, value, "Cannot use itself as an operand", null);
         }
     }
 
+    private final int lineNo;
     private final Value value;
     private final String message;
 }

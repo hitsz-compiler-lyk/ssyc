@@ -22,15 +22,8 @@ public class Log {
             return;
         }
 
-        // 0 -- getStackTrace
-        // 1 -- ensure (curr method)
-        // 2 -- the caller
-        final var callerStackTrace = Thread.currentThread().getStackTrace()[2];
-        final var lineNo = callerStackTrace.getLineNumber();
-        final var filename = callerStackTrace.getFileName();
-        final var basename = filename.replace(".java", "");
-
-        throw new LogFailException(message, lineNo, basename);
+        final var info = ReflectiveTools.getCallerInfo();
+        throw new LogFailException(message, info.getLineNo(), info.getBaseName());
     }
 
     public static void inOnlineJudge() {
@@ -39,17 +32,8 @@ public class Log {
     }
 
     private static String makeFormattedOutput(String level, String message, String color) {
-        // From: https://stackoverflow.com/a/31128774
-        // 0 -- getStackTrace
-        // 1 -- ensure (curr method)
-        // 2 -- the wrapper (info/debug)
-        // 3 -- the caller
-        final var callerStackTrace = Thread.currentThread().getStackTrace()[3];
-        final var lineNo = callerStackTrace.getLineNumber();
-        final var filename = callerStackTrace.getFileName();
-        final var basename = filename.replace(".java", "");
-
-        return color + "[%5s][%25s:%4d] | %s".formatted(level, basename, lineNo, message) + colorNormal;
+        final var info = ReflectiveTools.getSourceInfo(2); // 要越过 info/debug 函数的包装
+        return color + "[%5s][%25s:%4d] | %s".formatted(level, info.getBaseName(), info.getLineNo(), message) + colorNormal;
     }
 
     private static boolean needColor = true;

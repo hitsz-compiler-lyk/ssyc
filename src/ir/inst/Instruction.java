@@ -43,7 +43,7 @@ public abstract class Instruction extends User
         for (final var op : getOperands()) {
             // phi 有可能引用自己, 所以这个情况要丢一个特殊的异常
             if (op == this) {
-                throw new SelfReferenceException(this);
+                throw SelfReferenceException.create(this);
             }
         }
 
@@ -57,7 +57,7 @@ public abstract class Instruction extends User
         try {
             getINode().verify();
         } catch (IListException e) {
-            throw new IRVerifyException(this, "INode exception", e);
+            throw IRVerifyException.create(this, "INode exception", e);
         }
     }
 
