@@ -20,14 +20,10 @@ public class PhiInst extends Instruction {
     }
 
     public void setIncomingCO(List<Value> incomingValues) {
-        if (incomingValues.size() != getIncomingBlocks().size()) {
-            throw new IRVerifyException(this, "Phi must have the same amount of incoming variable and blocks");
-        }
-
-        if (getIncomingSize() != 0) {
-            throw new IRVerifyException(this, "Phi could only set incoming once");
-            // clearIncomingCO();
-        }
+        ensure(incomingValues.size() == getIncomingBlocks().size(),
+            "Phi must have the same amount of incoming variable and blocks");
+        ensure(getIncomingSize() == 0,
+            "Phi could only set incoming once");
 
         setIncomingWithoutCheckIncomingBlockCO(incomingValues);
     }

@@ -8,6 +8,8 @@ import java.util.Optional;
 import frontend.SourceCodeSymbol;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
+import utils.ReflectiveTools;
+
 public abstract class Value {
     protected Value(IRType type) {
         this.type = type;
@@ -116,16 +118,21 @@ public abstract class Value {
     // 用于验证 IR 的方法
     protected void ensure(boolean cond, String message) {
         if (!cond) {
-            throw new IRVerifyException(this, message);
+            final var info = ReflectiveTools.getCallerInfo();
+            throw IRVerifyException.create(info.getLineNo(), this, message);
         }
     }
 
     protected void ensureNot(boolean cond, String message) {
-        ensure(!cond, message);
+        if (cond) {
+            final var info = ReflectiveTools.getCallerInfo();
+            throw IRVerifyException.create(info.getLineNo(), this, message);
+        }
     }
 
     protected void verifyFail(String message) {
-        ensure(false, message);
+        final var info = ReflectiveTools.getCallerInfo();
+        throw IRVerifyException.create(info.getLineNo(), this, message);
     }
 
     private void checkPointerAndArrayType() {

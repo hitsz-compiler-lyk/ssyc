@@ -105,7 +105,7 @@ public class Function extends Value
         try {
             getIList().verify();
         } catch (IListException e) {
-            throw new IRVerifyException(this, "IList exception", e);
+            throw IRVerifyException.create(this, "IList exception", e);
         }
     }
 

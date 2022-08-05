@@ -247,13 +247,13 @@ public class BasicBlock extends User
         try {
             getIList().verify();
         } catch (IListException e) {
-            throw new IRVerifyException(this, "IList exception", e);
+            throw IRVerifyException.create(this, "IList exception", e);
         }
 
         try {
             getINode().verify();
         } catch (IListException e) {
-            throw new IRVerifyException(this, "INode exception", e);
+            throw IRVerifyException.create(this, "INode exception", e);
         }
     }
 

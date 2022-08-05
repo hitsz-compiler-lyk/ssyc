@@ -831,37 +831,49 @@ public class IRGen extends SysYBaseVisitor<Object> {
         UnaryOperator<Value> floatMerger
     ) {
         if (arg.getType().isInt()) {
-            return intMerger.apply(arg);
+            final var newArg = insertConvertByType(IRType.IntTy, arg);
+            return intMerger.apply(newArg);
         } else {
-            return floatMerger.apply(arg);
+            final var newArg = insertConvertByType(IRType.FloatTy, arg);
+            return floatMerger.apply(newArg);
         }
     }
 
     private Value insertConvertByType(IRType targetType, Value value) {
-        final var srcType = value.getType();
-        if (targetType.equals(srcType)) {
+        final var valueType = value.getType();
+        if (targetType.equals(valueType)) {
             return value;
+
+        } else if (valueType.isFloat() && targetType.isInt()) {
+            return builder.insertF2I(value);
+
+        } else if (valueType.isInt() && targetType.isFloat()) {
+            return builder.insertI2F(value);
+
+        } else if (valueType.isBool() && targetType.isInt()) {
+            return builder.insertB2I(value);
+
+        } else if (valueType.isBool() && targetType.isFloat()) {
+            return builder.insertI2F(builder.insertB2I(value));
+
         } else {
-            if (targetType.isFloat() && srcType.isInt()) {
-                return builder.insertI2F(value);
-            } else {
-                return builder.insertF2I(value);
-            }
+            Log.ensure(false,
+                "Can NOT convert type for: %s -> %s".formatted(valueType, targetType));
+            throw new RuntimeException();
         }
     }
 
+    private static final Map<IRType, Integer> typeToOrder =
+        Map.of(IRType.BoolTy, 0, IRType.IntTy, 1, IRType.FloatTy, 2);
+    private static final Map<Integer, IRType> orderToType =
+        Map.of(0, IRType.BoolTy, 1, IRType.IntTy, 2, IRType.FloatTy);
     private static IRType findCommonType(IRType ty1, IRType ty2) {
         Log.ensure(ty1.isInt() || ty1.isFloat() || ty1.isBool(), "Except ty1 is Int/Float/Bool, given: " + ty1);
         Log.ensure(ty2.isInt() || ty2.isFloat() || ty2.isBool(), "Except ty2 is Int/Float/Bool, given: " + ty2);
 
-        if (ty1.equals(ty2)) {
-            // 两个都是 Int 或者是两个都 Float 的情况
-            return ty1; // or return ty2
-        } else {
-            Log.ensure(!(ty1.isBool() || ty2.isBool()), "Bool can NOT be convert to other type");
-            // 一个 Int, 一个 Float 的情况
-            return IRType.FloatTy;
-        }
+        final var order1 = typeToOrder.get(ty1);
+        final var order2 = typeToOrder.get(ty2);
+        return orderToType.get(Integer.max(order1, order2));
     }
     //#endregion exp
 
