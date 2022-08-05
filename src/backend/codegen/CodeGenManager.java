@@ -225,9 +225,9 @@ public class CodeGenManager {
                         resolveBrCondInst((BrCondInst) inst, armBlock, funcInfo);
                     } else if (inst instanceof MemInitInst) {
                         resolveMemInitInst((MemInitInst) inst, armBlock, funcInfo);
-                    } else if (inst instanceof CmpInst) {
-                        continue;
                     } else if (inst instanceof BoolToIntInst) {
+                        continue;
+                    } else if (inst instanceof CmpInst) {
                         continue;
                     } else if (inst instanceof PhiInst) {
                         continue;
@@ -1438,7 +1438,7 @@ public class CodeGenManager {
                 }
                 if (inst.haveLtorg()) {
                     haveLoadFImm = false;
-                    offset = -1000;
+                    offset = 0;
                 }
                 if (haveLoadFImm) {
                     offset += inst.getPrintCnt();
