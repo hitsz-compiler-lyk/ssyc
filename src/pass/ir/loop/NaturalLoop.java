@@ -39,6 +39,10 @@ public class NaturalLoop {
         return Collections.unmodifiableSet(blocks);
     }
 
+    public boolean contianBlocks(BasicBlock block) {
+        return blocks.contains(block);
+    }
+
     private final BasicBlock header;
     // 包括子循环的 Block
     private final Set<BasicBlock> blocks;

@@ -82,7 +82,10 @@ public class SourceCodeSymbol {
     }
 
     public SourceCodeSymbol newSymbolWithSuffix(String suffix) {
-        final var newName = getName() + suffix;
+        return newSymbolWithName(getName() + suffix);
+    }
+
+    public SourceCodeSymbol newSymbolWithName(String newName) {
         return new SourceCodeSymbol(newName, getLine(), getColumn());
     }
 
