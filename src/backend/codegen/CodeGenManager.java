@@ -871,19 +871,45 @@ public class CodeGenManager {
         }
 
         Operand lhsReg, rhsReg;
+        boolean isCmn = false;
         if (lhs instanceof Constant) {
+            if (lhs instanceof IntConst) {
+                var ic = (IntConst) lhs;
+                if (checkEncodeImm(ic.getValue())) {
+                    rhsReg = resolveIImmOperand(ic.getValue(), block, funcinfo);
+                } else if (checkEncodeImm(-ic.getValue())) {
+                    rhsReg = resolveIImmOperand(-ic.getValue(), block, funcinfo);
+                    isCmn = true;
+                } else {
+                    rhsReg = resolveOperand(lhs, block, funcinfo);
+                }
+            } else {
+                rhsReg = resolveOperand(lhs, block, funcinfo);
+            }
             lhsReg = resolveLhsOperand(rhs, block, funcinfo);
-            rhsReg = resolveOperand(lhs, block, funcinfo);
             // 反向交换
             cond = cond.getEqualOppCondType();
         } else {
+            if (rhs instanceof IntConst) {
+                var ic = (IntConst) rhs;
+                if (checkEncodeImm(ic.getValue())) {
+                    rhsReg = resolveIImmOperand(ic.getValue(), block, funcinfo);
+                } else if (checkEncodeImm(-ic.getValue())) {
+                    rhsReg = resolveIImmOperand(-ic.getValue(), block, funcinfo);
+                    isCmn = true;
+                } else {
+                    rhsReg = resolveOperand(rhs, block, funcinfo);
+                }
+            } else {
+                rhsReg = resolveOperand(rhs, block, funcinfo);
+            }
             lhsReg = resolveLhsOperand(lhs, block, funcinfo);
-            rhsReg = resolveOperand(rhs, block, funcinfo);
         }
 
         // CMP( VCMP.F32 ) inst.getLHS() inst.getRHS() (可能交换LHS/RHS)
         // VMRS APSR_nzcv fpscr
-        new ArmInstCmp(block, lhsReg, rhsReg, cond);
+        var cmp = new ArmInstCmp(block, lhsReg, rhsReg, cond);
+        cmp.setCmn(isCmn);
         return cond;
     }
 
