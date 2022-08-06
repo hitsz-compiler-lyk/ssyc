@@ -218,6 +218,8 @@ public class BasicBlock extends User
         // 因为这是不检查版本, 块内的指令很有可能还在互相引用的状态, 直接调用 freeAll 会检查不通过
         // 而不需要在调用 freeFromList 了 (它们所在的 IList 本身(this) 都要没了, 调用也没意义了)
         instructions.forEach(Instruction::removeOperandAllCO);
+        // 调个 FreeFromUseDef 检查一下看看还有没有块外引用
+        instructions.forEach(Instruction::freeFromUseDef);
     }
 
     @Override

@@ -4,13 +4,13 @@ import ir.*;
 import ir.Module;
 import ir.constant.Constant;
 import ir.inst.*;
-import ir.visitor.InstructionVisitor;
 import ir.visitor.ValueVisitor;
 import pass.ir.IRPass;
 import pass.ir.util.SimpleInstructionCloner;
 import utils.Log;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -20,7 +20,14 @@ public class MoveLoopInvariant implements IRPass {
 
     }
 
+    public void runOnFunction(Function function) {
+        final var naturalLoopCollector = new CollectNatrualLoop();
+        naturalLoopCollector.runOnFunction(function);
 
+        final var loops = function.getAnalysisInfo(LoopFunctionInfo.class).getAllLoopsInPostOrder();
+
+
+    }
 
     List<Instruction> collectInvariant(NaturalLoop loop) {
         loop.getHeader().phis().forEach(this::collectVariants);
@@ -32,44 +39,47 @@ public class MoveLoopInvariant implements IRPass {
     }
 
     void moveInvariant(NaturalLoop loop, List<Instruction> invariants) {
-        // 大体上架构变换如下图:
+        // 大体上架构变换如下图: (# 线表示可能有 0 到多个跳转)
         /*
-         *                                           │      │        │
-         *                                        ┌──▼──────▼────────▼──┐
-         *                                        │ HeadCond (header)   │ F
-         *                                        │ (Phi for outside)   ├──────────┐
-         *                                        └─────────┬───────────┘          │
-         *                                                  │ T                    │
-         *        │    │   │                      ┌─────────▼───────────┐          │
-         *        │    │   │                      │ Pre-header          │          │
-         *        │    │   │                      │(Place for invariant)│          │
-         *     ┌──▼────▼───▼────┐                 └─────────┬───────────┘          │
-         *     │                │                           │                      │
-         * ┌───►  Cond (header) │ F               ┌─────────▼───────────┐          │
-         * │   │                ├─┐    ======>    │ Pre-body            │          │
-         * │   └───────┬────────┘ │    ======>    │ (Phi for body)      ◄────┐     │
-         * │           │ T        │    ======>    └─────────┬───────────┘    │     │
-         * │   ┌───────▼────────┐ │                         │                │     │
-         * │   │                │ │               ┌─────────▼───────────┐    │     │
-         * └───┤  Body...       │ │               │ Body...             │    │     │
-         *     │                │ │               │                     │    │     │
-         *     └────────────────┘ │               └─────────┬───────────┘    │     │
-         *                        │                         │                │     │
-         *                        │               ┌─────────▼───────────┐    │     │
-         *                        ▼               │ TailCond            │ T  │     │
-         *                                        │ (Copy for cond)     ├────┘     │
-         *                                        └─────────┬───────────┘          │
-         *                                                  │ F                    │
-         *                                        ┌─────────▼──────────┐           │
-         *                                        │ TailExit           │           │
-         *                                        │ (unique exit point)◄───────────┘
-         *                                        └─────────┬──────────┘
-         *                                                  │
-         *                                                  ▼
+         *                                                  #
+         *                                                  |
+         *                                        +---------v-----------+
+         *             #                          | HeadCond            | F
+         *             #                          | (Phi from outside)  +----------+
+         *             #                          +---------+-----------+          |
+         *             |                                    | T                    |
+         *     +-------v--------+                 +---------v-----------+          |
+         *     |                |                 | Pre-header          |          |
+         * ###->  Cond (header) | F               |(Place for invariant)|          |
+         * #   |                +-+               +---------+-----------+          |
+         * #   +-------+--------+ |                         |                      |
+         * #           | T        |               +---------v-----------+          |
+         * #   +-------v--------+ |    ======>    | Pre-body            |          |
+         * #   |                | |    ======>    | (Phi from head/tail)<----+     |
+         * #####  Body...       | |    ======>    +---------+-----------+    |     |
+         *     |                | |                         |                |     |
+         *     +-------#--------+ |               ----------v-----------+    |     |
+         *             #          |            #### Body...             |    |     |
+         *             #          |            #  |                     |    |     |
+         *             |          |            #  +---------#-----------+    |     |
+         *     +-------v--------+ |            #            #                |     |
+         *     |                | |            #  +---------v-----------+    |     |
+         *     | Exit (Outside) <-+            #  | TailCond            | T  |     |
+         *     |                |              #  | (Phi from bodies)   +----+     |
+         *     +----------------+              #  +---------+-----------+          |
+         *                                     #            | F                    |
+         *                                     #  +---------v-----------+          |
+         *                                     #  | TailExit            <----------+
+         *                                     #  | (Phi from head/tail)|
+         *                                     #  +---------+-----------+
+         *                                     #            |
+         *                                     #            |
+         *                                     #            |
+         *                                     #  +---------v----------+
+         *                                     #  | Exit               |
+         *                                     ##-> (Outside)          |
+         *                                        +--------------------+
          */
-        // 要注意的细节:
-        //      1. 原 Cond 里的 phi 要 "分裂":
-        //          来自外界的值要在 cond 里合一个 phi, 然后来自 body 的值要再在 pre-body 里合一次 phi
 
         final var header = loop.getHeader();
         final var originalSymbol = header.getSymbol();
@@ -80,46 +90,116 @@ public class MoveLoopInvariant implements IRPass {
         final var tailCond  = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("tail_cond"));
         final var tailExit  = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("tail_exit"));
 
+        Log.ensure(header.getTerminator() instanceof BrCondInst);
+        final var bodyEntry = ((BrCondInst) header.getTerminator()).getTrueBB();
+
         // =========================== headCond ===========================
-        // headCond 里面要根据旧 header 里的 phi 构造新的, 只收从外界传进来的参数的 phi
-        final var phiReplacement = new HashMap<PhiInst, PhiInst>();
-        final var blockOutsideIndices = findForIndices(header.getPredecessors(), block -> !loop.contianBlocks(block));
-        for (final var phi : header.phis()) {
-            final var newPhi = new PhiInst(phi.getType(), phi.getWaitFor());
-
-            final var incomingValueOutsideLoop = selectFrom(phi.getIncomingValues(), blockOutsideIndices);
-            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValueOutsideLoop);
-
-            headCond.addPhi(newPhi);
-            phiReplacement.put(phi, newPhi);
-        }
-        headCond.adjustPhiEnd();
-
-        // 然后要将 cond 中所有剩余部分传进来替换掉
-        final var headCondCloner = new ReplaceCloner(loop, phiReplacement, headCond, preHeader, tailExit);
-        header.nonPhis().stream().map(headCondCloner::get).forEach(headCond::add);
-
-        // 然后更新外面前继的指向
-        final var outsidePreds = selectFrom(header.getPredecessors(), blockOutsideIndices);
-        for (final var outsidePred : outsidePreds) {
-            outsidePred.getTerminator().replaceOperandCO(header, headCond);
-            headCond.addPredecessor(outsidePred);
-        }
-
-        // 然后删除旧 header 的所有外面的前继
-        outsidePreds.forEach(header::removePredecessorWithPhiUpdated);
-
+        final var blockOutsideIndices = findForIndices(header.getPredecessors(), block -> !loop.containsBlock(block));
+        makeNewCond(loop, headCond, blockOutsideIndices, preHeader, tailExit);
 
         // =========================== pre-header ===========================
         // pre-header 里放循环不变量
         preHeader.addAll(invariants);
         preHeader.add(new BrInst(preHeader, preBody));
 
+        // =========================== tail-cond ===========================
+        final var blockInsideIndices = findForIndices(header.getPredecessors(), loop::containsBlock);
+        makeNewCond(loop, tailCond, blockInsideIndices, preBody, tailExit);
 
         // =========================== pre-body ===========================
-        // pre-body 里要根据旧 header 的 phi 构造新的, 只收从循环内部传进来的参数的 phi
+        // pre-body 里放对两个 Cond 的变量的合并的 phi
+        final var phiCount = header.phis().size();
+        Log.ensure(phiCount == headCond.phis().size() && phiCount == tailCond.phis().size());
 
+        final var phiToReplaceInBody = new HashMap<Value, PhiInst>();
+        for (int i = 0; i < phiCount; i++) {
+            // TODO: 也许可以将各个对 phis() 的调用放到循环外以提升性能
+            final var oldPhi = header.phis().get(i);
+            final var phiFromHead = headCond.phis().get(i);
+            final var phiFromTail = tailCond.phis().get(i);
 
+            final var newPhi = emptyPhiFrom(oldPhi);
+            // 注意这里的顺序: 我们先构建了 pre-header 再构建 tail-cond 的, 所以才是这个顺序
+            // 如果后面顺序改了那么就需要改这个的顺序了
+            newPhi.setIncomingCO(List.of(phiFromHead, phiFromTail));
+
+            preBody.add(newPhi);
+            phiToReplaceInBody.put(oldPhi, newPhi);
+        }
+
+        preBody.add(new BrInst(preBody, bodyEntry));
+
+        // ========================= body ===============================
+        // 将 body 里面所有对旧 phi 的使用变为对新 phi 的使用
+        for (final var block : loop.getBodyBlocks()) {
+            for (final var inst : block) {
+                final var oldOperands = IRPass.copyForChange(inst.getOperands());
+                for (final var op : oldOperands) {
+                    final var replacement = phiToReplaceInBody.get(op);
+                    if (replacement != null) {
+                        inst.replaceOperandCO(op, replacement);
+                    }
+                }
+            }
+        }
+
+        // ========================= tail-exit ===============================
+        // 合并从 pre-body 与 head-cond 传入的两个 phi
+        // 同时将外界对原来 header 的所有 phi 的使用替换成这个块中的 phi
+        for (int i = 0; i < phiCount; i++) {
+            final var oldPhi = header.phis().get(i);
+            final var phiFromPreBody    = preBody.phis().get(i);
+            final var phiFromHeadCond   = headCond.phis().get(i);
+
+            final var newPhi = emptyPhiFrom(oldPhi);
+            // 这里同样要注意顺序
+            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(List.of(phiFromHeadCond, phiFromPreBody));
+
+            tailExit.add(newPhi);
+            oldPhi.replaceAllUseWith(newPhi);
+        }
+
+        // 清理 header
+        IRPass.copyForChange(header.getPredecessors()).forEach(header::removePredecessorWithPhiUpdated);
+        header.freeAllWithoutCheck();
+
+        // 维护 loop
+        loop.setHeader(preBody);
+        loop.addBlockCO(tailCond);
+    }
+
+    PhiInst emptyPhiFrom(PhiInst oldPhi) {
+        return new PhiInst(oldPhi.getType(), oldPhi.getWaitFor());
+    }
+
+    static void makeNewCond(
+        NaturalLoop loop, BasicBlock newCond, List<Integer> inheritIndices,
+        BasicBlock newTrueBB, BasicBlock newFalseBB
+    ) {
+        final var header = loop.getHeader();
+        // newCond 里面要根据旧 header 里的 phi 构造新的, 只收从特定前继传过来的参数的 phi
+        final var phiReplacement = new HashMap<PhiInst, PhiInst>();
+        for (final var phi : header.phis()) {
+            final var newPhi = new PhiInst(phi.getType(), phi.getWaitFor());
+
+            final var incomingValueOutsideLoop = selectFrom(phi.getIncomingValues(), inheritIndices);
+            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValueOutsideLoop);
+
+            newCond.addPhi(newPhi);
+            phiReplacement.put(phi, newPhi);
+        }
+        newCond.adjustPhiEnd();
+
+        // 然后要将 cond 中所有剩余部分传进来替换掉
+        final var headCondCloner = new ReplaceCloner(loop, phiReplacement, newCond, newTrueBB, newFalseBB);
+        header.nonPhis().stream().map(headCondCloner::get).forEach(newCond::add);
+
+        // 然后更新外面前继的指向
+        final var outsidePreds = selectFrom(header.getPredecessors(), inheritIndices);
+        for (final var outsidePred : outsidePreds) {
+            outsidePred.getTerminator().replaceOperandCO(header, newCond);
+            newCond.addPredecessor(outsidePred);
+        }
     }
 
     static <T> List<T> selectFrom(List<T> list, List<Integer> indices) {
@@ -160,7 +240,7 @@ public class MoveLoopInvariant implements IRPass {
         variants.add(instruction);
     }
 
-    private Set<Instruction> variants = new LinkedHashSet<>();
+    private final Set<Instruction> variants = new LinkedHashSet<>();
 }
 
 class ReplaceCloner implements ValueVisitor<Value> {
@@ -183,7 +263,7 @@ class ReplaceCloner implements ValueVisitor<Value> {
     @Override
     public Value visitInstruction(final Instruction inst) {
         final var block = inst.getParent();
-        if (!loop.contianBlocks(block)) {
+        if (!loop.containsBlock(block)) {
             return inst;
         }
         Log.ensure(block == loop.getHeader(), "Header should only use value in header");

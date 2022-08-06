@@ -2,18 +2,23 @@ package pass.ir.loop;
 
 import ir.analysis.AnalysisInfo;
 
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class LoopFunctionInfo implements AnalysisInfo {
     public void addLoop(NaturalLoop loop) {
         loops.add(loop);
     }
 
-    public Set<NaturalLoop> getLoops() {
-        return Collections.unmodifiableSet(loops);
+    public List<NaturalLoop> getLoops() {
+        return Collections.unmodifiableList(loops);
     }
 
-    Set<NaturalLoop> loops = new LinkedHashSet<>();
+    public List<NaturalLoop> getAllLoopsInPostOrder() {
+        return loops.stream()
+            .map(NaturalLoop::allLoopInPostOrder)
+            .flatMap(List::stream).collect(Collectors.toList());
+    }
+
+    List<NaturalLoop> loops = new ArrayList<>();
 }

@@ -55,6 +55,11 @@ public class PhiInst extends Instruction {
         return getOperands();
     }
 
+    /** 危险! 请自行维护关系 */
+    public void addIncomingValueWithoutChecking(Value newIncomingValue) {
+        addOperandCO(newIncomingValue);
+    }
+
     public static final class IncomingInfo {
         public IncomingInfo(Value value, BasicBlock block) {
             this.value = value;

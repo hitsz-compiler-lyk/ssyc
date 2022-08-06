@@ -30,6 +30,10 @@ public class NaturalLoop {
         return header;
     }
 
+    public void setHeader(final BasicBlock header) {
+        this.header = header;
+    }
+
     public void addBlockCO(BasicBlock block) {
         blocks.add(block);
         block.getAnalysisInfo(LoopBlockInfo.class).setLoop(this);
@@ -39,11 +43,24 @@ public class NaturalLoop {
         return Collections.unmodifiableSet(blocks);
     }
 
-    public boolean contianBlocks(BasicBlock block) {
+    public Set<BasicBlock> getBodyBlocks() {
+        final var bodyBlocks = new LinkedHashSet<>(blocks);
+        bodyBlocks.remove(header);
+        return bodyBlocks;
+    }
+
+    public boolean containsBlock(BasicBlock block) {
         return blocks.contains(block);
     }
 
-    private final BasicBlock header;
+    public List<NaturalLoop> allLoopInPostOrder() {
+        final var result = new ArrayList<NaturalLoop>();
+        subLoops.stream().map(NaturalLoop::allLoopInPostOrder).forEach(result::addAll);
+        result.add(this);
+        return result;
+    }
+
+    private BasicBlock header;
     // 包括子循环的 Block
     private final Set<BasicBlock> blocks;
 
