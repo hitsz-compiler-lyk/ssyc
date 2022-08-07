@@ -1032,16 +1032,14 @@ public class CodeGenManager {
             var key = entry.getKey();
             var val = entry.getValue().getInit();
             if (val instanceof ZeroArrayConst) {
-                arm.append("\n.bss\n.align 4\n\n");
+                arm.append("\n.bss\n.align 4\n");
             } else {
-                arm.append("\n.data\n.align 4\n\n");
+                arm.append("\n.data\n.align 4\n");
             }
             arm.append(".global\t" + key + "\n" + key + ":\n");
             if (val instanceof IntConst) {
-                arm.append("\n.data\n.align 4\n\n");
                 arm.append(codeGenIntConst((IntConst) val));
             } else if (val instanceof FloatConst) {
-
                 arm.append(codeGenFloatConst((FloatConst) val));
             } else if (val instanceof ArrayConst) {
                 acSet.add((ArrayConst) val);
@@ -1056,9 +1054,9 @@ public class CodeGenManager {
                 continue;
             }
             if (val instanceof ZeroArrayConst) {
-                arm.append("\n.bss\n.align 4\n\n");
+                arm.append("\n.bss\n.align 4\n");
             } else {
-                arm.append("\n.data\n.align 4\n\n");
+                arm.append("\n.data\n.align 4\n");
             }
             arm.append(key + ":\n");
             arm.append(codeGenArrayConst(val));
