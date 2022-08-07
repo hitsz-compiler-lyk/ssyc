@@ -105,9 +105,9 @@ public class Main {
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
 
-                //  final var mgr = new IRPassManager(module);
-                //  mgr.runAllPasses();
-                //  module.verifyAll();
+                 final var mgr = new IRPassManager(module);
+                 mgr.runAllPasses();
+                 module.verifyAll();
 
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
