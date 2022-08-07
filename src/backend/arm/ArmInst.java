@@ -286,15 +286,15 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public boolean needLtorg() {
-        return (inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm()) ||
-                inst.equals(ArmInstKind.Branch) ||
-                inst.equals(ArmInstKind.Call);
+        return (inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm());
+        // || inst.equals(ArmInstKind.Branch)
+        // || inst.equals(ArmInstKind.Call);
     }
 
     public boolean haveLtorg() {
-        return (inst.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any)) ||
-                (inst.equals(ArmInstKind.Return)) ||
-                (inst.equals(ArmInstKind.Ltorg));
+        return (inst.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any))
+                || (inst.equals(ArmInstKind.Return))
+                || (inst.equals(ArmInstKind.Ltorg));
     }
 
     public abstract String print();

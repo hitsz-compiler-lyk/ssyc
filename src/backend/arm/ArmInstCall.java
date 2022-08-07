@@ -109,14 +109,14 @@ public class ArmInstCall extends ArmInst {
 
     @Override
     public String print() {
-        String ret = "\tmov\tlr,\tpc\n";
-        if (!StringUtils.isEmpty(funcName)) {
-            return ret + "\t" + "ldr" + "\tpc,\t=" + funcName + "\n";
-        }
-        return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
+        // String ret = "\tmov\tlr,\tpc\n";
         // if (!StringUtils.isEmpty(funcName)) {
-        // return "\t" + "bl" + "\t" + funcName + "\n";
+        // return ret + "\t" + "ldr" + "\tpc,\t=" + funcName + "\n";
         // }
-        // return "\t" + "bl" + "\t" + func.getName() + "\n";
+        // return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
+        if (!StringUtils.isEmpty(funcName)) {
+            return "\t" + "bl" + "\t" + funcName + "\n";
+        }
+        return "\t" + "bl" + "\t" + func.getName() + "\n";
     }
 }
