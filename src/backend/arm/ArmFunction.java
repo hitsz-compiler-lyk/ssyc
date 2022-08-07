@@ -13,6 +13,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     public static class FunctionInfo {
         private int stackSize;
         private int finalstackSize;
+        private int fparamsCnt; //最大值16
+        private int iparamsCnt; //最大值4
         private ArmBlock prologue;
         private ArmFunction func;
         private List<Parameter> parameter;
@@ -25,6 +27,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             this.func = func;
             this.stackSize = 0;
             this.finalstackSize = 0;
+            this.fparamsCnt = 0;
+            this.iparamsCnt = 0;
             this.prologue = new ArmBlock(func, func.name + "_prologue");
             this.iUsedRegs = new ArrayList<>();
             this.fUsedRegs = new ArrayList<>();
@@ -85,6 +89,22 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
             this.stackSize += n;
             this.stackObject.add(n);
         }
+
+        public int getFparamsCnt() {
+            return fparamsCnt;
+        }
+
+        public void setFparamsCnt(int fparamsCnt) {
+            this.fparamsCnt = fparamsCnt;
+        }
+
+        public int getIparamsCnt() {
+            return iparamsCnt;
+        }
+
+        public void setIparamsCnt(int iparamsCnt) {
+            this.iparamsCnt = iparamsCnt;
+        }
     }
 
     private String name;
@@ -133,6 +153,22 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
 
     public boolean isExternal() {
         return isExternal;
+    }
+
+    public int getFparamsCnt() {
+        return funcInfo.getFparamsCnt();
+    }
+
+    public void setFparamsCnt(int fparamsCnt) {
+        funcInfo.setFparamsCnt(fparamsCnt);
+    }
+
+    public int getIparamsCnt() {
+        return funcInfo.getIparamsCnt();
+    }
+
+    public void setIparamsCnt(int iparamsCnt) {
+        funcInfo.setIparamsCnt(iparamsCnt);
     }
 
     public ArmFunction(String name) {
