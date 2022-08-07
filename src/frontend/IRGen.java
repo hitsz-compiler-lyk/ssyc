@@ -923,6 +923,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
             try {
                 final var target = whileInfo.peek().exitBlock;
                 builder.insertBranch(target);
+
+                // 防止源代码中 break 后面还有语句的情况
+                final var symbol = new SourceCodeSymbol("after_break", ctx);
+                builder.createAndAppendBBlock(symbol);
+
             } catch (EmptyStackException e) {
                 throw new SemanticException(ctx, "Break out of while");
             }
@@ -931,6 +936,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
             try {
                 final var target = whileInfo.peek().condBlock;
                 builder.insertBranch(target);
+
+                // 防止源代码中 continue 后面还有语句的情况
+                final var symbol = new SourceCodeSymbol("after_continue", ctx);
+                builder.createAndAppendBBlock(symbol);
+
             } catch (EmptyStackException e) {
                 throw new SemanticException(ctx, "Continue out of while");
             }
@@ -943,6 +953,11 @@ public class IRGen extends SysYBaseVisitor<Object> {
             } else {
                 builder.insertReturn();
             }
+
+            // 防止源代码中 return 后面还有语句的情况
+            final var symbol = new SourceCodeSymbol("after_return", ctx);
+            builder.createAndAppendBBlock(symbol);
+
         } else {
             /* 空语句, 啥也不干 */
             assert true;

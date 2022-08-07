@@ -124,11 +124,8 @@ public class BasicBlock extends User
 
     private ListIterator<Instruction> lastButNoTerminator() {
         final var instCnt = getInstructionCount();
-        if (instCnt >= 1) {
-            return instructions.listIterator(instCnt - 1);
-        } else {
-            return instructions.listIterator();
-        }
+        ensure(instCnt >= 1, "A basic block must at least have one instruction");
+        return instructions.listIterator(instCnt - 1);
     }
 
     private Optional<Instruction> getLastInstruction() {
@@ -234,13 +231,13 @@ public class BasicBlock extends User
             // 啥也不干: 在消耗 phis() 迭代器的过程中检查就做完了
             assert phi != null;
         }
+        // 最后必须有 Terminator
+        ensure(isTerminated(), "Basic block must have a terminator at the end");
         // Phi 跟 Terminator 不能在中间
         for (final var inst : nonPhiAndTerminator()) {
             ensureNot(inst instanceof PhiInst, "Phi shouldn't appearance in the middle of the basic block");
             ensureNot(inst.getKind().isBr(), "Terminator shouldn't appearance in the middle of the basic block");
         }
-        // 最后必须有 Terminator
-        ensure(isTerminated(), "Basic block must have a terminator at the end");
 
         ensure(IteratorTools.isUnique(getPredecessors()), "Predecessors of basic block should be unique");
 
