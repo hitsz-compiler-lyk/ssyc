@@ -51,18 +51,34 @@ public class ArmInstReturn extends ArmInst {
             first = false;
         }
 
-        var fuse = new StringBuilder();
+        var fuse1 = new StringBuilder();
+        var fuse2 = new StringBuilder();
+        var fusedList = funcInfo.getfUsedRegs();
         first = true;
-        for (var reg : funcInfo.getfUsedRegs()) {
+        for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
+            var reg = fusedList.get(i);
             if (!first) {
-                fuse.append(", ");
+                fuse1.append(", ");
             }
-            fuse.append(reg.print());
+            fuse1.append(reg.print());
+            first = false;
+        }
+        first = true;
+        for (int i = 16; i < fusedList.size(); i++) {
+            var reg = fusedList.get(i);
+            if (!first) {
+                fuse2.append(", ");
+            }
+            fuse2.append(reg.print());
             first = false;
         }
 
-        if (!funcInfo.getfUsedRegs().isEmpty()) {
-            ret += "\tvpop\t{" + fuse.toString() + "}\n";
+        if (fuse2.length() != 0) {
+            ret += "\tvpop\t{" + fuse2.toString() + "}\n";
+        }
+
+        if (fuse1.length() != 0) {
+            ret += "\tvpop\t{" + fuse1.toString() + "}\n";
         }
 
         if (!funcInfo.getiUsedRegs().isEmpty()) {

@@ -5,6 +5,7 @@ import backend.operand.Operand;
 // 0: lhs RegUse
 // 1: rhs RegUse
 public class ArmInstCmp extends ArmInst {
+    private boolean isCmn = false;
 
     public ArmInstCmp(ArmInstKind inst) {
         super(inst);
@@ -20,6 +21,7 @@ public class ArmInstCmp extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.isCmn = false;
     }
 
     public Operand getLhs() {
@@ -30,6 +32,14 @@ public class ArmInstCmp extends ArmInst {
         return this.getOperand(1);
     }
 
+    public void setCmn(boolean isCmn) {
+        this.isCmn = isCmn;
+    }
+
+    public boolean isCmn() {
+        return isCmn;
+    }
+
     @Override
     public String print() {
         var lhs = getLhs();
@@ -38,6 +48,8 @@ public class ArmInstCmp extends ArmInst {
         var ret = "";
         if (lhs.IsFloat() || rhs.IsFloat()) {
             op = "vcmp.f32";
+        } else if (isCmn) {
+            op = "cmn";
         }
         ret += "\t" + op + "\t" + lhs.print() + ",\t" + rhs.print() + "\n";
         if (lhs.IsFloat() || rhs.IsFloat()) {
