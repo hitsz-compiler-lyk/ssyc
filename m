@@ -68,6 +68,10 @@ run_test() {
     docker run --rm -it --user $(id -u):$(id -g) -e "TERM=xterm-256color" -v "$PWD:/src" ssyc-test $@
 }
 
+enter_test() {
+    docker run --rm -it --user $(id -u):$(id -g) -e "TERM=xterm-256color" -v "$PWD:/src" --entrypoint /bin/bash ssyc-test
+}
+
 subcommand=${1:-'full'}
 
 case $subcommand in
@@ -79,5 +83,6 @@ case $subcommand in
     jar-run) run_jar ;;
     build_test) build_test_image ;;
     test) run_test ${@:2};;
+    enter_test) enter_test ;;
     full) cleanup && compile && echo 'Build finish.' && run $@;;
 esac
