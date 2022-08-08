@@ -169,7 +169,8 @@ public class SimpleGraphColoring implements RegAllocator {
                 }
             } else {
                 for (var phyReg : Consts.allocableFRegs) {
-                    if (used.contains(phyReg) && !flag.contains(phyReg)) {
+                    if ((phyReg.isCallerSave() || (phyReg.isCalleeSave() && used.contains(phyReg)))
+                            && !flag.contains(phyReg)) {
                         ans.put(reg, phyReg);
                         break;
                     }

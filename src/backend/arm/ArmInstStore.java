@@ -127,6 +127,11 @@ public class ArmInstStore extends ArmInst {
 
     public void setOffsetMove(ArmInstMove offsetMove) {
         this.offsetMove = offsetMove;
+        if (offsetMove != null) {
+            isFixOffset = true;
+        } else {
+            isFixOffset = false;
+        }
     }
 
     public ArmInstMove getOffsetMove() {
