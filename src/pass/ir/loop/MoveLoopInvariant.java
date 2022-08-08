@@ -1,5 +1,6 @@
 package pass.ir.loop;
 
+import frontend.SourceCodeSymbol;
 import ir.*;
 import ir.Module;
 import ir.constant.Constant;
@@ -10,23 +11,28 @@ import pass.ir.util.SimpleInstructionCloner;
 import utils.Log;
 
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class MoveLoopInvariant implements IRPass {
     @Override
     public void runPass(final Module module) {
-
+        module.getNonExternalFunction().forEach(this::runOnFunction);
     }
 
     public void runOnFunction(Function function) {
-        final var naturalLoopCollector = new CollectNatrualLoop();
+        final var naturalLoopCollector = new CollectNaturalLoop();
         naturalLoopCollector.runOnFunction(function);
 
         final var loops = function.getAnalysisInfo(LoopFunctionInfo.class).getAllLoopsInPostOrder();
-
-
+        for (final var loop : loops) {
+            if (loop.isWhileLoop()) {
+                final var invariants = collectInvariant(loop);
+                if (!invariants.isEmpty()) {
+                    moveInvariant(loop, invariants);
+                }
+            }
+        }
     }
 
     List<Instruction> collectInvariant(NaturalLoop loop) {
@@ -84,17 +90,17 @@ public class MoveLoopInvariant implements IRPass {
         final var header = loop.getHeader();
         final var originalSymbol = header.getSymbol();
 
-        final var headCond  = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("head_cond"));
-        final var preHeader = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("pre_header"));
-        final var preBody   = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("pre_body"));
-        final var tailCond  = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("tail_cond"));
-        final var tailExit  = BasicBlock.createFreeBBlock(originalSymbol.newSymbolWithName("tail_exit"));
+        final var headCond  = createEmptyBlockWithInfoFromSymbol("head_cond",   originalSymbol);
+        final var preHeader = createEmptyBlockWithInfoFromSymbol("pre_header",  originalSymbol);
+        final var preBody   = createEmptyBlockWithInfoFromSymbol("pre_body",    originalSymbol);
+        final var tailCond  = createEmptyBlockWithInfoFromSymbol("tail_cond",   originalSymbol);
+        final var tailExit  = createEmptyBlockWithInfoFromSymbol("tail_exit",   originalSymbol);
 
         Log.ensure(header.getTerminator() instanceof BrCondInst);
         final var bodyEntry = ((BrCondInst) header.getTerminator()).getTrueBB();
 
         // =========================== headCond ===========================
-        final var blockOutsideIndices = findForIndices(header.getPredecessors(), block -> !loop.containsBlock(block));
+        final var blockOutsideIndices = findForIndices(header.getPredecessors(), block -> !loop.isInLoop(block));
         makeNewCond(loop, headCond, blockOutsideIndices, preHeader, tailExit);
 
         // =========================== pre-header ===========================
@@ -103,7 +109,7 @@ public class MoveLoopInvariant implements IRPass {
         preHeader.add(new BrInst(preHeader, preBody));
 
         // =========================== tail-cond ===========================
-        final var blockInsideIndices = findForIndices(header.getPredecessors(), loop::containsBlock);
+        final var blockInsideIndices = findForIndices(header.getPredecessors(), loop::isInLoop);
         makeNewCond(loop, tailCond, blockInsideIndices, preBody, tailExit);
 
         // =========================== pre-body ===========================
@@ -164,8 +170,22 @@ public class MoveLoopInvariant implements IRPass {
         header.freeAllWithoutCheck();
 
         // 维护 loop
+        // 这个 loop 之后就会变成 do-while 循环了
         loop.setHeader(preBody);
-        loop.addBlockCO(tailCond);
+        loop.getParent().ifPresent(superLoop -> {
+            superLoop.removeBlockCO(header);
+            superLoop.addBlockCO(headCond);
+            superLoop.addBlockCO(preHeader);
+            superLoop.addBlockCO(preBody);
+            superLoop.addBlockCO(tailCond);
+        });
+        Log.ensure(loop.isDoWhileLoop());
+    }
+
+    BasicBlock createEmptyBlockWithInfoFromSymbol(String name, SourceCodeSymbol symbol) {
+        final var block = BasicBlock.createFreeBBlock(symbol.newSymbolWithName(name));
+        block.addAnalysisInfo(new LoopBlockInfo());
+        return block;
     }
 
     PhiInst emptyPhiFrom(PhiInst oldPhi) {
@@ -263,7 +283,7 @@ class ReplaceCloner implements ValueVisitor<Value> {
     @Override
     public Value visitInstruction(final Instruction inst) {
         final var block = inst.getParent();
-        if (!loop.containsBlock(block)) {
+        if (!loop.isInLoop(block)) {
             return inst;
         }
         Log.ensure(block == loop.getHeader(), "Header should only use value in header");

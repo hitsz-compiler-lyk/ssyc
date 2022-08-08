@@ -10,7 +10,7 @@ import utils.Log;
 
 import java.util.stream.Collectors;
 
-public class CollectNatrualLoop implements IRPass {
+public class CollectNaturalLoop implements IRPass {
     @Override
     public void runPass(final Module module) {
         final var domInfo = new ConstructDominatorInfo();
