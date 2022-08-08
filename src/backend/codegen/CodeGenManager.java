@@ -1,5 +1,7 @@
 package backend.codegen;
 
+import java.net.ContentHandler;
+import java.net.FileNameMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -140,6 +142,17 @@ public class CodeGenManager {
             if (func.isExternal()) {
                 var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getType().getParamTypes().size());
                 externalFunctions.add(armFunc);
+                var params = func.getType().getParamTypes();
+                int fcnt = 0, icnt = 0;
+                for (var param : params) {
+                    if (param.isFloat()) {
+                        fcnt++;
+                    } else {
+                        icnt++;
+                    }
+                }
+                armFunc.setFparamsCnt(Integer.min(fcnt, 16));
+                armFunc.setIparamsCnt(Integer.min(icnt, 4));
                 armFunc.setReturnFloat(func.getType().getReturnType().isFloat());
                 armFunc.setExternal(true);
                 funcMap.put(func, armFunc);
@@ -147,8 +160,39 @@ public class CodeGenManager {
             }
 
             var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getParameters().size());
-            armFunc.getFuncInfo().setParameter(func.getParameters());
+            Set<Parameter> paramIdx = new HashSet<>();
+            List<Parameter> finalParams = new ArrayList<>();
+            int fcnt = 0, icnt = 0;
+            for (var param : func.getParameters()) {
+                if (!param.getType().isFloat()) {
+                    finalParams.add(param);
+                    paramIdx.add(param);
+                    icnt++;
+                }
+                if (icnt >= 4) {
+                    break;
+                }
+            }
+            for (var param : func.getParameters()) {
+                if (param.getType().isFloat()) {
+                    finalParams.add(param);
+                    paramIdx.add(param);
+                    fcnt++;
+                }
+                if (fcnt >= 16) {
+                    break;
+                }
+            }
+            for (var param : func.getParameters()) {
+                if (paramIdx.contains(param)) {
+                    continue;
+                }
+                finalParams.add(param);
+            }
             functions.add(armFunc);
+            armFunc.getFuncInfo().setParameter(finalParams);
+            armFunc.setFparamsCnt(fcnt);
+            armFunc.setIparamsCnt(icnt);
             armFunc.setReturnFloat(func.getType().getReturnType().isFloat());
             funcMap.put(func, armFunc);
             String funcName = func.getFunctionSourceName();
@@ -344,9 +388,9 @@ public class CodeGenManager {
         }
     }
 
-    private Operand resolveOffset(int val, ArmBlock block, FunctionInfo funcinfo) {
+    private Operand resolveOffset(Operand dst, int val, ArmBlock block, FunctionInfo funcinfo) {
         globalMove = null;
-        if (checkOffsetRange(val)) {
+        if (checkOffsetRange(dst, val)) {
             // 可以直接表示 直接返回一个IImm
             return new IImm(val);
         } else {
@@ -401,18 +445,23 @@ public class CodeGenManager {
             }
             valMap.put(val, vr);
             var params = funcinfo.getParameter();
+            int fcnt = funcinfo.getFparamsCnt();
+            int icnt = funcinfo.getIparamsCnt();
             for (int i = 0; i < params.size(); i++) {
                 if (params.get(i).equals(val)) {
-                    if (i < 4) {
+                    if (i < icnt) {
                         // MOVE VR Ri
                         // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
                         // 加到最前面防止后续load修改了r0 - r3
                         var move = new ArmInstMove(vr, new IPhyReg(i));
                         funcinfo.getPrologue().asElementView().add(0, move);
+                    } else if (i < icnt + fcnt) {
+                        var move = new ArmInstMove(vr, new FPhyReg(i - icnt));
+                        funcinfo.getPrologue().asElementView().add(0, move);
                     } else {
                         // LDR VR [SP, (i-4)*4]
                         // 寄存器分配后修改为 LDR VR [SP, (i-4)*4 + stackSize + push的大小]
-                        var offset = resolveOffset((i - 4) * 4, block, funcinfo);
+                        var offset = resolveOffset(vr, (i - icnt - fcnt) * 4, funcinfo.getPrologue(), funcinfo);
                         // 保证这个MOVE语句一定在最前面
                         var load = new ArmInstLoad(funcinfo.getPrologue(), vr, new IPhyReg("sp"), offset);
                         if (globalMove != null) {
@@ -723,45 +772,68 @@ public class CodeGenManager {
     }
 
     private void resolveCallInst(CallInst inst, ArmBlock block, FunctionInfo funcinfo) {
-        if (inst.getCallee().isExternal() && inst.getCallee().getFunctionSourceName().equals("putfloat")) {
-            Log.ensure(inst.getArgList().size() == 1);
-            var arg = resolveOperand(inst.getArgList().get(0), block, funcinfo);
-            new ArmInstMove(block, new FPhyReg(0), arg);
-            new ArmInstCall(block, funcMap.get(inst.getCallee()));
-            return;
+        Set<Value> argsIdx = new HashSet<>();
+        List<Value> finalArg = new ArrayList<>();
+        int fcnt = 0, icnt = 0;
+        for (var arg : inst.getArgList()) {
+            if (!arg.getType().isFloat()) {
+                finalArg.add(arg);
+                argsIdx.add(arg);
+                icnt++;
+            }
+            if (icnt >= 4) {
+                break;
+            }
         }
-        var args = inst.getArgList();
-        int offset = ((args.size() - 4) + 1) / 2 * 8;
-        for (int i = 4; i < args.size(); i++) {
-            var arg = args.get(i);
+        for (var arg : inst.getArgList()) {
+            if (arg.getType().isFloat()) {
+                finalArg.add(arg);
+                argsIdx.add(arg);
+                fcnt++;
+            }
+            if (fcnt >= 16) {
+                break;
+            }
+        }
+        for (var arg : inst.getArgList()) {
+            if (argsIdx.contains(arg)) {
+                continue;
+            }
+            finalArg.add(arg);
+        }
+        int offset = ((finalArg.size() - icnt - fcnt) + 1) / 2 * 8;
+        for (int i = icnt + fcnt; i < finalArg.size(); i++) {
+            var arg = finalArg.get(i);
             var src = resolveLhsOperand(arg, block, funcinfo);
-            var offsetOp = resolveOffset(-offset + (i - 4) * 4, block, funcinfo);
+            var offsetOp = resolveOffset(src, -offset + (i - icnt - fcnt) * 4, block, funcinfo);
             // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
             // 越后面的参数越靠近栈顶
             var store = new ArmInstStore(block, src, new IPhyReg("sp"), offsetOp);
             store.setStack(false);
         }
         var argOp = new ArrayList<Operand>();
-        for (int i = 0; i < Integer.min(4, args.size()); i++) {
-            var arg = args.get(i);
+        for (int i = 0; i < icnt; i++) {
+            var arg = finalArg.get(i);
             var src = resolveOperand(arg, block, funcinfo);
             argOp.add(src);
         }
-        for (int i = Integer.min(4, args.size()) - 1; i >= 0; i--) {
-            new ArmInstMove(block, new IPhyReg(i), argOp.get(i));
+        for (int i = icnt + fcnt - 1; i >= icnt; i--) {
+            var src = resolveOperand(finalArg.get(i), block, funcinfo);
+            new ArmInstMove(block, new FPhyReg(i - icnt), src);
         }
         Operand offsetOp = null;
-        if (args.size() > 4) {
+        if (finalArg.size() > icnt + fcnt) {
             offsetOp = resolveIImmOperand(offset, block, funcinfo);
+        }
+        for (int i = icnt - 1; i >= 0; i--) {
+            new ArmInstMove(block, new IPhyReg(i), argOp.get(i));
+        }
+        if (finalArg.size() > icnt + fcnt) {
             // SUB SP SP (inst.args.size() - 4) * 4
             new ArmInstBinary(block, ArmInstKind.ISub, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
         }
-        boolean isFloat = false;
-        if (inst.getType().isFloat()) {
-            isFloat = true;
-        }
-        new ArmInstCall(block, funcMap.get(inst.getCallee()), isFloat);
-        if (args.size() > 4) {
+        new ArmInstCall(block, funcMap.get(inst.getCallee()));
+        if (finalArg.size() > icnt + fcnt) {
             // ADD SP SP (inst.args.size() - 4) * 4
             new ArmInstBinary(block, ArmInstKind.IAdd, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
         }
@@ -945,14 +1017,14 @@ public class CodeGenManager {
             new ArmInstMove(block, new IPhyReg("r0"), dst);
             new ArmInstMove(block, new IPhyReg("r1"), new IImm(0));
             new ArmInstMove(block, new IPhyReg("r2"), imm);
-            new ArmInstCall(block, "memset", 3);
+            new ArmInstCall(block, "memset", 3, 0, false);
         } else {
             var src = resolveOperand(ac, block, funcinfo);
             var imm = resolveIImmOperand(size, block, funcinfo);
             new ArmInstMove(block, new IPhyReg("r0"), dst);
             new ArmInstMove(block, new IPhyReg("r1"), src);
             new ArmInstMove(block, new IPhyReg("r2"), imm);
-            new ArmInstCall(block, "memcpy", 3);
+            new ArmInstCall(block, "memcpy", 3, 0, false);
         }
     }
 
@@ -1003,22 +1075,23 @@ public class CodeGenManager {
         arm.append("\n.text\n");
         for (var func : functions) {
             fixStack(func);
-            arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
-            for (var block : func.asElementView()) {
-                arm.append("@" + block.getLabel() + ":\n");
-                if (block.getTrueSuccBlock() != null) {
-                    arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-                    if (block.getFalseSuccBlock() == null) {
-                        arm.append("\n");
-                    } else {
-                        arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() + "\n");
-                    }
-                }
-                for (var inst : block.asElementView()) {
-                    inst.InitSymbol();
-                    arm.append(inst.getSymbol());
-                }
-            }
+            // arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
+            // for (var block : func.asElementView()) {
+            // arm.append("@" + block.getLabel() + ":\n");
+            // if (block.getTrueSuccBlock() != null) {
+            // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+            // if (block.getFalseSuccBlock() == null) {
+            // arm.append("\n");
+            // } else {
+            // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+            // "\n");
+            // }
+            // }
+            // for (var inst : block.asElementView()) {
+            // inst.InitSymbol();
+            // arm.append(inst.getSymbol());
+            // }
+            // }
 
             boolean isFix = true;
             while (isFix) {
@@ -1063,13 +1136,25 @@ public class CodeGenManager {
                     first = false;
                 }
 
-                var fuse = new StringBuilder();
+                var fuse1 = new StringBuilder();
+                var fuse2 = new StringBuilder();
+                var fusedList = funcInfo.getfUsedRegs();
                 first = true;
-                for (var reg : funcInfo.getfUsedRegs()) {
+                for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
+                    var reg = fusedList.get(i);
                     if (!first) {
-                        fuse.append(", ");
+                        fuse1.append(", ");
                     }
-                    fuse.append(reg.print());
+                    fuse1.append(reg.print());
+                    first = false;
+                }
+                first = true;
+                for (int i = 16; i < fusedList.size(); i++) {
+                    var reg = fusedList.get(i);
+                    if (!first) {
+                        fuse2.append(", ");
+                    }
+                    fuse2.append(reg.print());
                     first = false;
                 }
 
@@ -1077,8 +1162,12 @@ public class CodeGenManager {
                     prologuePrint += "\tpush\t{" + iuse.toString() + "}\n";
                 }
 
-                if (!funcInfo.getfUsedRegs().isEmpty()) {
-                    prologuePrint += "\tvpush\t{" + fuse.toString() + "}\n";
+                if (fuse1.length() != 0) {
+                    prologuePrint += "\tvpush\t{" + fuse1.toString() + "}\n";
+                }
+
+                if (fuse2.length() != 0) {
+                    prologuePrint += "\tvpush\t{" + fuse2.toString() + "}\n";
                 }
 
                 if (stackSize > 0) {
@@ -1094,24 +1183,24 @@ public class CodeGenManager {
                 }
 
                 if (isFix) {
-                    arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
-                    arm.append(getSymbol(prologuePrint));
-                    for (var block : func.asElementView()) {
-                        arm.append("@" + block.getLabel() + ":\n");
-                        if (block.getTrueSuccBlock() != null) {
-                            arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-                            if (block.getFalseSuccBlock() == null) {
-                                arm.append("\n");
-                            } else {
-                                arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-                                        "\n");
-                            }
-                        }
-                        for (var inst : block.asElementView()) {
-                            inst.InitSymbol();
-                            arm.append(inst.getSymbol());
-                        }
-                    }
+                    // arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
+                    // arm.append(getSymbol(prologuePrint));
+                    // for (var block : func.asElementView()) {
+                    // arm.append("@" + block.getLabel() + ":\n");
+                    // if (block.getTrueSuccBlock() != null) {
+                    // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+                    // if (block.getFalseSuccBlock() == null) {
+                    // arm.append("\n");
+                    // } else {
+                    // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+                    // "\n");
+                    // }
+                    // }
+                    // for (var inst : block.asElementView()) {
+                    // inst.InitSymbol();
+                    // arm.append(inst.getSymbol());
+                    // }
+                    // }
                     continue;
                 } else {
                     for (var block : func.asElementView()) {
@@ -1139,15 +1228,15 @@ public class CodeGenManager {
                 fixLtorg(func);
                 for (var block : func.asElementView()) {
                     arm.append(block.getLabel() + ":\n");
-                    if (block.getTrueSuccBlock() != null) {
-                        arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-                        if (block.getFalseSuccBlock() == null) {
-                            arm.append("\n");
-                        } else {
-                            arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-                                    "\n");
-                        }
-                    }
+                    // if (block.getTrueSuccBlock() != null) {
+                    // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+                    // if (block.getFalseSuccBlock() == null) {
+                    // arm.append("\n");
+                    // } else {
+                    // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+                    // "\n");
+                    // }
+                    // }
                     for (var inst : block.asElementView()) {
                         arm.append(inst.print());
                         // arm.append(inst.getSymbol());
@@ -1257,12 +1346,20 @@ public class CodeGenManager {
         return sb.toString();
     }
 
+    public boolean checkOffsetRange(Operand dst, int offset) {
+        if (dst.IsFloat()) {
+            return checkOffsetVRange(offset);
+        } else {
+            return checkOffsetRange(offset);
+        }
+    }
+
     public boolean checkOffsetRange(int offset) {
         return offset >= -4095 && offset <= 4095;
     }
 
-    public boolean checkOffsetRange(IImm offset) {
-        return checkOffsetRange(offset.getImm());
+    public boolean checkOffsetVRange(int offset) {
+        return offset >= -1020 && offset <= 1020;
     }
 
     private boolean fixStack(ArmFunction func) {
@@ -1358,7 +1455,7 @@ public class CodeGenManager {
 
     private boolean fixStackInst(ArmInstLoad load, int actualOffset) {
         boolean isFix = false;
-        if (!checkOffsetRange(actualOffset)) {
+        if (!checkOffsetRange(load.getDst(), actualOffset)) {
             if (!load.isFixOffset()) {
                 isFix = true;
                 var vr = new IVirtualReg();
@@ -1384,7 +1481,7 @@ public class CodeGenManager {
 
     private boolean fixStackInst(ArmInstStore store, int actualOffset) {
         boolean isFix = false;
-        if (!checkOffsetRange(actualOffset)) {
+        if (!checkOffsetRange(store.getSrc(), actualOffset)) {
             if (!store.isFixOffset()) {
                 isFix = true;
                 var vr = new IVirtualReg();
@@ -1452,11 +1549,7 @@ public class CodeGenManager {
         var funcInfo = func.getFuncInfo();
         var fUseRegs = funcInfo.getfUsedRegs();
         fUseRegs.clear();
-        int start = 0;
-        if (func.isReturnFloat()) {
-            start = 1;
-        }
-        for (int i = start; i <= 31; i++) {
+        for (int i = 16; i <= 31; i++) {
             if (regs.contains(new FPhyReg(i))) {
                 fUseRegs.add(new FPhyReg(i));
             }
@@ -1479,7 +1572,7 @@ public class CodeGenManager {
                 if (haveLoadFImm) {
                     offset += inst.getPrintCnt();
                 }
-                if (offset > 1000) {
+                if (offset > 250) {
                     var ltorg = new ArmInstLtorg(func.getName() + "_ltorg_" + cnt++);
                     inst.insertAfterCO(ltorg);
                     haveLoadFImm = false;
