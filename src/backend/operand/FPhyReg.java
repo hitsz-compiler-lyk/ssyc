@@ -41,18 +41,6 @@ public class FPhyReg extends Reg {
         this.name = name;
     }
 
-    public boolean isCallerSave() {
-        return this.getId() < 16;
-    }
-
-    public boolean isSpecial() {
-        return false;
-    }
-
-    public boolean isCalleeSave() {
-        return this.getId() >= 16;
-    }
-
     @Override
     public String print() {
         return name;
