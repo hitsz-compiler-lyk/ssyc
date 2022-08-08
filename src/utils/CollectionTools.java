@@ -1,5 +1,8 @@
 package utils;
 
+import ir.BasicBlock;
+import ir.inst.PhiInst;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -8,6 +11,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public final class CollectionTools {
     @SafeVarargs
@@ -82,6 +86,56 @@ public final class CollectionTools {
         Log.ensure(!list.isEmpty());
         return list.get(list.size() - 1);
     }
+
+    public static void fillBlockWithPhiInherited(BasicBlock oldBB, BasicBlock newBB, List<Integer> inheritIndices) {
+        // 从旧块中将对应位置的 phi 参数抢过来成为新的 phi 参数
+        for (final var phi : oldBB.phis()) {
+            final var newPhi = new PhiInst(phi.getType(), phi.getWaitFor());
+
+            final var incomingValueOutsideLoop = selectFrom(phi.getIncomingValues(), inheritIndices);
+            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValueOutsideLoop);
+
+            newBB.addPhi(newPhi);
+        }
+        newBB.adjustPhiEnd();
+
+        // 然后更新外面前继的指向
+        final var outsidePreds = selectFrom(oldBB.getPredecessors(), inheritIndices);
+        for (final var outsidePred : outsidePreds) {
+            outsidePred.getTerminator().replaceOperandCO(oldBB, newBB);
+            newBB.addPredecessor(outsidePred);
+        }
+    }
+
+    public static <T> List<T> selectFrom(List<T> list, List<Integer> indices) {
+        final var result = new ArrayList<T>();
+        indices.forEach(i -> result.add(list.get(i)));
+        return result;
+    }
+
+    public static <T> List<Integer> findForIndices(List<T> list, Predicate<T> predicate) {
+        final var result = new ArrayList<Integer>();
+
+        final var iter = list.iterator();
+        for (int i = 0; iter.hasNext(); i++) {
+            final var elm = iter.next();
+            if (predicate.test(elm)) {
+                result.add(i);
+            }
+        }
+
+        return result;
+    }
+
+    public static <T> void iterWithIndex(List<T> list, RunnerWithIndex<T> runner) {
+        var idx = 0;
+        for (final var iter = list.iterator(); iter.hasNext(); idx++) {
+            final var elm = iter.next();
+            runner.run(idx, elm);
+        }
+    }
+
+    public interface RunnerWithIndex<T> { void run(int idx, T elm); }
 
     public static class TwoList<T> {
         public TwoList(List<T> first, List<T> second) {
