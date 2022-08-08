@@ -871,19 +871,45 @@ public class CodeGenManager {
         }
 
         Operand lhsReg, rhsReg;
+        boolean isCmn = false;
         if (lhs instanceof Constant) {
+            if (lhs instanceof IntConst) {
+                var ic = (IntConst) lhs;
+                if (checkEncodeImm(ic.getValue())) {
+                    rhsReg = resolveIImmOperand(ic.getValue(), block, funcinfo);
+                } else if (checkEncodeImm(-ic.getValue())) {
+                    rhsReg = resolveIImmOperand(-ic.getValue(), block, funcinfo);
+                    isCmn = true;
+                } else {
+                    rhsReg = resolveOperand(lhs, block, funcinfo);
+                }
+            } else {
+                rhsReg = resolveOperand(lhs, block, funcinfo);
+            }
             lhsReg = resolveLhsOperand(rhs, block, funcinfo);
-            rhsReg = resolveOperand(lhs, block, funcinfo);
             // 反向交换
             cond = cond.getEqualOppCondType();
         } else {
+            if (rhs instanceof IntConst) {
+                var ic = (IntConst) rhs;
+                if (checkEncodeImm(ic.getValue())) {
+                    rhsReg = resolveIImmOperand(ic.getValue(), block, funcinfo);
+                } else if (checkEncodeImm(-ic.getValue())) {
+                    rhsReg = resolveIImmOperand(-ic.getValue(), block, funcinfo);
+                    isCmn = true;
+                } else {
+                    rhsReg = resolveOperand(rhs, block, funcinfo);
+                }
+            } else {
+                rhsReg = resolveOperand(rhs, block, funcinfo);
+            }
             lhsReg = resolveLhsOperand(lhs, block, funcinfo);
-            rhsReg = resolveOperand(rhs, block, funcinfo);
         }
 
         // CMP( VCMP.F32 ) inst.getLHS() inst.getRHS() (可能交换LHS/RHS)
         // VMRS APSR_nzcv fpscr
-        new ArmInstCmp(block, lhsReg, rhsReg, cond);
+        var cmp = new ArmInstCmp(block, lhsReg, rhsReg, cond);
+        cmp.setCmn(isCmn);
         return cond;
     }
 
@@ -942,6 +968,11 @@ public class CodeGenManager {
         for (var entry : globalvars.entrySet()) {
             var key = entry.getKey();
             var val = entry.getValue().getInit();
+            if (val instanceof ZeroArrayConst) {
+                arm.append("\n.bss\n.align 4\n");
+            } else {
+                arm.append("\n.data\n.align 4\n");
+            }
             arm.append(".global\t" + key + "\n" + key + ":\n");
             if (val instanceof IntConst) {
                 arm.append(codeGenIntConst((IntConst) val));
@@ -958,6 +989,11 @@ public class CodeGenManager {
             var val = entry.getKey();
             if (acSet.contains(val)) {
                 continue;
+            }
+            if (val instanceof ZeroArrayConst) {
+                arm.append("\n.bss\n.align 4\n");
+            } else {
+                arm.append("\n.data\n.align 4\n");
             }
             arm.append(key + ":\n");
             arm.append(codeGenArrayConst(val));
