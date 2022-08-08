@@ -13,7 +13,7 @@ public class ArmInstReturn extends ArmInst {
     public ArmInstReturn(ArmBlock block) {
         super(ArmInstKind.Return);
         block.asElementView().add(this);
-        this.setPrintCnt(7);
+        this.setPrintCnt(50); //6
     }
 
     @Override
@@ -51,34 +51,18 @@ public class ArmInstReturn extends ArmInst {
             first = false;
         }
 
-        var fuse1 = new StringBuilder();
-        var fuse2 = new StringBuilder();
-        var fusedList = funcInfo.getfUsedRegs();
+        var fuse = new StringBuilder();
         first = true;
-        for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
-            var reg = fusedList.get(i);
+        for (var reg : funcInfo.getfUsedRegs()) {
             if (!first) {
-                fuse1.append(", ");
+                fuse.append(", ");
             }
-            fuse1.append(reg.print());
-            first = false;
-        }
-        first = true;
-        for (int i = 16; i < fusedList.size(); i++) {
-            var reg = fusedList.get(i);
-            if (!first) {
-                fuse2.append(", ");
-            }
-            fuse2.append(reg.print());
+            fuse.append(reg.print());
             first = false;
         }
 
-        if (fuse2.length() != 0) {
-            ret += "\tvpop\t{" + fuse2.toString() + "}\n";
-        }
-
-        if (fuse1.length() != 0) {
-            ret += "\tvpop\t{" + fuse1.toString() + "}\n";
+        if (!funcInfo.getfUsedRegs().isEmpty()) {
+            ret += "\tvpop\t{" + fuse.toString() + "}\n";
         }
 
         if (!funcInfo.getiUsedRegs().isEmpty()) {
