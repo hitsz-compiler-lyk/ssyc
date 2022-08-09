@@ -128,6 +128,23 @@ class MemPositionHandler {
             || this.isVariable() && other.isVariable();
     }
 
+    public MemPositionHandler deepCopy() {
+        if (isUndef()) {
+            return new MemPositionHandler();
+        } else if (isVariable()) {
+            return new MemPositionHandler(value, null);
+        } else {
+            Log.ensure(isArray());
+
+            final var newElements = new HashMap<Integer, MemPositionHandler>();
+            for (final var entry : elements.entrySet()) {
+                newElements.put(entry.getKey(), entry.getValue().deepCopy());
+            }
+
+            return new MemPositionHandler(null, newElements);
+        }
+    }
+
     /**
      * <h3>合并两个 MemPositionHandler</h3>
      * <p>
@@ -173,10 +190,6 @@ class MemPositionHandler {
     private MemPositionHandler(Value value, Map<Integer, MemPositionHandler> elements) {
         this.value = value;
         this.elements = elements;
-    }
-
-    public MemPositionHandler copy() {
-        return new MemPositionHandler(value, new HashMap<>(elements));
     }
 
     private Map<Integer, MemPositionHandler> elements;

@@ -195,6 +195,15 @@ public class BasicBlock extends User
         replaceOperandCO(index, newPred);
     }
 
+    public void resetPredecessorsOrder(List<BasicBlock> newPredecessorsOrder) {
+        final var newPreds = new HashSet<>(newPredecessorsOrder);
+        final var oldPreds = new HashSet<>(getPredecessors());
+        Log.ensure(newPreds.equals(oldPreds), "Predecessors are different");
+
+        removeOperandAllCO();
+        newPredecessorsOrder.forEach(this::addOperandCO);
+    }
+
 
     //========================================== Value/User 相关 =====================================================//
 

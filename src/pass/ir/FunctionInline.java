@@ -226,10 +226,7 @@ public class FunctionInline implements IRPass {
         public List<BasicBlock> convert() {
             for (final var block : callee) {
                 final var newBlock = getOrCreate(block);
-                for (final var inst : block.allInst()) {
-                    newBlock.addInstAtEnd(getOrCreate(inst));
-                }
-
+                block.stream().map(this::getOrCreate).forEach(newBlock::add);
                 newBlock.adjustPhiEnd();
             }
 
@@ -239,8 +236,18 @@ public class FunctionInline implements IRPass {
                 ((PhiInst) first).setIncomingCO(returnValues);
             }
 
+            // 要保证克隆后各个基本块的前继顺序与克隆之前一样, 防止 phi 的 incoming value 顺序跟 block 的不一样
+            for (final var oldBlock : callee) {
+                final var newBlock = getOrCreate(oldBlock);
+                final var newPreds = oldBlock.getPredecessors().stream()
+                    .map(this::getOrCreate).collect(Collectors.toList());
+
+                newBlock.resetPredecessorsOrder(newPreds);
+            }
+
             return callee.stream().map(this::getOrCreate).collect(Collectors.toList());
         }
+
 
         @SuppressWarnings("unchecked")
         public <T extends Value> T getOrCreate(T old) {

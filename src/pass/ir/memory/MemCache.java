@@ -22,7 +22,12 @@ class MemCache {
     }
 
     public static MemCache copyFrom(MemCache other) {
-        return new MemCache(other);
+        final var result = empty();
+        for (final var entry : other.cache.entrySet()) {
+            result.cache.put(entry.getKey(), entry.getValue().deepCopy());
+        }
+
+        return result;
     }
 
     public void setByInit(MemInitInst init) {
