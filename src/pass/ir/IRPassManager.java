@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.GlobalModifitationStatus;
 import ir.Module;
+import pass.ir.loop.CollectLoopsAndMakeItCanonical;
 import pass.ir.memory.RemoveUnnecessaryArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
@@ -24,6 +25,7 @@ public class IRPassManager {
             runMemoryOptimizePass();
             runDefaultBlockClearUpPasses();
         });
+        // runPass(new CollectLoopsAndMakeItCanonical.DryRunPass());
     }
 
     public void runMemoryOptimizePass() {
@@ -40,9 +42,12 @@ public class IRPassManager {
             runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
+            runPass(new FuseBasicBlock());
+            runDefaultInstructionClearUpPasses();
+            runPass(new FuseImmediatelyBranch());
+            runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
-            runPass(new MergeDirectBranch());
         });
     }
 
@@ -68,7 +73,7 @@ public class IRPassManager {
         }
     }
 
-    public class IRPassException extends RuntimeException {
+    public static class IRPassException extends RuntimeException {
         IRPassException(int index, String passName, Exception cause) {
             super("IRPass exception on #%d:%s".formatted(index, passName), cause);
         }
