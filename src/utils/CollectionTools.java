@@ -1,8 +1,5 @@
 package utils;
 
-import ir.BasicBlock;
-import ir.inst.PhiInst;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -85,26 +82,6 @@ public final class CollectionTools {
     public static <T> T tail(List<T> list) {
         Log.ensure(!list.isEmpty());
         return list.get(list.size() - 1);
-    }
-
-    public static void fillBlockWithPhiInherited(BasicBlock oldBB, BasicBlock newBB, List<Integer> inheritIndices) {
-        // 从旧块中将对应位置的 phi 参数抢过来成为新的 phi 参数
-        for (final var phi : oldBB.phis()) {
-            final var newPhi = new PhiInst(phi.getType(), phi.getWaitFor());
-
-            final var incomingValueOutsideLoop = selectFrom(phi.getIncomingValues(), inheritIndices);
-            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValueOutsideLoop);
-
-            newBB.addPhi(newPhi);
-        }
-        newBB.adjustPhiEnd();
-
-        // 然后更新外面前继的指向
-        final var outsidePreds = selectFrom(oldBB.getPredecessors(), inheritIndices);
-        for (final var outsidePred : outsidePreds) {
-            outsidePred.getTerminator().replaceOperandCO(oldBB, newBB);
-            newBB.addPredecessor(outsidePred);
-        }
     }
 
     public static <T> List<T> selectFrom(List<T> list, List<Integer> indices) {

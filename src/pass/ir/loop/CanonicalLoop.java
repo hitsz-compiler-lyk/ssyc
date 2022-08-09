@@ -161,10 +161,14 @@ public class CanonicalLoop {
         }
 
         final var exit = condInst.getFalseBB();
-        body.stream().map(BasicBlock::getSuccessors).flatMap(List::stream).forEach(succInBody -> {
-            ensure(succInBody == latch || succInBody == exit,
-                "Successor of blocks in loop body must either be latch or exit");
-        });
+        body.stream()
+            .filter(block -> block != latch) // latch 也算 body 的一部分... 吗?
+            .map(BasicBlock::getSuccessors)
+            .flatMap(List::stream)
+            .forEach(succInBody -> {
+                ensure(isInBody(succInBody) || succInBody == exit,
+                    "Successor of non-latch blocks in loop body must either be exit or be in the body");
+            });
 
         if (isRotated) {
             final var guardCandidates = preHeader.getPredecessors();

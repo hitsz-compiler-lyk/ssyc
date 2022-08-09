@@ -3,8 +3,12 @@ package pass.ir.loop;
 import frontend.SourceCodeSymbol;
 import ir.BasicBlock;
 import ir.Function;
+import ir.Module;
 import ir.Value;
 import ir.inst.BrCondInst;
+import ir.inst.BrInst;
+import ir.inst.PhiInst;
+import pass.ir.ConstructDominatorInfo;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import pass.ir.IRPass;
 import utils.CollectionTools;
@@ -19,7 +23,20 @@ import java.util.stream.Collectors;
  * 正规循环的定义详见: <a href="https://llvm.org/docs/LoopTerminology.html#loop-simplify-form">LLVM 循环技术</a>
  */
 public class CollectLoopsAndMakeItCanonical {
+    public static class DryRunPass implements IRPass {
+        @Override
+        public void runPass(final Module module) {
+            final var collector = new CollectLoopsAndMakeItCanonical();
+            final var loopCount = module.getNonExternalFunction().stream()
+                .map(collector::collect).mapToLong(List::size).sum();
+            Log.info("Collect loop: #" + loopCount);
+        }
+    }
+
     public List<CanonicalLoop> collect(Function function) {
+        final var domInfoConstructor = new ConstructDominatorInfo();
+        domInfoConstructor.runOnFunction(function);
+
         return collectLoops(function).stream()
             .map(loop -> transformToCanonicalLoop(null, loop))
             .collect(Collectors.toList());
@@ -67,12 +84,16 @@ public class CollectLoopsAndMakeItCanonical {
         if (latchInfo.block.getTerminator() instanceof BrCondInst) {
             canonicalLoop.markAsRotated();
         }
+        justLoop.body.forEach(canonicalLoop::addBodyBlock);
+        canonicalLoop.addBodyBlock(latchInfo.block);
 
         // 处理 loop 森林
         for (final var subLoop : justLoop.subLoops) {
             final var subCanonicalLoop = transformToCanonicalLoop(canonicalLoop, subLoop);
             canonicalLoop.addSubLoop(subCanonicalLoop);
         }
+
+        canonicalLoop.verify();
 
         return canonicalLoop;
     }
@@ -90,7 +111,11 @@ public class CollectLoopsAndMakeItCanonical {
         if (inheritIndices.size() > 1) {
             // need a new block
             final var newBB = createEmptyBlockWithInfoFromSymbol(name, header.getSymbol());
-            CollectionTools.fillBlockWithPhiInherited(header, newBB, inheritIndices);
+
+            fillBlockWithPhiInherited(header, newBB, inheritIndices);
+            newBB.add(new BrInst(newBB, header));
+            newBB.adjustPhiEnd();
+
             return new NewBlocksInfo(newBB, newBB.phis());
 
         } else {
@@ -103,6 +128,28 @@ public class CollectLoopsAndMakeItCanonical {
         }
     }
 
+    static void fillBlockWithPhiInherited(BasicBlock oldBB, BasicBlock newBB, List<Integer> inheritIndices) {
+        // 从旧块中将对应位置的 phi 参数抢过来成为新的 phi 参数
+        for (final var phi : oldBB.phis()) {
+            final var newPhi = new PhiInst(phi.getType(), phi.getWaitFor());
+
+            final var incomingValueOutsideLoop = CollectionTools.selectFrom(phi.getIncomingValues(), inheritIndices);
+            newPhi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValueOutsideLoop);
+
+            newBB.addPhi(newPhi);
+        }
+        // adjustPhiEnd 是迭代到第一个非 phi 指令
+        // 现在基本块里只有 phi, 没有其它指令, 还不能调用 adjustPhiEnd
+        // newBB.adjustPhiEnd();
+
+        // 然后更新外面前继的指向
+        final var outsidePreds = CollectionTools.selectFrom(oldBB.getPredecessors(), inheritIndices);
+        for (final var outsidePred : outsidePreds) {
+            outsidePred.getTerminator().replaceOperandCO(oldBB, newBB);
+            newBB.addPredecessor(outsidePred);
+        }
+    }
+
     BasicBlock createEmptyBlockWithInfoFromSymbol(String name, SourceCodeSymbol symbol) {
         final var block = BasicBlock.createFreeBBlock(symbol.newSymbolWithName(name));
         block.addAnalysisInfo(new LoopBlockInfo());
@@ -111,42 +158,43 @@ public class CollectLoopsAndMakeItCanonical {
 
     JustLoop currLoop = null;
     List<JustLoop> collectLoops(Function function) {
-        final var result = new ArrayList<JustLoop>();
+        final var topLevelLoops = new ArrayList<JustLoop>();
 
         for (final var block : function) {
             // 理论上基本块都是按顺序排列的
             // 那么当我们第一次碰到不在当前循环里的块的时候, 我们就离开了这个循环了
-            if (currLoop != null && !currLoop.body.contains(block)) {
+            while (currLoop != null && !currLoop.body.contains(block)) {
                 currLoop = currLoop.parent.orElse(null);
             }
             // 确保弹出一次 currLoop 之后, 当前块在 currLoop 里
             Log.ensure(currLoop == null || currLoop.body.contains(block));
 
-            final var doms = DominatorInfo.dom(block);
             final var domChildrenInPred = block.getPredecessors().stream()
-                .filter(doms::contains).collect(Collectors.toList());
+                .filter(pred -> DominatorInfo.dom(pred).contains(block)).collect(Collectors.toList());
 
             if (!domChildrenInPred.isEmpty()) {
                 currLoop = new JustLoop(currLoop, block);
                 domChildrenInPred.forEach(this::collectBlocksInLoop);
+
+                if (currLoop.parent.isEmpty()) {
+                    topLevelLoops.add(currLoop);
+                }
             }
         }
 
-        return result;
+        return topLevelLoops;
     }
 
     void collectBlocksInLoop(BasicBlock block) {
-        for (final var pred : block.getPredecessors()) {
-            if (currLoop.body.contains(pred)) {
-                continue;
-            }
+        currLoop.body.add(block);
 
+        block.getPredecessors().stream()
+            // 防止无限循环或超出循环范围
+            .filter(pred -> !currLoop.body.contains(pred) && pred != currLoop.header)
             // 理论上基本块都是按顺序排列的
             // 一个块如果在一个内层循环里, 那它必然会先加入到外层循环,再加入到内层循环中
             // 那么最后这个块就会在最内层循环里了
-            currLoop.body.add(pred);
-            collectBlocksInLoop(pred);
-        }
+            .forEach(this::collectBlocksInLoop);
     }
 }
 
