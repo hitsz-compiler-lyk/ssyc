@@ -45,6 +45,28 @@ public class CollectLoopsAndMakeItCanonical {
     CanonicalLoop transformToCanonicalLoop(CanonicalLoop parent, JustLoop justLoop) {
         final var header = justLoop.header;
 
+        if (justLoop.body.isEmpty()) {
+            // 特殊情况, header 与 latch 合二为一了
+            // 那我们只能把 header 最后的 Br/BrCond 拆出来单独成块, 形成一个 header <-> latch 的 rotated loop 了
+            // 并且这种情况下显然不可能再有子循环了
+
+            final var latch = createEmptyBlockWithInfoFromSymbol("latch", header.getSymbol());
+            header.insertAfterCO(latch);
+
+            final var oldSucc = header.getSuccessors();
+            latch.add(header.getTerminator());
+            for (final var succ : oldSucc) {
+                succ.replacePredecessor(header, latch);
+            }
+
+            header.add(new BrInst(header, latch));
+
+            final var loop = new CanonicalLoop(parent, header);
+            loop.markAsRotated();
+
+            return loop;
+        }
+
         // 因为 SysY 是完全结构化的语言, 循环中可能的跳转只有 break
         // 所以循环体中所有往外的跳转必然都只会跳转到 while_exit
         // 相当于其天然地满足 CanonicalLoop 对唯一出口的条件
@@ -62,30 +84,33 @@ public class CollectLoopsAndMakeItCanonical {
         final var predOutsideIndices = CollectionTools.findForIndices(predOfHeader, block -> !justLoop.body.contains(block));
         final var predInsideIndices  = CollectionTools.findForIndices(predOfHeader, block -> justLoop.body.contains(block));
 
-        final var preHeaderInfo  = createOrReuseBlockAs("pre_header", header, predOutsideIndices);
-        final var latchInfo      = createOrReuseBlockAs("latch", header, predInsideIndices);
+        // 考虑到多个函数内联到同一个函数的情况, 必须是添加后缀而不能直接使用新名字
+        final var preHeaderInfo  = createOrReuseBlockAs("_pre_header", header, predOutsideIndices);
+        final var latchInfo      = createOrReuseBlockAs("_latch", header, predInsideIndices);
 
+        final var preHeader = preHeaderInfo.block;
+        final var latch = latchInfo.block;
+
+        // 重新构建 header 的前继与 phi
         IRPass.copyForChange(header.getPredecessors()).forEach(header::removePredecessorWithPhiUpdated);
-        header.addPredecessor(preHeaderInfo.block);
-        header.addPredecessor(latchInfo.block);
+        // 注意顺序
+        preHeader.add(new BrInst(preHeader, header));
+        latch.add(new BrInst(latch, header));
+
+        preHeader.adjustPhiEnd();
+        latch.adjustPhiEnd();
 
         CollectionTools.iterWithIndex(header.phis(), (idx, phi) -> {
             final var newIncoming = List.of(preHeaderInfo.newIncomings.get(idx), latchInfo.newIncomings.get(idx));
             phi.setIncomingCO(newIncoming);
         });
 
-        // 因为 SysY 中没有 do-while 循环, 所以只可能在循环不变量外提的时候产生 rotated loop
-        // 而在循环不变量外提运行之前本分析就将运行完成, 所以我们应该理论上不会碰到 rotated loop...
-
-        // 事实上就算碰上了, 其它优化最多能把 pre-header 跟 header 合在一起, 所以有上面的检测就足够维护结构了
-        // 为了保险, 在最后再检测一下是不是 rotated loop
-
+        // 构造 CanonicalLoop
         final var canonicalLoop = new CanonicalLoop(parent, header);
-        if (latchInfo.block.getTerminator() instanceof BrCondInst) {
-            canonicalLoop.markAsRotated();
-        }
-        justLoop.body.forEach(canonicalLoop::addBodyBlock);
-        canonicalLoop.addBodyBlock(latchInfo.block);
+
+        // 将 preHeader 与 latch 其插入到上层 loop 的 body 中
+        justLoop.parent.ifPresent(superLoop -> superLoop.body.add(preHeader));
+        justLoop.parent.ifPresent(superLoop -> superLoop.body.add(latch));
 
         // 处理 loop 森林
         for (final var subLoop : justLoop.subLoops) {
@@ -93,8 +118,34 @@ public class CollectLoopsAndMakeItCanonical {
             canonicalLoop.addSubLoop(subCanonicalLoop);
         }
 
-        canonicalLoop.verify();
+        // 正是因为下层 loop 有可能给上层 loop 插入新节点, 所以必须先构造 CanonicalLoop, 然后执行插入,
+        // 随后还要先处理完子循环, 确保 body 完整之后再将 loop 的 body 加入
 
+
+        // 因为 SysY 中没有 do-while 循环, 所以只可能在循环不变量外提的时候产生 rotated loop
+        // 而在循环不变量外提运行之前本分析就将运行完成, 所以我们应该理论上不会碰到 rotated loop...
+
+        // 事实上就算碰上了, 其它优化最多能把 pre-header 跟 header 合在一起, 所以有上面的检测就足够维护结构了
+        // 为了保险, 在最后再检测一下是不是 rotated loop
+
+        if (!(header.getTerminator() instanceof BrCondInst) && latch.getTerminator() instanceof BrCondInst) {
+            canonicalLoop.markAsRotated();
+        }
+        // 将 body 加入其中
+        justLoop.body.forEach(canonicalLoop::addBodyBlock);
+        canonicalLoop.addBodyBlock(latch);
+
+        // 此时 CanonicalLoop 已经有 body 了, 可以调用 getUniqueExit 了
+        // 将 pre-header 插入于 header 之前, latch 插入于 exit 之前 (即 body 的所有块之后)
+        canonicalLoop.getHeader().insertBeforeCO(preHeader);
+        if (canonicalLoop.hasUniqueExit()) {
+            canonicalLoop.getUniqueExit().insertBeforeCO(latch);
+        } else {
+            canonicalLoop.getHeader().insertAfterCO(latch);
+        }
+
+        // 验证并返回
+        canonicalLoop.verify();
         return canonicalLoop;
     }
 
@@ -108,24 +159,31 @@ public class CollectLoopsAndMakeItCanonical {
         final List<? extends Value> newIncomings;
     }
     NewBlocksInfo createOrReuseBlockAs(String name, BasicBlock header, List<Integer> inheritIndices) {
-        if (inheritIndices.size() > 1) {
-            // need a new block
-            final var newBB = createEmptyBlockWithInfoFromSymbol(name, header.getSymbol());
-
-            fillBlockWithPhiInherited(header, newBB, inheritIndices);
-            newBB.add(new BrInst(newBB, header));
-            newBB.adjustPhiEnd();
-
-            return new NewBlocksInfo(newBB, newBB.phis());
-
-        } else {
+        // 如果这种前继只有一个
+        if (inheritIndices.size() == 1) {
             final var oldBBIndex = inheritIndices.get(0);
             final var oldBB = header.getPredecessors().get(oldBBIndex);
-            final var oldBBIncomings = header.phis().stream()
-                .map(phi -> phi.getIncomingValue(oldBBIndex)).collect(Collectors.toList());
 
-            return new NewBlocksInfo(oldBB, oldBBIncomings);
+            // 且这个前继的后继唯一就是自己
+            // 这个前继的后继不唯一的情况详见功能性样例 55
+            // 两个 while 循环直接并排, 有可能内层 while_cond 直接把外层 while_cond 当作 pre-header 了
+            if (oldBB.getSuccessors().size() == 1) {
+                final var oldBBIncomings = header.phis().stream()
+                    .map(phi -> phi.getIncomingValue(oldBBIndex)).collect(Collectors.toList());
+
+                // 删掉 oldBB 的 terminator, 使其与新创建的块一样是缺尾部的, 方便后续代码处理
+                oldBB.getTerminator().freeAll();
+                // 将 oldBB 移出列表使其与新创建的块一样是自由的, 方便后续代码处理
+                oldBB.freeFromIList();
+
+                return new NewBlocksInfo(oldBB, oldBBIncomings);
+            }
         }
+
+        // need a new block
+        final var newBB = createEmptyBlockWithInfoFromSymbol(name, header.getSymbol());
+        fillBlockWithPhiInherited(header, newBB, inheritIndices);
+        return new NewBlocksInfo(newBB, newBB.phis());
     }
 
     static void fillBlockWithPhiInherited(BasicBlock oldBB, BasicBlock newBB, List<Integer> inheritIndices) {
@@ -151,7 +209,7 @@ public class CollectLoopsAndMakeItCanonical {
     }
 
     BasicBlock createEmptyBlockWithInfoFromSymbol(String name, SourceCodeSymbol symbol) {
-        final var block = BasicBlock.createFreeBBlock(symbol.newSymbolWithName(name));
+        final var block = BasicBlock.createFreeBBlock(symbol.newSymbolWithSuffix(name));
         block.addAnalysisInfo(new LoopBlockInfo());
         return block;
     }
@@ -160,7 +218,7 @@ public class CollectLoopsAndMakeItCanonical {
     List<JustLoop> collectLoops(Function function) {
         final var topLevelLoops = new ArrayList<JustLoop>();
 
-        for (final var block : function) {
+            for (final var block : function) {
             // 理论上基本块都是按顺序排列的
             // 那么当我们第一次碰到不在当前循环里的块的时候, 我们就离开了这个循环了
             while (currLoop != null && !currLoop.body.contains(block)) {
@@ -178,6 +236,15 @@ public class CollectLoopsAndMakeItCanonical {
 
                 if (currLoop.parent.isEmpty()) {
                     topLevelLoops.add(currLoop);
+                } else {
+                    // 有时候会有触及不到的情况
+                    // 考虑功能性样例 55, CFG 如下的情况:
+                    // ^> A
+                    // |  v
+                    // C< B <-> D
+                    // BD 组成的循环相当于 "外挂" 在外层循环 ABC 上, 这时候做前继闭包是做不到 D 的
+                    final var parent = currLoop.parent.get();
+                    parent.body.addAll(currLoop.body);
                 }
             }
         }
@@ -186,6 +253,10 @@ public class CollectLoopsAndMakeItCanonical {
     }
 
     void collectBlocksInLoop(BasicBlock block) {
+        if (block == currLoop.header) {
+            return;
+        }
+
         currLoop.body.add(block);
 
         block.getPredecessors().stream()
