@@ -135,38 +135,21 @@ public class SimpleGraphColoring implements RegAllocator {
             conflictNodes.stream().filter(Consts.allocableRegs::contains).forEach(flag::add);
             conflictNodes.stream().filter(ans::containsKey).map(ans::get).forEach(flag::add);
             if (reg.IsInt()) {
-                for (var phyReg : Consts.allocableIRegs) {
-                    if ((phyReg.isCallerSave() || (phyReg.isCalleeSave() && used.contains(phyReg)))
-                            && !flag.contains(phyReg)) {
-                        ans.put(reg, phyReg);
-                        break;
-                    }
-                }
-                if (!ans.containsKey(reg)) {
-                    for (var phyReg : Consts.allocableIRegs) {
-                        if (!flag.contains(phyReg)) {
-                            ans.put(reg, phyReg);
-                            break;
-                        }
-                    }
-                }
+                final var phyReg = Consts.allocableIRegs.stream()
+                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
+                                && !flag.contains(oneReg)).findFirst().orElse(
+                                Consts.allocableIRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                        .orElseThrow(() -> new RuntimeException("reg allocate failed"))
+                        );
+                ans.put(reg, phyReg);
             } else {
-                for (var phyReg : Consts.allocableFRegs) {
-                    if (used.contains(phyReg) && !flag.contains(phyReg)) {
-                        ans.put(reg, phyReg);
-                        break;
-                    }
-                }
-                if (!ans.containsKey(reg)) {
-                    for (var phyReg : Consts.allocableFRegs) {
-                        if (!flag.contains(phyReg)) {
-                            ans.put(reg, phyReg);
-                            break;
-                        }
-                    }
-                }
+                final var phyReg = Consts.allocableFRegs.stream()
+                        .filter(oneReg -> (used.contains(oneReg) && !flag.contains(oneReg))).findFirst().orElse(
+                                Consts.allocableFRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                        .orElseThrow(()->new RuntimeException("reg allocate failed"))
+                        );
+                ans.put(reg, phyReg);
             }
-            Log.ensure(ans.containsKey(reg), "reg allocate failed");
             used.add(ans.get(reg));
         }
         return ans;
