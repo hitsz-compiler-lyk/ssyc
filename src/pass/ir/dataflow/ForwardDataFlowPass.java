@@ -63,6 +63,7 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
 
                 if (!newIn.equals(info.in)) {
                     hasChanged = true;
+                    info.in = newIn;
                     info.out = transfer(block, newIn);
                 }
             }
@@ -80,7 +81,7 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
     private I createEntryInfo(BasicBlock block) {
         final var info = createInfo(block);
         info.in = entryIn(block);
-        info.out = topElement(block);
+        info.out = transfer(block, info.in);
         info.needUpdate = true;
         return info;
     }

@@ -109,6 +109,12 @@ public class PhiInst extends Instruction {
     }
 
     @Override
+    public void freeFromUseDef() {
+        getUserList().stream().filter(user -> user == this).forEach(this::removeUser);
+        super.freeFromUseDef();
+    }
+
+    @Override
     public void verify() throws IRVerifyException {
         try {
             super.verify();

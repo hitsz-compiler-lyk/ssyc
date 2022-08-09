@@ -5,7 +5,6 @@ import ir.*;
 import ir.Module;
 import ir.constant.Constant;
 import ir.inst.*;
-import ir.visitor.InstructionVisitor;
 import ir.visitor.ValueVisitor;
 import pass.ir.util.SimpleInstructionCloner;
 import utils.Log;
@@ -125,7 +124,7 @@ public class FunctionInline implements IRPass {
         final var oldSuccs = new ArrayList<>(callerBlock.getSuccessors());
         for (final var succ : oldSuccs) {
             // 让所有后继的前继从原本的块变成 backBB
-            succ.replacePredcessor(callerBlock, backBB);
+            succ.replacePredecessor(callerBlock, backBB);
         }
         // 接手原基本块 CallInst 后面的所有指令
         // 因为后继是通过 Br 指令获取的, 所以不需要特地维护 backBB 的后继列表
