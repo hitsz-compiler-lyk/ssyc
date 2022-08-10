@@ -162,7 +162,8 @@ public class SimpleGraphColoring implements RegAllocator {
         haveSimplify = new HashSet<>();
         adj = func.stream().flatMap(List::stream)
                 .map(ArmInst::getOperands).flatMap(List::stream)
-                .map(op -> (Reg) op).collect(Collectors.toMap(op -> op, InterfereRegs::new));
+                .filter(op -> op instanceof Reg).map(op -> (Reg) op)
+                .distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func.asElementView()) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
