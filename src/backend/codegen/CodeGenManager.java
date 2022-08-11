@@ -160,31 +160,35 @@ public class CodeGenManager {
             }
 
             var armFunc = new ArmFunction(func.getFunctionSourceName(), func.getParameters().size());
-            Set<Parameter> paramIdx = new HashSet<>();
+            Set<Integer> paramIdx = new HashSet<>();
             List<Parameter> finalParams = new ArrayList<>();
             int fcnt = 0, icnt = 0;
-            for (var param : func.getParameters()) {
+            var params = func.getParameters();
+            for (int i = 0; i < params.size(); i++) {
+                var param = params.get(i);
                 if (!param.getType().isFloat()) {
                     finalParams.add(param);
-                    paramIdx.add(param);
+                    paramIdx.add(i);
                     icnt++;
                 }
                 if (icnt >= 4) {
                     break;
                 }
             }
-            for (var param : func.getParameters()) {
+            for (int i = 0; i < params.size(); i++) {
+                var param = params.get(i);
                 if (param.getType().isFloat()) {
                     finalParams.add(param);
-                    paramIdx.add(param);
+                    paramIdx.add(i);
                     fcnt++;
                 }
                 if (fcnt >= 16) {
                     break;
                 }
             }
-            for (var param : func.getParameters()) {
-                if (paramIdx.contains(param)) {
+            for (int i = 0; i < params.size(); i++) {
+                var param = params.get(i);
+                if (paramIdx.contains(i)) {
                     continue;
                 }
                 finalParams.add(param);
@@ -772,31 +776,35 @@ public class CodeGenManager {
     }
 
     private void resolveCallInst(CallInst inst, ArmBlock block, FunctionInfo funcinfo) {
-        Set<Value> argsIdx = new HashSet<>();
+        Set<Integer> argsIdx = new HashSet<>();
         List<Value> finalArg = new ArrayList<>();
         int fcnt = 0, icnt = 0;
-        for (var arg : inst.getArgList()) {
+        var args = inst.getArgList();
+        for (int i = 0; i < args.size(); i++) {
+            var arg = args.get(i);
             if (!arg.getType().isFloat()) {
                 finalArg.add(arg);
-                argsIdx.add(arg);
+                argsIdx.add(i);
                 icnt++;
             }
             if (icnt >= 4) {
                 break;
             }
         }
-        for (var arg : inst.getArgList()) {
+        for (int i = 0; i < args.size(); i++) {
+            var arg = args.get(i);
             if (arg.getType().isFloat()) {
                 finalArg.add(arg);
-                argsIdx.add(arg);
+                argsIdx.add(i);
                 fcnt++;
             }
             if (fcnt >= 16) {
                 break;
             }
         }
-        for (var arg : inst.getArgList()) {
-            if (argsIdx.contains(arg)) {
+        for (int i = 0; i < args.size(); i++) {
+            var arg = args.get(i);
+            if (argsIdx.contains(i)) {
                 continue;
             }
             finalArg.add(arg);
@@ -1077,20 +1085,20 @@ public class CodeGenManager {
             fixStack(func);
             // arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
             // for (var block : func.asElementView()) {
-            // arm.append("@" + block.getLabel() + ":\n");
-            // if (block.getTrueSuccBlock() != null) {
-            // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-            // if (block.getFalseSuccBlock() == null) {
-            // arm.append("\n");
-            // } else {
-            // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-            // "\n");
-            // }
-            // }
-            // for (var inst : block.asElementView()) {
-            // inst.InitSymbol();
-            // arm.append(inst.getSymbol());
-            // }
+            //     arm.append("@" + block.getLabel() + ":\n");
+            //     if (block.getTrueSuccBlock() != null) {
+            //         arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
+            //         if (block.getFalseSuccBlock() == null) {
+            //             arm.append("\n");
+            //         } else {
+            //             arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
+            //                     "\n");
+            //         }
+            //     }
+            //     for (var inst : block.asElementView()) {
+            //         inst.InitSymbol();
+            //         arm.append(inst.getSymbol());
+            //     }
             // }
 
             boolean isFix = true;

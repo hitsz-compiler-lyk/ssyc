@@ -1,16 +1,11 @@
 package backend.regallocator;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import backend.Consts;
 import backend.arm.ArmFunction;
+import backend.arm.ArmInst;
 import backend.arm.ArmInstLoad;
 import backend.arm.ArmInstStore;
 import backend.operand.FVirtualReg;
@@ -110,12 +105,11 @@ public class SimpleGraphColoring implements RegAllocator {
         buildGraph(func);
         for (var ent : adj.entrySet()) {
             var reg = ent.getKey();
-            var regInfo = ent.getValue();
             if (reg.IsPhy()) {
                 continue;
             }
             remainNodes.add(reg);
-            if (regInfo.canSimolify()) {
+            if (ent.getValue().canSimolify()) {
                 simplifyQueue.add(reg);
                 haveSimplify.add(reg);
             }
@@ -124,65 +118,38 @@ public class SimpleGraphColoring implements RegAllocator {
         if (!remainNodes.isEmpty()) {
             List<Reg> spillNodes = new ArrayList<>();
             while (!remainNodes.isEmpty()) {
-                var reg = chooseSpillNode();
-                spillNodes.add(reg);
+                spillNodes.add(chooseSpillNode());
                 simplify();
             }
             spill(func, spillNodes);
             return null;
         }
         Map<Reg, Reg> ans = new HashMap<>();
-        Set<Reg> used = new HashSet<>();
-        for (var reg : Consts.allocableRegs) {
-            if (adj.containsKey(reg)) {
-                used.add(reg);
-            }
-        }
+        Set<Reg> used = Consts.allocableRegs.stream().filter(adj::containsKey).collect(Collectors.toSet());
         for (int i = simplifyWorkLists.size() - 1; i >= 0; i--) {
             var workList = simplifyWorkLists.get(i);
             var reg = workList.getKey();
             var conflictNodes = workList.getValue();
             Set<Reg> flag = new HashSet<>();
             Log.ensure(!ans.containsKey(reg), "reg: " + reg + " allocator twice");
-            for (var node : conflictNodes) {
-                if (Consts.allocableRegs.contains(node)) {
-                    flag.add(node);
-                } else if (ans.containsKey(node)) {
-                    flag.add(ans.get(node));
-                }
-            }
+            conflictNodes.stream().filter(Consts.allocableRegs::contains).forEach(flag::add);
+            conflictNodes.stream().filter(ans::containsKey).map(ans::get).forEach(flag::add);
             if (reg.IsInt()) {
-                for (var phyReg : Consts.allocableIRegs) {
-                    if ((phyReg.isCallerSave() || (phyReg.isCalleeSave() && used.contains(phyReg)))
-                            && !flag.contains(phyReg)) {
-                        ans.put(reg, phyReg);
-                        break;
-                    }
-                }
-                if (!ans.containsKey(reg)) {
-                    for (var phyReg : Consts.allocableIRegs) {
-                        if (!flag.contains(phyReg)) {
-                            ans.put(reg, phyReg);
-                            break;
-                        }
-                    }
-                }
+                final var phyReg = Consts.allocableIRegs.stream()
+                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
+                                && !flag.contains(oneReg))
+                        .findFirst().orElse(
+                                Consts.allocableIRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
+                ans.put(reg, phyReg);
             } else {
-                for (var phyReg : Consts.allocableFRegs) {
-                    if ((phyReg.isCallerSave() || (phyReg.isCalleeSave() && used.contains(phyReg)))
-                            && !flag.contains(phyReg)) {
-                        ans.put(reg, phyReg);
-                        break;
-                    }
-                }
-                if (!ans.containsKey(reg)) {
-                    for (var phyReg : Consts.allocableFRegs) {
-                        if (!flag.contains(phyReg)) {
-                            ans.put(reg, phyReg);
-                            break;
-                        }
-                    }
-                }
+                final var phyReg = Consts.allocableFRegs.stream()
+                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
+                                && !flag.contains(oneReg))
+                        .findFirst().orElse(
+                                Consts.allocableFRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
+                ans.put(reg, phyReg);
             }
             Log.ensure(ans.containsKey(reg), "reg allocate failed");
             used.add(ans.get(reg));
@@ -194,17 +161,11 @@ public class SimpleGraphColoring implements RegAllocator {
         simplifyWorkLists = new ArrayList<>();
         remainNodes = new HashSet<>();
         simplifyQueue = new ArrayDeque<>();
-        adj = new HashMap<>();
         haveSimplify = new HashSet<>();
-        for (var block : func.asElementView()) {
-            for (var inst : block.asElementView()) {
-                for (var op : inst.getOperands()) {
-                    if (op instanceof Reg) {
-                        adj.put((Reg) op, new InterfereRegs((Reg) op));
-                    }
-                }
-            }
-        }
+        adj = func.stream().flatMap(List::stream)
+                .map(ArmInst::getOperands).flatMap(List::stream)
+                .filter(op -> op instanceof Reg).map(op -> (Reg) op)
+                .distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func.asElementView()) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
@@ -219,12 +180,8 @@ public class SimpleGraphColoring implements RegAllocator {
                         }
                     }
                 }
-                for (var def : inst.getRegDef()) {
-                    live.remove(def);
-                }
-                for (var use : inst.getRegUse()) {
-                    live.add(use);
-                }
+                live.removeAll(inst.getRegDef());
+                live.addAll(inst.getRegUse());
             }
         }
     }
@@ -233,10 +190,7 @@ public class SimpleGraphColoring implements RegAllocator {
         while (!simplifyQueue.isEmpty()) {
             var reg = simplifyQueue.element();
             simplifyQueue.remove();
-            List<Reg> neighbors = new ArrayList<>();
-            for (var u : adj.get(reg).getRegs()) {
-                neighbors.add(u);
-            }
+            List<Reg> neighbors = new ArrayList<>(adj.get(reg).getRegs());
             remove(reg);
             simplifyWorkLists.add(new Pair<>(reg, neighbors));
         }
@@ -279,20 +233,13 @@ public class SimpleGraphColoring implements RegAllocator {
             for (var inst : block.asElementView()) {
                 for (var spill : spillNodes) {
                     if (inst.getOperands().contains(spill)) {
-                        Reg vr = null;
-                        if (spill.IsInt()) {
-                            vr = new IVirtualReg();
-                        } else {
-                            vr = new FVirtualReg();
-                        }
+                        Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
                         int offset = offsetMap.get(spill);
                         if (inst.getRegUse().contains(spill)) {
-                            var load = new ArmInstLoad(vr, new IPhyReg("sp"), offset);
-                            inst.insertBeforeCO(load);
+                            inst.insertBeforeCO(new ArmInstLoad(vr, new IPhyReg("sp"), offset));
                         }
                         if (inst.getRegDef().contains(spill)) {
-                            var store = new ArmInstStore(vr, new IPhyReg("sp"), offset);
-                            inst.insertAfterCO(store);
+                            inst.insertAfterCO(new ArmInstStore(vr, new IPhyReg("sp"), offset));
                         }
                         inst.replaceOperand(spill, vr);
                     }
