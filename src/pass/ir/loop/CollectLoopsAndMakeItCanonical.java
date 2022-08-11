@@ -39,6 +39,11 @@ public class CollectLoopsAndMakeItCanonical {
 
         return collectLoops(function).stream()
             .map(loop -> transformToCanonicalLoop(null, loop))
+            // TODO: 干脆在生成的时候直接 drop 掉没有 unique exit 的循环好了
+            // 这种循环没人权也没优化的
+            .filter(CanonicalLoop::hasUniqueExit)
+            // 同理, 反转的 do-while 循环也无优化机会的
+            .filter(CanonicalLoop::isRotated)
             .collect(Collectors.toList());
     }
 
