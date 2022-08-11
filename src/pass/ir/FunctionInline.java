@@ -1,16 +1,13 @@
 package pass.ir;
 
 import frontend.SourceCodeSymbol;
-import ir.*;
 import ir.Module;
-import ir.constant.Constant;
+import ir.*;
 import ir.inst.*;
-import ir.visitor.ValueVisitor;
-import pass.ir.util.SimpleInstructionCloner;
+import pass.ir.util.MultiBasicBlockCloner;
 import utils.Log;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class FunctionInline implements IRPass {
     @Override
@@ -34,18 +31,6 @@ public class FunctionInline implements IRPass {
             .filter(CallInst.class::isInstance).map(CallInst.class::cast)
             .allMatch(call -> call.getCallee().isExternal());
     }
-
-    // private static Random rng = new Random();
-    // static String randomPrefix() {
-    //     final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-    //     final var buffer = new char[4];
-    //     for (int i = 0; i < 4; i++) {
-    //         buffer[i] = str.charAt(rng.nextInt(str.length()));
-    //     }
-
-    //     return new String(buffer);
-    // }
 
     private static int blockCount = 0;
     static String randomPrefix() {
@@ -212,68 +197,44 @@ public class FunctionInline implements IRPass {
     }
 
     /** 完成函数内联所需要的基本块和指令的复制 */
-    static class FunctionInlineCloner implements ValueVisitor<Value> {
+    static class FunctionInlineCloner extends MultiBasicBlockCloner {
         public FunctionInlineCloner(
             Function callee,
             Map<Parameter, Value> paramToArgs, BasicBlock exitBB, String prefix
         ) {
-            this.oldToNew = new HashMap<>(paramToArgs);
+            super(new LinkedHashSet<>(callee));
+            super.replaceInstructionCloner(new FunctionInlineInstructionCloner());
+            super.oldToNew.putAll(paramToArgs);
+
             this.callee = callee;
             this.exitBB = exitBB;
             this.prefix = prefix;
         }
 
         public List<BasicBlock> convert() {
-            for (final var block : callee) {
-                final var newBlock = getOrCreate(block);
-                block.stream().map(this::getOrCreate).forEach(newBlock::add);
-                newBlock.adjustPhiEnd();
-            }
+            final var newBBs = super.convert(callee);
 
             if (!callee.getType().getReturnType().isVoid()) {
                 final var first = exitBB.get(0);
                 Log.ensure(first instanceof PhiInst);
+                assert first instanceof PhiInst;
+
                 ((PhiInst) first).setIncomingCO(returnValues);
             }
 
-            // 要保证克隆后各个基本块的前继顺序与克隆之前一样, 防止 phi 的 incoming value 顺序跟 block 的不一样
-            for (final var oldBlock : callee) {
-                final var newBlock = getOrCreate(oldBlock);
-                final var newPreds = oldBlock.getPredecessors().stream()
-                    .map(this::getOrCreate).collect(Collectors.toList());
-
-                newBlock.resetPredecessorsOrder(newPreds);
-            }
-
-            return callee.stream().map(this::getOrCreate).collect(Collectors.toList());
+            return newBBs;
         }
 
 
-        @SuppressWarnings("unchecked")
-        public <T extends Value> T getOrCreate(T old) {
-            return (T) visit(old);
+        @Override
+        protected BasicBlock createNewBBFromOld(final BasicBlock oldBB) {
+            return BasicBlock.createFreeBBlock(oldBB.getSymbol().newSymbolWithSuffix(prefix + "_inline"));
         }
 
         @Override
-        public BasicBlock visitBasicBlock(final BasicBlock value) {
-            if (oldToNew.containsKey(value)) {
-                return (BasicBlock) oldToNew.get(value);
-            }
-
-            final var newBB = BasicBlock.createFreeBBlock(value.getSymbol().newSymbolWithSuffix(prefix + "_inline"));
-            oldToNew.put(value, newBB);
-            return newBB;
-        }
-
-        @Override
-        public Instruction visitInstruction(final Instruction value) {
-            if (oldToNew.containsKey(value)) {
-                return (Instruction) oldToNew.get(value);
-            }
-
-            final var newInst = instructionCloner.visit(value);
-            oldToNew.put(value, newInst);
-            return newInst;
+        protected BasicBlock getOtherBB(final BasicBlock blockShouldNotBeCloned) {
+            Log.ensure(false, "Any block in a function should NOT jump to block in other function");
+            throw new RuntimeException();
         }
 
         @Override
@@ -283,41 +244,17 @@ public class FunctionInline implements IRPass {
         }
 
         // 全局变量, 函数与常量不需要被复制
-        @Override public GlobalVar visitGlobalVar(final GlobalVar value) { return value; }
-        @Override public Function visitFunction(final Function value) { return value; }
-        @Override public Constant visitConstant(final Constant value) { return value; }
 
-        private final Map<Value, Value> oldToNew;
         private final Function callee;
         private final BasicBlock exitBB;
         private final String prefix;
         private final List<Value> returnValues = new ArrayList<>();
-        private final InstructionCloner instructionCloner = new InstructionCloner();
 
         /** <h3>完成函数内联所需要的指令的复制</h3>
          * <p>基本上就是对各条指令, 获取其参数, 随后尝试获取旧参数所对应的新的值, 没有就创建.</p>
          * <p>但是对 Return 指令做了特殊处理, 将其变为跳转到 exitBB 的语句 (有返回值的话还记录了返回值是什么)</p>
          */
-        class InstructionCloner extends SimpleInstructionCloner {
-            @Override
-            protected <T extends Value> T getNewOperand(final T value) {
-                return getOrCreate(value);
-            }
-
-            @Override
-            public Instruction visitPhiInst(final PhiInst inst) {
-                // Phi 有可能自己引用自己, 所以必须事先插入定义
-                final var phi = new PhiInst(inst.getType(), inst.getSymbol());
-                oldToNew.put(inst, phi);
-
-                final var incomingValues = inst.getIncomingValues().stream()
-                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
-                // 此时到 exit 块的跳转还没搞好, 不能使用简单的带检查的 setIncomingCO
-                phi.setIncomingValueWithoutCheckingPredecessorsCO(incomingValues);
-
-                return phi;
-            }
-
+        class FunctionInlineInstructionCloner extends MultiBasicBlockInstructionCloner {
             @Override
             public Instruction visitReturnInst(final ReturnInst inst) {
                 // return 换成 br

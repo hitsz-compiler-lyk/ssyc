@@ -98,8 +98,6 @@ public abstract class SimpleInstructionCloner implements InstructionVisitor<Inst
         return new MemInitInst(ptr, init);
     }
 
-    public abstract Instruction visitPhiInst(final PhiInst inst);
-
     @Override
     public Instruction visitReturnInst(final ReturnInst inst) {
         final var returnValueOpt = inst.getReturnValue().map(this::getNewOperand);
