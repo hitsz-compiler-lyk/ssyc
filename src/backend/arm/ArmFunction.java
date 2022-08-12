@@ -2,8 +2,10 @@ package backend.arm;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import backend.operand.FPhyReg;
 import backend.operand.IPhyReg;
@@ -27,6 +29,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     private Map<Operand, ArmInstLoad> addrLoadMap;
     private Map<Operand, ArmInstStackAddr> stackAddrtMap;
     private Map<Operand, ArmInstMove> immMap;
+    private Set<Operand> spillNodes;
 
     public int getStackSize() {
         return stackSize;
@@ -145,6 +148,10 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return immMap;
     }
 
+    public Set<Operand> getSpillNodes() {
+        return spillNodes;
+    }
+
     public ArmFunction(String name) {
         this.name = name;
         this.blocks = new IList<>(this);
@@ -161,6 +168,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.paramLoadMap = new HashMap<>();
         this.stackAddrtMap = new HashMap<>();
         this.immMap = new HashMap<>();
+        this.spillNodes = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
     }
 
@@ -180,6 +188,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.paramLoadMap = new HashMap<>();
         this.stackAddrtMap = new HashMap<>();
         this.immMap = new HashMap<>();
+        this.spillNodes = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
     }
 }
