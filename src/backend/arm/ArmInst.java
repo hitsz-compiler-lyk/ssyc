@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import backend.operand.IPhyReg;
 import backend.operand.Operand;
 import backend.operand.Reg;
 import utils.INode;
@@ -34,8 +33,10 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         Call,
         Return,
 
-        Load,
-        Store,
+        Load, StackLoad, ParamLoad,
+        Store, StackStore,
+
+        StackAddr,
 
         Branch,
         Cmp,
@@ -81,8 +82,20 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             // ArmInstLoad
             put(ArmInstKind.Load, 1);
 
+            // ArmInstStackLoad
+            put(ArmInstKind.StackLoad, 1);
+
+            // ArmInstParamLoad
+            put(ArmInstKind.ParamLoad, 1);
+
             // ArmInstStore
             put(ArmInstKind.Store, 0);
+
+            // ArmInstStackStore
+            put(ArmInstKind.StackStore, 0);
+
+            // ArmInstStackAddr
+            put(ArmInstKind.StackAddr, 1);
 
             // ArmInstBranch ArmInstCmp
             for (var kind : Arrays.asList(ArmInstKind.Branch, ArmInstKind.Cmp)) {
@@ -263,26 +276,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public void setCond(ArmCondType cond) {
         this.cond = cond;
-    }
-
-    public boolean isStackLoad() {
-        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"))
-                && ((ArmInstLoad) this).isStack();
-    }
-
-    public boolean isStackParamsLoad() {
-        return inst.equals(ArmInstKind.Load) && getOperand(1).equals(new IPhyReg("sp"))
-                && ((ArmInstLoad) this).isStack() && ((ArmInstLoad) this).isParamsLoad();
-    }
-
-    public boolean isStackStore() {
-        return inst.equals(ArmInstKind.Store) && getOperand(1).equals(new IPhyReg("sp"))
-                && ((ArmInstStore) this).isStack();
-    }
-
-    public boolean isStackBinary() {
-        return ArmInstBinary.isBinary(inst) && getOperand(1).equals(new IPhyReg("sp"))
-                && ((ArmInstBinary) this).isStack();
     }
 
     public boolean needLtorg() {

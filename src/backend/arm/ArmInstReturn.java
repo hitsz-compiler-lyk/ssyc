@@ -20,8 +20,7 @@ public class ArmInstReturn extends ArmInst {
     public String print() {
         var block = this.getParent();
         var func = block.getParent();
-        var funcInfo = func.getFuncInfo();
-        var stackSize = funcInfo.getFinalstackSize();
+        var stackSize = func.getFinalstackSize();
         String ret = "";
         if (stackSize > 0) {
             if (CodeGenManager.checkEncodeImm(stackSize)) {
@@ -30,6 +29,7 @@ public class ArmInstReturn extends ArmInst {
                 ret += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
                 var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                move.setCond(getCond());
                 ret += move.print();
                 ret += "\tadd\tsp,\tsp,\tr4\n";
             }
@@ -38,7 +38,7 @@ public class ArmInstReturn extends ArmInst {
         var iuse = new StringBuilder();
         var useLR = false;
         var first = true;
-        for (var reg : funcInfo.getiUsedRegs()) {
+        for (var reg : func.getiUsedRegs()) {
             if (!first) {
                 iuse.append(", ");
             }
@@ -53,7 +53,7 @@ public class ArmInstReturn extends ArmInst {
 
         var fuse1 = new StringBuilder();
         var fuse2 = new StringBuilder();
-        var fusedList = funcInfo.getfUsedRegs();
+        var fusedList = func.getfUsedRegs();
         first = true;
         for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
             var reg = fusedList.get(i);
@@ -81,7 +81,7 @@ public class ArmInstReturn extends ArmInst {
             ret += "\tvpop\t{" + fuse1.toString() + "}\n";
         }
 
-        if (!funcInfo.getiUsedRegs().isEmpty()) {
+        if (!func.getiUsedRegs().isEmpty()) {
             ret += "\tpop\t{" + iuse.toString() + "}\n";
         }
 
