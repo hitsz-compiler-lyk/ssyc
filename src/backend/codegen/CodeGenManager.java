@@ -887,6 +887,9 @@ public class CodeGenManager {
 
     // 需要先转到浮点寄存器 才能使用 vcvt
     private void resolveIntToFloatInst(IntToFloatInst inst, ArmBlock block, ArmFunction func) {
+        if (inst.getFrom() instanceof BoolToIntInst) {
+            resolveBoolToIntInst((BoolToIntInst) inst.getFrom(), block, func);
+        }
         var vr = new FVirtualReg();
         var src = resolveOperand(inst.getFrom(), block, func);
         var dst = resolveOperand(inst, block, func);
@@ -955,6 +958,9 @@ public class CodeGenManager {
             if (ch instanceof BoolToIntInst) {
                 resolveBoolToIntInst((BoolToIntInst) ch, block, func);
             }
+            // if(ch instanceof IntToFloatInst){
+            // resolveIntToFloatInst((IntToFloatInst) ch, block, func);
+            // }
         }
 
         Operand lhsReg, rhsReg;
@@ -1253,7 +1259,7 @@ public class CodeGenManager {
                     // }
                     for (var inst : block.asElementView()) {
                         arm.append(inst.print());
-                        // arm.append(inst.getSymbol());
+                        arm.append(inst.getSymbol());
                     }
                 }
             }
