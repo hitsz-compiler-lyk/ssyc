@@ -18,6 +18,9 @@ test-data/**/*.s
 test-data/**/*.llvm
 test-data/**/*.exec
 
+# personal test-data
+test-data/personal
+
 # VSCode Antlr extension cache
 .antlr
 

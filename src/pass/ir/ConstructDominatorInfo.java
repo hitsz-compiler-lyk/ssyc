@@ -31,6 +31,8 @@ public class ConstructDominatorInfo
 
         final var result = new LinkedHashSet<>(predOuts.get(0));
         predOuts.forEach(result::retainAll);
+
+        result.add(block);
         return result;
     }
 
@@ -81,7 +83,7 @@ public class ConstructDominatorInfo
         }
     }
 
-    static class DominatorInfo extends DataFlowInfo<Set<BasicBlock>> {
+    public static class DominatorInfo extends DataFlowInfo<Set<BasicBlock>> {
         DominatorInfo(BasicBlock self) {
             this.self = self;
             this.idom = null;

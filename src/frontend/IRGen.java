@@ -1,17 +1,11 @@
 package frontend;
 
-import java.util.*;
-import java.util.function.BinaryOperator;
-import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
-
-import org.antlr.v4.runtime.ParserRuleContext;
 import frontend.SemanticException.GenExpInGlobalException;
 import frontend.SysYParser.*;
-import frontend.info.FinalInfo;
 import frontend.info.CurrDefInfo;
-import ir.*;
+import frontend.info.FinalInfo;
 import ir.Module;
+import ir.*;
 import ir.constant.ArrayConst;
 import ir.constant.Constant;
 import ir.constant.IntConst;
@@ -21,7 +15,13 @@ import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import ir.type.PointerIRTy;
 import ir.type.SimpleIRTy;
+import org.antlr.v4.runtime.ParserRuleContext;
 import utils.Log;
+
+import java.util.*;
+import java.util.function.BinaryOperator;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 public class IRGen extends SysYBaseVisitor<Object> {
     public IRGen() {

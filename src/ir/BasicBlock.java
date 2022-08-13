@@ -1,14 +1,14 @@
 package ir;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import frontend.SourceCodeSymbol;
 import ir.analysis.AnalysisInfo;
 import ir.analysis.AnalysisInfoOwner;
 import ir.inst.*;
 import ir.type.IRType;
 import utils.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class BasicBlock extends User
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
@@ -79,6 +79,15 @@ public class BasicBlock extends User
         add(inst);
     }
 
+    public void setBr(BasicBlock nextBB) {
+        Log.ensure(!isTerminated(), "Can NOT add Br to terminated block");
+        add(new BrInst(this, nextBB));
+    }
+
+    public void setBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+        Log.ensure(!isTerminated(), "Can NOT add BrCond to terminated block");
+        add(new BrCondInst(this, cond, trueBB, falseBB));
+    }
 
     //============================================ 指令访问 ==========================================================//
     public Iterator<PhiInst> iterPhis() {
@@ -164,8 +173,12 @@ public class BasicBlock extends User
         addOperandCO(predecessor);
     }
 
-    void removePredecessor(int index) {
+    public void removePredecessor(int index) {
         removeOperandCO(index);
+    }
+
+    public void removePredecessor(BasicBlock predecessor) {
+        removeOperandCO(predecessor);
     }
 
     public int getPredecessorSize() {
@@ -188,11 +201,20 @@ public class BasicBlock extends User
     }
 
     /** 不维护新前继的后继是自己 */
-    public void replacePredcessor(BasicBlock oldPred, BasicBlock newPred) {
+    public void replacePredecessor(BasicBlock oldPred, BasicBlock newPred) {
         final var index = getPredecessors().indexOf(oldPred);
-        ensure(index >= 0, "oldPred %s is NOT a predcessor of %s".formatted(oldPred, this));
+        ensure(index >= 0, "%s is NOT a predecessor of %s".formatted(oldPred, this));
 
         replaceOperandCO(index, newPred);
+    }
+
+    public void resetPredecessorsOrder(List<BasicBlock> newPredecessorsOrder) {
+        final var newPreds = new HashSet<>(newPredecessorsOrder);
+        final var oldPreds = new HashSet<>(getPredecessors());
+        Log.ensure(newPreds.equals(oldPreds), "Predecessors are different");
+
+        removeOperandAllCO();
+        newPredecessorsOrder.forEach(this::addOperandCO);
     }
 
 
@@ -212,9 +234,10 @@ public class BasicBlock extends User
         Log.info("Calling free all WITHOUT check on " + this);
         removeOperandAllCO();
         freeFromIList();
+
         // 因为这是不检查版本, 块内的指令很有可能还在互相引用的状态, 直接调用 freeAll 会检查不通过
         // 而不需要在调用 freeFromList 了 (它们所在的 IList 本身(this) 都要没了, 调用也没意义了)
-        instructions.forEach(Instruction::removeOperandAllCO);
+        instructions.forEach(Instruction::freeFromUseDefUncheck);
     }
 
     @Override

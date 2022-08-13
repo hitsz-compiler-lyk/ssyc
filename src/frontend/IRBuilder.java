@@ -151,7 +151,18 @@ public class IRBuilder {
 
                 final var directBr = new BrInst(currBB, nextBB);
                 val.replaceInIList(directBr);
-                Log.ensure(val.isUseless(), "Br can NOT be used");
+                val.freeAll();
+
+            } else if (br.getTrueBB() == br.getFalseBB()) {
+                final var currBB = br.getParent();
+                final var nextBB = br.getTrueBB();
+
+                // 删掉一个
+                nextBB.removePredecessorWithPhiUpdated(currBB);
+
+                final var directBr = new BrInst(currBB, nextBB);
+                val.replaceInIList(directBr);
+                val.freeAll();
             }
 
         } else if (val instanceof GEPInst) {

@@ -5,7 +5,7 @@ import ir.GlobalModifitationStatus;
 import ir.Module;
 import utils.Log;
 
-public class MergeDirectBranch implements IRPass {
+public class FuseBasicBlock implements IRPass {
     @Override
     public void runPass(final Module module) {
         GlobalModifitationStatus.doUntilNoChange(() ->

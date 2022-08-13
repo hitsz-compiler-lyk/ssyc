@@ -44,7 +44,7 @@ make_jar() {
 
     echo 'Manifest-Version: 1.0' >> META-INF/MANIFEST.MF
     echo 'Main-Class: Main' >> META-INF/MANIFEST.MF
-    echo 'Class-Path: . ../lib/antlr-runtime-3.5.2.jar' >> META-INF/MANIFEST.MF
+    echo 'Class-Path: . ../lib/antlr4-runtime-4.8.jar' >> META-INF/MANIFEST.MF
 
     # Make Jar
     jar -cvfm ssyc.jar META-INF/MANIFEST.MF *
@@ -68,6 +68,10 @@ run_test() {
     docker run --rm -it --user $(id -u):$(id -g) -e "TERM=xterm-256color" -v "$PWD:/src" ssyc-test $@
 }
 
+enter_test() {
+    docker run --rm -it --user $(id -u):$(id -g) -e "TERM=xterm-256color" -v "$PWD:/src" --entrypoint /bin/bash ssyc-test
+}
+
 subcommand=${1:-'full'}
 
 case $subcommand in
@@ -79,5 +83,6 @@ case $subcommand in
     jar-run) run_jar ;;
     build_test) build_test_image ;;
     test) run_test ${@:2};;
+    enter_test) enter_test ;;
     full) cleanup && compile && echo 'Build finish.' && run $@;;
 esac

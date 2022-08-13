@@ -8,9 +8,11 @@ import ir.inst.MemInitInst;
 import ir.inst.StoreInst;
 import pass.ir.IRPass;
 
-// TODO: 缓存相同变量的内存位置
-// TODO: 如果一个数组完全没有读取, 就删掉
+// TODO_: 缓存相同变量的内存位置: 不做了, 感觉提升不大
 
+/**
+ * 将对已知值的内存位置的访问替换为对应的已知值
+ */
 public class ReplaceUnnecessaryLoad implements IRPass {
     @Override
     public void runPass(Module module) {

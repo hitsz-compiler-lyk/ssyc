@@ -1,16 +1,13 @@
 package pass.ir;
 
 import frontend.SourceCodeSymbol;
-import ir.*;
 import ir.Module;
-import ir.constant.Constant;
+import ir.*;
 import ir.inst.*;
-import ir.visitor.InstructionVisitor;
-import ir.visitor.ValueVisitor;
+import pass.ir.util.MultiBasicBlockCloner;
 import utils.Log;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class FunctionInline implements IRPass {
     @Override
@@ -34,18 +31,6 @@ public class FunctionInline implements IRPass {
             .filter(CallInst.class::isInstance).map(CallInst.class::cast)
             .allMatch(call -> call.getCallee().isExternal());
     }
-
-    // private static Random rng = new Random();
-    // static String randomPrefix() {
-    //     final var str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-    //     final var buffer = new char[4];
-    //     for (int i = 0; i < 4; i++) {
-    //         buffer[i] = str.charAt(rng.nextInt(str.length()));
-    //     }
-
-    //     return new String(buffer);
-    // }
 
     private static int blockCount = 0;
     static String randomPrefix() {
@@ -124,7 +109,7 @@ public class FunctionInline implements IRPass {
         final var oldSuccs = new ArrayList<>(callerBlock.getSuccessors());
         for (final var succ : oldSuccs) {
             // 让所有后继的前继从原本的块变成 backBB
-            succ.replacePredcessor(callerBlock, backBB);
+            succ.replacePredecessor(callerBlock, backBB);
         }
         // 接手原基本块 CallInst 后面的所有指令
         // 因为后继是通过 Br 指令获取的, 所以不需要特地维护 backBB 的后继列表
@@ -212,61 +197,44 @@ public class FunctionInline implements IRPass {
     }
 
     /** 完成函数内联所需要的基本块和指令的复制 */
-    static class FunctionInlineCloner implements ValueVisitor<Value> {
+    static class FunctionInlineCloner extends MultiBasicBlockCloner {
         public FunctionInlineCloner(
             Function callee,
             Map<Parameter, Value> paramToArgs, BasicBlock exitBB, String prefix
         ) {
-            this.oldToNew = new HashMap<>(paramToArgs);
+            super(new LinkedHashSet<>(callee));
+            super.replaceInstructionCloner(new FunctionInlineInstructionCloner());
+            super.oldToNew.putAll(paramToArgs);
+
             this.callee = callee;
             this.exitBB = exitBB;
             this.prefix = prefix;
         }
 
         public List<BasicBlock> convert() {
-            for (final var block : callee) {
-                final var newBlock = getOrCreate(block);
-                for (final var inst : block.allInst()) {
-                    newBlock.addInstAtEnd(getOrCreate(inst));
-                }
-
-                newBlock.adjustPhiEnd();
-            }
+            final var newBBs = super.convert(callee);
 
             if (!callee.getType().getReturnType().isVoid()) {
                 final var first = exitBB.get(0);
                 Log.ensure(first instanceof PhiInst);
+                assert first instanceof PhiInst;
+
                 ((PhiInst) first).setIncomingCO(returnValues);
             }
 
-            return callee.stream().map(this::getOrCreate).collect(Collectors.toList());
+            return newBBs;
         }
 
-        @SuppressWarnings("unchecked")
-        public <T extends Value> T getOrCreate(T old) {
-            return (T) visit(old);
+
+        @Override
+        protected BasicBlock createNewBBFromOld(final BasicBlock oldBB) {
+            return BasicBlock.createFreeBBlock(oldBB.getSymbol().newSymbolWithSuffix(prefix + "_inline"));
         }
 
         @Override
-        public BasicBlock visitBasicBlock(final BasicBlock value) {
-            if (oldToNew.containsKey(value)) {
-                return (BasicBlock) oldToNew.get(value);
-            }
-
-            final var newBB = BasicBlock.createFreeBBlock(value.getSymbol().newSymbolWithSuffix(prefix + "_inline"));
-            oldToNew.put(value, newBB);
-            return newBB;
-        }
-
-        @Override
-        public Instruction visitInstruction(final Instruction value) {
-            if (oldToNew.containsKey(value)) {
-                return (Instruction) oldToNew.get(value);
-            }
-
-            final var newInst = instructionCloner.visit(value);
-            oldToNew.put(value, newInst);
-            return newInst;
+        protected BasicBlock getOtherBB(final BasicBlock blockShouldNotBeCloned) {
+            Log.ensure(false, "Any block in a function should NOT jump to block in other function");
+            throw new RuntimeException();
         }
 
         @Override
@@ -276,145 +244,23 @@ public class FunctionInline implements IRPass {
         }
 
         // 全局变量, 函数与常量不需要被复制
-        @Override public GlobalVar visitGlobalVar(final GlobalVar value) { return value; }
-        @Override public Function visitFunction(final Function value) { return value; }
-        @Override public Constant visitConstant(final Constant value) { return value; }
 
-        private final Map<Value, Value> oldToNew;
         private final Function callee;
         private final BasicBlock exitBB;
         private final String prefix;
         private final List<Value> returnValues = new ArrayList<>();
-        private final InstructionCloner instructionCloner = new InstructionCloner();
 
         /** <h3>完成函数内联所需要的指令的复制</h3>
          * <p>基本上就是对各条指令, 获取其参数, 随后尝试获取旧参数所对应的新的值, 没有就创建.</p>
          * <p>但是对 Return 指令做了特殊处理, 将其变为跳转到 exitBB 的语句 (有返回值的话还记录了返回值是什么)</p>
          */
-        class InstructionCloner implements InstructionVisitor<Instruction> {
-            @Override
-            public Instruction visit(final Instruction inst) {
-                final var newInst = InstructionVisitor.super.visit(inst);
-                inst.getSymbolOpt().ifPresent(newInst::setSymbol);
-                return newInst;
-            }
-
-            @Override
-            public Instruction visitBinaryOpInst(final BinaryOpInst inst) {
-                final var lhs = getOrCreate(inst.getLHS());
-                final var rhs = getOrCreate(inst.getRHS());
-                return new BinaryOpInst(inst.getKind(), lhs, rhs);
-            }
-
-            @Override
-            public Instruction visitBoolToIntInst(final BoolToIntInst inst) {
-                final var from = getOrCreate(inst.getFrom());
-                return new BoolToIntInst(from);
-            }
-
-            @Override
-            public Instruction visitBrCondInst(final BrCondInst inst) {
-                final var currBB = getOrCreate(inst.getParent());
-                final var cond = getOrCreate(inst.getCond());
-                final var trueBB = getOrCreate(inst.getTrueBB());
-                final var falseBB = getOrCreate(inst.getFalseBB());
-                return new BrCondInst(currBB, cond, trueBB, falseBB);
-            }
-
-            @Override
-            public Instruction visitBrInst(final BrInst inst) {
-                final var currBB = getOrCreate(inst.getParent());
-                final var nextBB = getOrCreate(inst.getNextBB());
-                return new BrInst(currBB, nextBB);
-            }
-
-            @Override
-            public Instruction visitCallInst(final CallInst inst) {
-                // callee 被上层类用了, 为了防止重名导致不知名的冲突故改用
-                final var calleeOfCall = getOrCreate(inst.getCallee());
-                final var args = inst.getArgList().stream()
-                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
-                return new CallInst(calleeOfCall, args);
-            }
-
-            @Override
-            public Instruction visitCAllocInst(final CAllocInst inst) {
-                return new CAllocInst(inst.getAllocType());
-            }
-
-            @Override
-            public Instruction visitCmpInst(final CmpInst inst) {
-                final var lhs = getOrCreate(inst.getLHS());
-                final var rhs = getOrCreate(inst.getRHS());
-                return new CmpInst(inst.getKind(), lhs, rhs);
-            }
-
-            @Override
-            public Instruction visitFloatToIntInst(final FloatToIntInst inst) {
-                final var from = getOrCreate(inst.getFrom());
-                return new FloatToIntInst(from);
-            }
-
-            @Override
-            public Instruction visitGEPInst(final GEPInst inst) {
-                final var ptr = getOrCreate(inst.getPtr());
-                final var indices = inst.getIndices().stream()
-                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
-                return new GEPInst(ptr, indices);
-            }
-
-            @Override
-            public Instruction visitIntToFloatInst(final IntToFloatInst inst) {
-                final var from = getOrCreate(inst.getFrom());
-                return new IntToFloatInst(from);
-            }
-
-            @Override
-            public Instruction visitLoadInst(final LoadInst inst) {
-                final var ptr = getOrCreate(inst.getPtr());
-                return new LoadInst(ptr);
-            }
-
-            @Override
-            public Instruction visitMemInitInst(final MemInitInst inst) {
-                final var ptr = getOrCreate(inst.getArrayPtr());
-                final var init = getOrCreate(inst.getInit());
-                return new MemInitInst(ptr, init);
-            }
-
-            @Override
-            public Instruction visitPhiInst(final PhiInst inst) {
-                // Phi 有可能自己引用自己, 所以必须事先插入定义
-                final var phi = new PhiInst(inst.getType(), inst.getSymbol());
-                oldToNew.put(inst, phi);
-
-                final var incomingValues = inst.getIncomingValues().stream()
-                    .map(FunctionInlineCloner.this::getOrCreate).collect(Collectors.toList());
-                // 此时到 exit 块的跳转还没搞好, 不能使用简单的带检查的 setIncomingCO
-                phi.setIncomingWithoutCheckIncomingBlockCO(incomingValues);
-
-                return phi;
-            }
-
+        class FunctionInlineInstructionCloner extends MultiBasicBlockInstructionCloner {
             @Override
             public Instruction visitReturnInst(final ReturnInst inst) {
                 // return 换成 br
                 final var currBB = getOrCreate(inst.getParent());
                 inst.getReturnValue().map(FunctionInlineCloner.this::getOrCreate).ifPresent(returnValues::add);
                 return new BrInst(currBB, exitBB);
-            }
-
-            @Override
-            public Instruction visitStoreInst(final StoreInst inst) {
-                final var ptr = getOrCreate(inst.getPtr());
-                final var val = getOrCreate(inst.getVal());
-                return new StoreInst(ptr, val);
-            }
-
-            @Override
-            public Instruction visitUnaryOpInst(final UnaryOpInst inst) {
-                final var arg = getOrCreate(inst.getArg());
-                return new UnaryOpInst(inst.getKind(), arg);
             }
         }
     }
