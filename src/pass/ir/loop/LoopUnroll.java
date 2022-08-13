@@ -19,7 +19,7 @@ public class LoopUnroll implements LoopPass {
             return;
         }
 
-        final int totalUnrollCount = 4;
+        final int totalUnrollCount = 8;
         final var preHeader = forLoop.canonical().getPreHeader();
         final var oldHeader = forLoop.canonical().getHeader();
 
@@ -160,9 +160,12 @@ class ForLoop {
         return false;
     }
 
-    private final static int MAX_BLOCK_ALLOWED_IN_BODY = 5;
     boolean hasSmallBody() {
-        return loop.getBody().size() <= MAX_BLOCK_ALLOWED_IN_BODY;
+        // 考虑到循环展开的循环展开, 还是开大那么一点点吧
+        final var isBodyBlockCountSmallEnough = loop.getBody().size() <= 40;
+        final var isBodyInstructionCountSmallEnough = loop.getBody().stream()
+            .mapToLong(List::size).sum() <= 500;
+        return isBodyBlockCountSmallEnough && isBodyInstructionCountSmallEnough;
     }
 
     boolean hasForLatch() {
