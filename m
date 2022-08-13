@@ -44,7 +44,7 @@ make_jar() {
 
     echo 'Manifest-Version: 1.0' >> META-INF/MANIFEST.MF
     echo 'Main-Class: Main' >> META-INF/MANIFEST.MF
-    echo 'Class-Path: . ../lib/antlr-runtime-3.5.2.jar' >> META-INF/MANIFEST.MF
+    echo 'Class-Path: . ../lib/antlr4-runtime-4.8.jar' >> META-INF/MANIFEST.MF
 
     # Make Jar
     jar -cvfm ssyc.jar META-INF/MANIFEST.MF *
