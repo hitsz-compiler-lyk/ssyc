@@ -1,14 +1,14 @@
 package ir;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import frontend.SourceCodeSymbol;
 import ir.analysis.AnalysisInfo;
 import ir.analysis.AnalysisInfoOwner;
 import ir.inst.*;
 import ir.type.IRType;
 import utils.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class BasicBlock extends User
     implements IListOwner<Instruction, BasicBlock>, INodeOwner<BasicBlock, Function>,
@@ -79,6 +79,15 @@ public class BasicBlock extends User
         add(inst);
     }
 
+    public void setBr(BasicBlock nextBB) {
+        Log.ensure(!isTerminated(), "Can NOT add Br to terminated block");
+        add(new BrInst(this, nextBB));
+    }
+
+    public void setBrCond(Value cond, BasicBlock trueBB, BasicBlock falseBB) {
+        Log.ensure(!isTerminated(), "Can NOT add BrCond to terminated block");
+        add(new BrCondInst(this, cond, trueBB, falseBB));
+    }
 
     //============================================ 指令访问 ==========================================================//
     public Iterator<PhiInst> iterPhis() {
@@ -164,8 +173,12 @@ public class BasicBlock extends User
         addOperandCO(predecessor);
     }
 
-    void removePredecessor(int index) {
+    public void removePredecessor(int index) {
         removeOperandCO(index);
+    }
+
+    public void removePredecessor(BasicBlock predecessor) {
+        removeOperandCO(predecessor);
     }
 
     public int getPredecessorSize() {

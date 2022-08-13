@@ -1,8 +1,8 @@
 package utils;
 
-import java.util.Optional;
-
 import ir.GlobalModifitationStatus;
+
+import java.util.Optional;
 
 /**
  * 带反向引用的侵入式链表的节点
@@ -74,6 +74,11 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     public void insertBeforeCO(INode<E, P> newPrev) {
+        // oldPrev == newPrev
+        if (getPrev().map(prev -> prev == newPrev).orElse(false)) {
+            return;
+        }
+
         // 先将对方从原来的 IList 中挪走, 然后将其 parent 设为自己的 IList
         newPrev.freeFromIList();
         newPrev.setParent(this.getParentOpt().orElse(null));
@@ -91,6 +96,11 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
     }
 
     public void insertAfterCO(INode<E, P> newNext) {
+        // oldNext == newNext
+        if (getNext().map(next -> next == newNext).orElse(false)) {
+            return;
+        }
+
         // 先将对方从原来的 IList 中挪走, 然后将其 parent 设为自己的 IList
         newNext.freeFromIList();
         newNext.setParent(getParentOpt().orElse(null));

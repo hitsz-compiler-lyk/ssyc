@@ -1,13 +1,7 @@
 package utils;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 public final class CollectionTools {
@@ -109,6 +103,22 @@ public final class CollectionTools {
         for (final var iter = list.iterator(); iter.hasNext(); idx++) {
             final var elm = iter.next();
             runner.run(idx, elm);
+        }
+    }
+
+    public static <A, B> void zip(List<A> first, List<B> second, BiConsumer<A, B> consumer) {
+        Log.ensure(first.size() == second.size());
+
+        final var firstIter = first.iterator();
+        final var secondIter = second.iterator();
+
+        while (firstIter.hasNext()) {
+            Log.ensure(secondIter.hasNext());
+
+            final var firstElm = firstIter.next();
+            final var secondElm = secondIter.next();
+
+            consumer.accept(firstElm, secondElm);
         }
     }
 
