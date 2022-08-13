@@ -5,6 +5,7 @@ import ir.constant.Constant;
 import ir.inst.Instruction;
 import ir.inst.PhiInst;
 import ir.visitor.ValueVisitor;
+import utils.Log;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,7 +40,17 @@ public class MultiBasicBlockCloner implements ValueVisitor<Value> {
             final var newPreds = block.getPredecessors().stream()
                 .map(this::getOrCreate).collect(Collectors.toList());
 
-            newBlock.resetPredecessorsOrder(newPreds);
+            // 在目标块没有 phi 的情况下, 可以不复位其前继
+            // 这意味着在该 cloner 只复制原来函数中的一小块块时, 可以直接忽略开头的那些边界块的前继
+            if (newPreds.size() != newBlock.getPredecessorSize()) {
+                if (newBlock.phis().size() == 0) {
+                    Log.info("Ignoring the pred of %s (old as %s)".formatted(newBlock, oldBlocks));
+                } else {
+                    Log.ensure(false);
+                }
+            } else {
+                newBlock.resetPredecessorsOrder(newPreds);
+            }
         }
 
         return blocks.stream().map(this::getOrCreate).collect(Collectors.toList());
