@@ -218,10 +218,11 @@ public class SimpleGraphColoring implements RegAllocator {
         Reg spillNode = null;
         for (var reg : remainNodes) {
             if (func.getAddrLoadMap().containsKey(reg)
-                || func.getParamLoadMap().containsKey(reg)
-                || func.getImmMap().containsKey(reg)
-                || func.getStackAddrtMap().containsKey(reg)) {
-                if(func.getSpillNodes().contains(reg)){
+                    // || func.getParamLoadMap().containsKey(reg)
+                    // ParamLoad不优先处理
+                    || func.getStackAddrtMap().containsKey(reg)
+                    || func.getImmMap().containsKey(reg)) {
+                if (func.getSpillNodes().contains(reg)) {
                     continue;
                 }
                 if (spillNode == null
@@ -247,11 +248,10 @@ public class SimpleGraphColoring implements RegAllocator {
         Map<Reg, Integer> offsetMap = new HashMap<>();
         Set<Operand> specialNode = new HashSet<>();
         for (var spill : spillNodes) {
-            if ((func.getAddrLoadMap().containsKey(spill)
-                || func.getParamLoadMap().containsKey(spill)
-                || func.getImmMap().containsKey(spill)
-                || func.getStackAddrtMap().containsKey(spill))
-                && !func.getSpillNodes().contains(spill)) {
+            if (func.getAddrLoadMap().containsKey(spill)
+                    || func.getParamLoadMap().containsKey(spill)
+                    || func.getImmMap().containsKey(spill)
+                    || func.getStackAddrtMap().containsKey(spill)) {
                 specialNode.add(spill);
             } else {
                 int offset = func.getStackSize();
@@ -275,7 +275,7 @@ public class SimpleGraphColoring implements RegAllocator {
                 }
                 for (var spill : spillNodes) {
                     if (inst.getOperands().contains(spill)) {
-                        if (!func.getSpillNodes().contains(spill) && func.getImmMap().containsKey(spill)) {
+                        if (func.getImmMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                             Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldMove = func.getImmMap().get(spill);
@@ -284,7 +284,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getImmMap().put(vr, newMove);
                             func.getSpillNodes().add(vr);
-                        } else if (!func.getSpillNodes().contains(spill) && func.getAddrLoadMap().containsKey(spill)) {
+                        } else if (func.getAddrLoadMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                             var vr = new IVirtualReg();
                             var oldLoad = func.getAddrLoadMap().get(spill);
@@ -293,7 +293,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getAddrLoadMap().put(vr, newLoad);
                             func.getSpillNodes().add(vr);
-                        } else if (!func.getSpillNodes().contains(spill) && func.getStackAddrtMap().containsKey(spill)) {
+                        } else if (func.getStackAddrtMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                             var vr = new IVirtualReg();
                             var oldStackAddr = func.getStackAddrtMap().get(spill);
@@ -307,7 +307,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getStackAddrtMap().put(vr, newStackAddr);
                             func.getSpillNodes().add(vr);
-                        } else if (!func.getSpillNodes().contains(spill) && func.getParamLoadMap().containsKey(spill)) {
+                        } else if (func.getParamLoadMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                             Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldParamLoad = func.getParamLoadMap().get(spill);

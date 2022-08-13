@@ -1259,7 +1259,7 @@ public class CodeGenManager {
                     // }
                     for (var inst : block.asElementView()) {
                         arm.append(inst.print());
-                        arm.append(inst.getSymbol());
+                        // arm.append(inst.getSymbol());
                     }
                 }
             }
@@ -1443,6 +1443,8 @@ public class CodeGenManager {
                                 if (offset <= trueOffset && checkOffsetRange(trueOffset - offset, paramLoad.getDst())) {
                                     paramLoad.replaceAddr(op);
                                     paramLoad.setTrueOffset(new IImm(trueOffset - offset));
+                                    func.getSpillNodes().remove(op);
+                                    // 相当于当前节点改变了生命周期
                                     break;
                                 }
                             }
@@ -1484,6 +1486,8 @@ public class CodeGenManager {
                                 if (offset <= trueOffset && checkOffsetRange(trueOffset - offset, stackLoad.getDst())) {
                                     stackLoad.replaceAddr(op);
                                     stackLoad.setTrueOffset(new IImm(trueOffset - offset));
+                                    func.getSpillNodes().remove(op);
+                                    // 相当于当前节点改变了生命周期
                                     break;
                                 }
                             }
@@ -1522,10 +1526,11 @@ public class CodeGenManager {
                             for (var entry : stackAddrMap.entrySet()) {
                                 var offset = entry.getKey();
                                 var op = entry.getValue();
-                                if (offset <= trueOffset
-                                        && checkOffsetRange(trueOffset - offset, stackStore.getDst())) {
+                                if (offset <= trueOffset && checkOffsetRange(trueOffset - offset, stackStore.getDst())) {
                                     stackStore.replaceAddr(op);
                                     stackStore.setTrueOffset(new IImm(trueOffset - offset));
+                                    func.getSpillNodes().remove(op);
+                                    // 相当于当前节点改变了生命周期
                                     break;
                                 }
                             }
