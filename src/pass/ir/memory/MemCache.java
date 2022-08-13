@@ -13,18 +13,26 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+/**
+ * 记录数组/全局变量与其对应索引对应的内存位置的值
+ */
 class MemCache {
     public static MemCache empty() {
         return new MemCache();
     }
 
     public static MemCache copyFrom(MemCache other) {
-        return new MemCache(other);
+        final var result = empty();
+        for (final var entry : other.cache.entrySet()) {
+            result.cache.put(entry.getKey(), entry.getValue().deepCopy());
+        }
+
+        return result;
     }
 
     public void setByInit(MemInitInst init) {
-        final var pos = MemPosition.createWithMemInit(init);
-        cache.put(pos, new MemHandler(init.getInit()));
+        final var pos = MemVariable.createWithMemInit(init);
+        cache.put(pos, new MemPositionHandler(init.getInit()));
     }
 
     public void setByStore(StoreInst store) {
@@ -39,17 +47,17 @@ class MemCache {
 
     public void setByCall(CallInst call) {
         final var globals = cache.keySet().stream()
-            .filter(MemPosition::isGlobal);
+            .filter(MemVariable::isGlobal);
 
         final var localsInArg = call.getArgList().stream()
             .filter(arg -> arg.getType().isPtr())
-            .map(MemPosition::createWithPointer)
+            .map(MemVariable::createWithPointer)
             .filter(Optional::isPresent).map(Optional::get)
-            .filter(MemPosition::isLocal);
+            .filter(MemVariable::isLocal);
 
         Stream.concat(globals, localsInArg)
             .map(this::getInitHandler).filter(Objects::nonNull)
-            .forEach(MemHandler::setUndef);
+            .forEach(MemPositionHandler::setUndef);
     }
 
     public void setByLoad(LoadInst load) {
@@ -65,16 +73,16 @@ class MemCache {
     }
 
     public void setByGlobalVar(GlobalVar array) {
-        final var pos = MemPosition.createWithGlobalVariable(array);
-        final var handler = new MemHandler(array.getInit());
+        final var pos = MemVariable.createWithGlobalVariable(array);
+        final var handler = new MemPositionHandler(array.getInit());
 
         // A global array can only be at when it is still undefined
         Log.ensure(!cache.containsKey(pos));
         cache.put(pos, handler);
     }
 
-    private void dealWithPointer(Value ptr, Consumer<IndicesInfo> whenGEP, Consumer<MemHandler> whenGlobalVar) {
-        MemPosition.createWithPointer(ptr).ifPresent(pos -> {
+    private void dealWithPointer(Value ptr, Consumer<IndicesInfo> whenGEP, Consumer<MemPositionHandler> whenGlobalVar) {
+        MemVariable.createWithPointer(ptr).ifPresent(pos -> {
             final var handler = getInitHandler(pos);
 
             if (ptr instanceof GEPInst) {
@@ -92,7 +100,7 @@ class MemCache {
     }
 
     public Value getByLoad(LoadInst load) {
-        final var resultHandler = new MemHandler(load);
+        final var resultHandler = new MemPositionHandler(load);
 
         dealWithPointer(load.getPtr(), info -> {
             if (info.isExhausted && !info.handler.isUndef()) {
@@ -116,7 +124,7 @@ class MemCache {
         for (final var key : commonKeys) {
             final var lhsHandler = lhs.cache.get(key);
             final var rhsHandler = rhs.cache.get(key);
-            result.cache.put(key, MemHandler.merge(lhsHandler, rhsHandler));
+            result.cache.put(key, MemPositionHandler.merge(lhsHandler, rhsHandler));
         }
 
         return result;
@@ -138,16 +146,16 @@ class MemCache {
     }
 
     static class IndicesInfo {
-        public IndicesInfo(MemHandler handler, boolean isExhausted) {
+        public IndicesInfo(MemPositionHandler handler, boolean isExhausted) {
             this.handler = handler;
             this.isExhausted = isExhausted;
         }
 
-        public final MemHandler handler;
+        public final MemPositionHandler handler;
         public final boolean isExhausted;
     }
 
-    private IndicesInfo getInfoFromGEP(GEPInst inst, MemHandler init) {
+    private IndicesInfo getInfoFromGEP(GEPInst inst, MemPositionHandler init) {
         final var indices = inst.getIndices();
 
         var handler = init;
@@ -166,16 +174,16 @@ class MemCache {
         return new IndicesInfo(handler, isExhausted);
     }
 
-    private IndicesInfo getInfoFromGEP(GEPInst inst, MemPosition pos) {
+    private IndicesInfo getInfoFromGEP(GEPInst inst, MemVariable pos) {
         return getInfoFromGEP(inst, getInitHandler(pos));
     }
 
     private Optional<IndicesInfo> getInfoFromGEP(GEPInst inst) {
-        return MemPosition.createWithPointer(inst).map(pos -> getInfoFromGEP(inst, pos));
+        return MemVariable.createWithPointer(inst).map(pos -> getInfoFromGEP(inst, pos));
     }
 
-    private MemHandler getInitHandler(MemPosition position) {
-        cache.computeIfAbsent(position, pos -> new MemHandler());
+    private MemPositionHandler getInitHandler(MemVariable position) {
+        cache.computeIfAbsent(position, pos -> new MemPositionHandler());
         return cache.get(position);
     }
 
@@ -187,5 +195,5 @@ class MemCache {
         this.cache = new HashMap<>();
     }
 
-    Map<MemPosition, MemHandler> cache;
+    Map<MemVariable, MemPositionHandler> cache;
 }

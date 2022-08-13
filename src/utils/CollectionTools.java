@@ -1,13 +1,8 @@
 package utils;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 public final class CollectionTools {
     @SafeVarargs
@@ -82,6 +77,52 @@ public final class CollectionTools {
         Log.ensure(!list.isEmpty());
         return list.get(list.size() - 1);
     }
+
+    public static <T> List<T> selectFrom(List<T> list, List<Integer> indices) {
+        final var result = new ArrayList<T>();
+        indices.forEach(i -> result.add(list.get(i)));
+        return result;
+    }
+
+    public static <T> List<Integer> findForIndices(List<T> list, Predicate<T> predicate) {
+        final var result = new ArrayList<Integer>();
+
+        final var iter = list.iterator();
+        for (int i = 0; iter.hasNext(); i++) {
+            final var elm = iter.next();
+            if (predicate.test(elm)) {
+                result.add(i);
+            }
+        }
+
+        return result;
+    }
+
+    public static <T> void iterWithIndex(List<T> list, RunnerWithIndex<T> runner) {
+        var idx = 0;
+        for (final var iter = list.iterator(); iter.hasNext(); idx++) {
+            final var elm = iter.next();
+            runner.run(idx, elm);
+        }
+    }
+
+    public static <A, B> void zip(List<A> first, List<B> second, BiConsumer<A, B> consumer) {
+        Log.ensure(first.size() == second.size());
+
+        final var firstIter = first.iterator();
+        final var secondIter = second.iterator();
+
+        while (firstIter.hasNext()) {
+            Log.ensure(secondIter.hasNext());
+
+            final var firstElm = firstIter.next();
+            final var secondElm = secondIter.next();
+
+            consumer.accept(firstElm, secondElm);
+        }
+    }
+
+    public interface RunnerWithIndex<T> { void run(int idx, T elm); }
 
     public static class TwoList<T> {
         public TwoList(List<T> first, List<T> second) {

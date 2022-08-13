@@ -28,6 +28,10 @@ public interface AnalysisInfoOwner {
         map.put(name, info);
     }
 
+    default void addOrOverwriteInfo(AnalysisInfo info) {
+        getInfoMap().put(info.getInfoName(), info);
+    }
+
     default <T extends AnalysisInfo> boolean containsAnalysisInfo(Class<T> cls) {
         final var name = cls.getSimpleName();
         return getInfoMap().containsKey(name);
