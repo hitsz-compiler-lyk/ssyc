@@ -4,7 +4,6 @@ import frontend.SourceCodeSymbol;
 import ir.inst.BinaryOpInst;
 import ir.inst.Instruction;
 import ir.inst.PhiInst;
-import utils.Log;
 
 import java.util.*;
 
@@ -26,10 +25,11 @@ class SimplifierForALLoop {
         for (final var block : loop.getAll()) {
             for (final var inst : block) {
                 for (final var user_ : inst.getUserList()) {
-                    Log.ensure(user_ instanceof Instruction);
-                    assert user_ instanceof Instruction;
-                    final var user = ((Instruction) user_);
-                    addUserFor(inst, user);
+                    // 指令的 user 还可能是 CurrDef
+                    if (user_ instanceof Instruction) {
+                        final var user = ((Instruction) user_);
+                        addUserFor(inst, user);
+                    }
                 }
             }
         }
@@ -46,14 +46,15 @@ class SimplifierForALLoop {
                 .orElse(new SourceCodeSymbol("lcssa", 0, 0));
 
             final var phi = new PhiInst(beUsedOutside.getType(), symbol);
+            exit.addPhi(phi);
             phi.setIncomingCO(List.of(beUsedOutside));
-
-            exit.add(phi);
 
             for (final var user : users) {
                 user.replaceOperandCO(beUsedOutside, phi);
             }
         }
+
+        exit.adjustPhiEnd();
     }
 
     void moveInvariantToBinopRight() {
