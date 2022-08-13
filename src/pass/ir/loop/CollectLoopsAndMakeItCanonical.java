@@ -39,11 +39,6 @@ public class CollectLoopsAndMakeItCanonical {
 
         return collectLoops(function).stream()
             .map(loop -> transformToCanonicalLoop(null, loop))
-            // TODO: 干脆在生成的时候直接 drop 掉没有 unique exit 的循环好了
-            // 这种循环没人权也没优化的
-            .filter(CanonicalLoop::hasUniqueExit)
-            // 同理, 反转的 do-while 循环也无优化机会的
-            .filter(CanonicalLoop::isRotated)
             .collect(Collectors.toList());
     }
 
@@ -117,6 +112,15 @@ public class CollectLoopsAndMakeItCanonical {
         justLoop.parent.ifPresent(superLoop -> superLoop.body.add(preHeader));
         justLoop.parent.ifPresent(superLoop -> superLoop.body.add(latch));
 
+        // 此时 CanonicalLoop 已经有 body 了, 可以调用 getUniqueExit 了
+        // 将 pre-header 插入于 header 之前, latch 插入于循环的所有块之后
+        // 因为有可能 latch 块是 loop body 里的唯一一块, 所以 justLoop.body 有可能所有块都不在 function 内, 因此需要把 header 也考虑进去
+        // 由于上层循环的 latch 有可能是本层循环的 exit, 所以必须在访问内部循环之前先把 latch 插入回 function
+        canonicalLoop.getHeader().insertBeforeCO(preHeader);
+        final var function = header.getParent();
+        final var maxIndexInBody = findLastIndexInBlocks(function, justLoop.getAll());
+        function.add(maxIndexInBody + 1, latch);
+
         // 处理 loop 森林
         for (final var subLoop : justLoop.subLoops) {
             final var subCanonicalLoop = transformToCanonicalLoop(canonicalLoop, subLoop);
@@ -140,18 +144,24 @@ public class CollectLoopsAndMakeItCanonical {
         justLoop.body.forEach(canonicalLoop::addBodyBlock);
         canonicalLoop.addBodyBlock(latch);
 
-        // 此时 CanonicalLoop 已经有 body 了, 可以调用 getUniqueExit 了
-        // 将 pre-header 插入于 header 之前, latch 插入于 exit 之前 (即 body 的所有块之后)
-        canonicalLoop.getHeader().insertBeforeCO(preHeader);
-        if (canonicalLoop.hasUniqueExit()) {
-            canonicalLoop.getUniqueExit().insertBeforeCO(latch);
-        } else {
-            canonicalLoop.getHeader().insertAfterCO(latch);
-        }
-
         // 验证并返回
         canonicalLoop.verify();
         return canonicalLoop;
+    }
+
+    int findLastIndexInBlocks(Function function, Set<BasicBlock> blocks) {
+        var maxIndex = -1;
+        var currIndex = 0;
+
+        for (final var block : function) {
+            if (blocks.contains(block) && currIndex > maxIndex) {
+                maxIndex = currIndex;
+            }
+            currIndex += 1;
+        }
+
+        Log.ensure(maxIndex != -1);
+        return maxIndex;
     }
 
     static class NewBlocksInfo {
@@ -250,6 +260,7 @@ public class CollectLoopsAndMakeItCanonical {
                     // BD 组成的循环相当于 "外挂" 在外层循环 ABC 上, 这时候做前继闭包是做不到 D 的
                     final var parent = currLoop.parent.get();
                     parent.body.addAll(currLoop.body);
+                    parent.subLoops.add(currLoop);
                 }
             }
         }
@@ -281,6 +292,12 @@ class JustLoop {
 
         this.parent = Optional.ofNullable(parent);
         this.subLoops = new ArrayList<>();
+    }
+
+    Set<BasicBlock> getAll() {
+        final var set = new LinkedHashSet<>(body);
+        set.add(header);
+        return set;
     }
 
     BasicBlock header;

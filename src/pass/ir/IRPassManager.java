@@ -2,7 +2,7 @@ package pass.ir;
 
 import ir.GlobalModifitationStatus;
 import ir.Module;
-import pass.ir.loop.CollectLoopsAndMakeItCanonical;
+import pass.ir.loop.LoopUnroll;
 import pass.ir.memory.RemoveUnnecessaryArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
@@ -14,6 +14,12 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
+        runAllClearUpPasses();
+        runPass(new LoopUnroll());
+        runAllClearUpPasses();
+    }
+
+    public void runAllClearUpPasses() {
         GlobalModifitationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
@@ -25,7 +31,6 @@ public class IRPassManager {
             runMemoryOptimizePass();
             runDefaultBlockClearUpPasses();
         });
-        // runPass(new CollectLoopsAndMakeItCanonical.DryRunPass());
     }
 
     public void runMemoryOptimizePass() {
