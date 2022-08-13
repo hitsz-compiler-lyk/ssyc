@@ -9,7 +9,6 @@ import utils.Log;
 // 0: dst RegUse
 // 1: drc RegUse
 public class ArmInstMove extends ArmInst {
-    Operand trueOffset;
 
     public ArmInstMove(ArmInstKind inst) {
         super(inst);
@@ -95,17 +94,10 @@ public class ArmInstMove extends ArmInst {
         return this.getOperand(1);
     }
 
-    public void setTrueOffset(Operand trueOffset) {
-        this.trueOffset = trueOffset;
-    }
-
     @Override
     public String print() {
         var dst = getDst();
         var src = getSrc();
-        if (trueOffset != null) {
-            src = trueOffset;
-        }
 
         var isVector = "";
         if (dst.IsFloat() || src.IsFloat()) {

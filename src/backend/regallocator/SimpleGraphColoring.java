@@ -7,10 +7,15 @@ import backend.Consts;
 import backend.arm.ArmFunction;
 import backend.arm.ArmInst;
 import backend.arm.ArmInstLoad;
-import backend.arm.ArmInstStore;
+import backend.arm.ArmInstMove;
+import backend.arm.ArmInstParamLoad;
+import backend.arm.ArmInstStackAddr;
+import backend.arm.ArmInstStackLoad;
+import backend.arm.ArmInstStackStore;
 import backend.operand.FVirtualReg;
-import backend.operand.IPhyReg;
+import backend.operand.IImm;
 import backend.operand.IVirtualReg;
+import backend.operand.Operand;
 import backend.operand.Reg;
 import utils.Log;
 import utils.Pair;
@@ -118,7 +123,7 @@ public class SimpleGraphColoring implements RegAllocator {
         if (!remainNodes.isEmpty()) {
             List<Reg> spillNodes = new ArrayList<>();
             while (!remainNodes.isEmpty()) {
-                spillNodes.add(chooseSpillNode());
+                spillNodes.add(chooseSpillNode(func));
                 simplify();
             }
             spill(func, spillNodes);
@@ -137,19 +142,21 @@ public class SimpleGraphColoring implements RegAllocator {
             if (reg.IsInt()) {
                 final var phyReg = Consts.allocableIRegs.stream()
                         .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
-                                && !flag.contains(oneReg)).findFirst().orElse(
+                                && !flag.contains(oneReg))
+                        .findFirst().orElse(
                                 Consts.allocableIRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
-                                        .orElseThrow(() -> new RuntimeException("reg allocate failed"))
-                        );
+                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             } else {
                 final var phyReg = Consts.allocableFRegs.stream()
-                        .filter(oneReg -> (used.contains(oneReg) && !flag.contains(oneReg))).findFirst().orElse(
+                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
+                                && !flag.contains(oneReg))
+                        .findFirst().orElse(
                                 Consts.allocableFRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
-                                        .orElseThrow(()->new RuntimeException("reg allocate failed"))
-                        );
+                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             }
+            Log.ensure(ans.containsKey(reg), "reg allocate failed");
             used.add(ans.get(reg));
         }
         return ans;
@@ -207,12 +214,29 @@ public class SimpleGraphColoring implements RegAllocator {
         remainNodes.remove(reg);
     }
 
-    private Reg chooseSpillNode() {
+    private Reg chooseSpillNode(ArmFunction func) {
         Reg spillNode = null;
         for (var reg : remainNodes) {
-            if (spillNode == null
-                    || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
-                spillNode = reg;
+            if (func.getAddrLoadMap().containsKey(reg)
+                    // || func.getParamLoadMap().containsKey(reg)
+                    // ParamLoad不优先处理
+                    || func.getStackAddrtMap().containsKey(reg)
+                    || func.getImmMap().containsKey(reg)) {
+                if (func.getSpillNodes().contains(reg)) {
+                    continue;
+                }
+                if (spillNode == null
+                        || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                    spillNode = reg;
+                }
+            }
+        }
+        if (spillNode == null) {
+            for (var reg : remainNodes) {
+                if (spillNode == null
+                        || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                    spillNode = reg;
+                }
             }
         }
         Log.ensure(spillNode != null, "choose spill node is null");
@@ -222,24 +246,91 @@ public class SimpleGraphColoring implements RegAllocator {
 
     private void spill(ArmFunction func, List<Reg> spillNodes) {
         Map<Reg, Integer> offsetMap = new HashMap<>();
+        Set<Operand> specialNode = new HashSet<>();
         for (var spill : spillNodes) {
-            int offset = func.getStackSize();
-            func.addStackSize(4);
-            offsetMap.put(spill, offset);
+            if (func.getAddrLoadMap().containsKey(spill)
+                    || func.getParamLoadMap().containsKey(spill)
+                    || func.getImmMap().containsKey(spill)
+                    || func.getStackAddrtMap().containsKey(spill)) {
+                specialNode.add(spill);
+            } else {
+                int offset = func.getStackSize();
+                func.addStackSize(4);
+                offsetMap.put(spill, offset);
+            }
         }
         for (var block : func.asElementView()) {
             for (var inst : block.asElementView()) {
+                boolean nxt = false;
+                for (var reg : inst.getRegDef()) {
+                    if (specialNode.contains(reg)) {
+                        inst.freeFromIList();
+                        // 可以删除在prologue中的param load
+                        nxt = true;
+                        break;
+                    }
+                }
+                if (nxt) {
+                    continue;
+                }
                 for (var spill : spillNodes) {
                     if (inst.getOperands().contains(spill)) {
-                        Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
-                        int offset = offsetMap.get(spill);
-                        if (inst.getRegUse().contains(spill)) {
-                            inst.insertBeforeCO(new ArmInstLoad(vr, new IPhyReg("sp"), offset));
+                        if (func.getImmMap().containsKey(spill)) {
+                            Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
+                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            var oldMove = func.getImmMap().get(spill);
+                            var newMove = new ArmInstMove(vr, oldMove.getSrc());
+                            inst.insertBeforeCO(newMove);
+                            inst.replaceOperand(spill, vr);
+                            func.getImmMap().put(vr, newMove);
+                            func.getSpillNodes().add(vr);
+                        } else if (func.getAddrLoadMap().containsKey(spill)) {
+                            Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
+                            var vr = new IVirtualReg();
+                            var oldLoad = func.getAddrLoadMap().get(spill);
+                            var newLoad = new ArmInstLoad(vr, oldLoad.getAddr());
+                            inst.insertBeforeCO(newLoad);
+                            inst.replaceOperand(spill, vr);
+                            func.getAddrLoadMap().put(vr, newLoad);
+                            func.getSpillNodes().add(vr);
+                        } else if (func.getStackAddrtMap().containsKey(spill)) {
+                            Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
+                            var vr = new IVirtualReg();
+                            var oldStackAddr = func.getStackAddrtMap().get(spill);
+                            var newStackAddr = new ArmInstStackAddr(vr, oldStackAddr.getOffset());
+                            newStackAddr.setFix(oldStackAddr.isFix());
+                            newStackAddr.setCAlloc(oldStackAddr.isCAlloc());
+                            newStackAddr.setUpper(oldStackAddr.getUpper());
+                            newStackAddr.setNether(oldStackAddr.getNether());
+                            newStackAddr.setTrueOffset(oldStackAddr.getTrueOffset());
+                            inst.insertBeforeCO(newStackAddr);
+                            inst.replaceOperand(spill, vr);
+                            func.getStackAddrtMap().put(vr, newStackAddr);
+                            func.getSpillNodes().add(vr);
+                        } else if (func.getParamLoadMap().containsKey(spill)) {
+                            Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
+                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            var oldParamLoad = func.getParamLoadMap().get(spill);
+                            var newParamLoad = new ArmInstParamLoad(vr, oldParamLoad.getOffset());
+                            // newParamLoad.replaceAddr(oldParamLoad.getAddr());
+                            // newParamLoad.setTrueOffset(oldParamLoad.getTrueOffset());
+                            // 对于param load 恢复到最初的状态 即从sp中获取数据 再去找addr
+                            inst.insertBeforeCO(newParamLoad);
+                            inst.replaceOperand(spill, vr);
+                            func.getParamLoadMap().put(vr, newParamLoad);
+                            func.getSpillNodes().add(vr);
+                        } else {
+                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            int offset = offsetMap.get(spill);
+                            if (inst.getRegUse().contains(spill)) {
+                                inst.insertBeforeCO(new ArmInstStackLoad(vr, new IImm(offset)));
+                            }
+                            if (inst.getRegDef().contains(spill)) {
+                                inst.insertAfterCO(new ArmInstStackStore(vr, new IImm(offset)));
+                            }
+                            inst.replaceOperand(spill, vr);
+                            func.getSpillNodes().add(vr);
                         }
-                        if (inst.getRegDef().contains(spill)) {
-                            inst.insertAfterCO(new ArmInstStore(vr, new IPhyReg("sp"), offset));
-                        }
-                        inst.replaceOperand(spill, vr);
                     }
                 }
             }

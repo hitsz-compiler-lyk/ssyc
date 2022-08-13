@@ -15,7 +15,8 @@ public class ArmInstCall extends ArmInst {
     private ArmFunction func;
     private String funcName;
     private int paramsCnt;
-    private boolean isFloatParam;
+    private int fparamsCnt;
+    private boolean returnFloat;
 
     public ArmInstCall(ArmInstKind inst) {
         super(inst);
@@ -26,91 +27,44 @@ public class ArmInstCall extends ArmInst {
         this.func = func;
         block.asElementView().add(this);
         this.paramsCnt = func.getParamsCnt();
-        // int defCnt = Integer.min(func.getParamsCnt(), 4);
-        int defCnt = 4;
+        this.fparamsCnt = func.getFparamsCnt();
+        this.returnFloat = func.isReturnFloat();
         List<Operand> ops = new ArrayList<>();
-        for (int i = 0; i < defCnt; i++) {
+        for (int i = 0; i < 4; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
-        // 如果是外部函数 则会因为链接器从而把r12定值
-        ops.add(new IPhyReg("r12"));
-        ops.add(new FPhyReg("s0"));
-        // if (func.isExternal()) {
-        // ops.add(new IPhyReg("r12"));
-        // }
-        this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(1);
-        this.isFloatParam = false;
-    }
-
-    public ArmInstCall(ArmBlock block, ArmFunction func, boolean isFloatParam) {
-        super(ArmInstKind.Call);
-        this.func = func;
-        block.asElementView().add(this);
-        this.paramsCnt = func.getParamsCnt();
-        // int defCnt = Integer.min(func.getParamsCnt(), 4);
-        int defCnt = 4;
-        List<Operand> ops = new ArrayList<>();
-        for (int i = 0; i < defCnt; i++) {
-            ops.add(new IPhyReg(i));
+        ops.add(new IPhyReg("r12")); // 如果是外部函数 则会因为链接器从而把r12定值
+        int fcnt = 0;
+        if (this.returnFloat) {
+            fcnt = 1;
         }
-        ops.add(new IPhyReg("lr"));
-        // 如果是外部函数 则会因为链接器从而把r12定值
-        ops.add(new IPhyReg("r12"));
-        ops.add(new FPhyReg("s0"));
-        // if (func.isExternal()) {
-        // ops.add(new IPhyReg("r12"));
-        // }
-        // if (isFloatParam) {
-        // ops.add(new FPhyReg("s0"));
-        // }
+        fcnt = Integer.max(fcnt, this.fparamsCnt);
+        for (int i = 0; i < 16; i++) {
+            ops.add(new FPhyReg(i));
+        }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
-        this.isFloatParam = isFloatParam;
     }
 
-    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt) {
+    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, int fparamsCnt, boolean returnFloat) {
         super(ArmInstKind.Call);
         this.funcName = funcName;
         block.asElementView().add(this);
-        this.paramsCnt = paramsCnt;
-        // int defCnt = Integer.min(paramsCnt, 4);
-        int defCnt = 4;
+        this.paramsCnt = Integer.min(paramsCnt, 4);
+        this.fparamsCnt = Integer.min(fparamsCnt, 16);
+        this.returnFloat = returnFloat;
         List<Operand> ops = new ArrayList<>();
-        for (int i = 0; i < defCnt; i++) {
+        for (int i = 0; i < 4; i++) {
             ops.add(new IPhyReg(i));
         }
         ops.add(new IPhyReg("lr"));
-        // 如果是外部函数 则会因为链接器从而把r12定值
-        ops.add(new IPhyReg("r12")); // memset 和 memcpy不会?
-        ops.add(new FPhyReg("s0"));
-        this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(1);
-        this.isFloatParam = false;
-    }
-
-    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, boolean isFloatParam) {
-        super(ArmInstKind.Call);
-        this.funcName = funcName;
-        block.asElementView().add(this);
-        this.paramsCnt = paramsCnt;
-        // int defCnt = Integer.min(paramsCnt, 4);
-        int defCnt = 4;
-        List<Operand> ops = new ArrayList<>();
-        for (int i = 0; i < defCnt; i++) {
-            ops.add(new IPhyReg(i));
+        ops.add(new IPhyReg("r12")); // 如果是外部函数 则会因为链接器从而把r12定值 memset 和 memcpy不会?
+        for (int i = 0; i < 16; i++) {
+            ops.add(new FPhyReg(i));
         }
-        ops.add(new IPhyReg("lr"));
-        // 如果是外部函数 则会因为链接器从而把r12定值
-        ops.add(new IPhyReg("r12")); // memset 和 memcpy不会?
-        ops.add(new FPhyReg("s0"));
-        // if (isFloatParam) {
-        // ops.add(new FPhyReg("s0"));
-        // }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
-        this.isFloatParam = isFloatParam;
     }
 
     public void setFunc(ArmFunction func) {
@@ -131,8 +85,8 @@ public class ArmInstCall extends ArmInst {
         for (int i = 0; i < Integer.min(this.paramsCnt, 4); i++) {
             ret.add(new IPhyReg(i));
         }
-        if (isFloatParam) {
-            ret.add(new FPhyReg(0));
+        for (int i = 0; i < Integer.min(this.fparamsCnt, 16); i++) {
+            ret.add(new FPhyReg(i));
         }
         return ret;
     }

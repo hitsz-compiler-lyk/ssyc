@@ -13,15 +13,14 @@ public class ArmInstReturn extends ArmInst {
     public ArmInstReturn(ArmBlock block) {
         super(ArmInstKind.Return);
         block.asElementView().add(this);
-        this.setPrintCnt(50); //6
+        this.setPrintCnt(7);
     }
 
     @Override
     public String print() {
         var block = this.getParent();
         var func = block.getParent();
-        var funcInfo = func.getFuncInfo();
-        var stackSize = funcInfo.getFinalstackSize();
+        var stackSize = func.getFinalstackSize();
         String ret = "";
         if (stackSize > 0) {
             if (CodeGenManager.checkEncodeImm(stackSize)) {
@@ -30,6 +29,7 @@ public class ArmInstReturn extends ArmInst {
                 ret += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
                 var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                move.setCond(getCond());
                 ret += move.print();
                 ret += "\tadd\tsp,\tsp,\tr4\n";
             }
@@ -38,7 +38,7 @@ public class ArmInstReturn extends ArmInst {
         var iuse = new StringBuilder();
         var useLR = false;
         var first = true;
-        for (var reg : funcInfo.getiUsedRegs()) {
+        for (var reg : func.getiUsedRegs()) {
             if (!first) {
                 iuse.append(", ");
             }
@@ -51,21 +51,37 @@ public class ArmInstReturn extends ArmInst {
             first = false;
         }
 
-        var fuse = new StringBuilder();
+        var fuse1 = new StringBuilder();
+        var fuse2 = new StringBuilder();
+        var fusedList = func.getfUsedRegs();
         first = true;
-        for (var reg : funcInfo.getfUsedRegs()) {
+        for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
+            var reg = fusedList.get(i);
             if (!first) {
-                fuse.append(", ");
+                fuse1.append(", ");
             }
-            fuse.append(reg.print());
+            fuse1.append(reg.print());
+            first = false;
+        }
+        first = true;
+        for (int i = 16; i < fusedList.size(); i++) {
+            var reg = fusedList.get(i);
+            if (!first) {
+                fuse2.append(", ");
+            }
+            fuse2.append(reg.print());
             first = false;
         }
 
-        if (!funcInfo.getfUsedRegs().isEmpty()) {
-            ret += "\tvpop\t{" + fuse.toString() + "}\n";
+        if (fuse2.length() != 0) {
+            ret += "\tvpop\t{" + fuse2.toString() + "}\n";
         }
 
-        if (!funcInfo.getiUsedRegs().isEmpty()) {
+        if (fuse1.length() != 0) {
+            ret += "\tvpop\t{" + fuse1.toString() + "}\n";
+        }
+
+        if (!func.getiUsedRegs().isEmpty()) {
             ret += "\tpop\t{" + iuse.toString() + "}\n";
         }
 
