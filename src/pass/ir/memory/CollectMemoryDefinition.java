@@ -11,6 +11,9 @@ import utils.Log;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 收集对特定内存位置的写入
+ */
 class CollectMemoryDefinition extends ForwardDataFlowPass<MemCache, MemoryInfo> {
     @Override
     protected MemCache transfer(BasicBlock block, MemCache in) {
@@ -36,7 +39,9 @@ class CollectMemoryDefinition extends ForwardDataFlowPass<MemCache, MemoryInfo> 
             "Only entry block could have no pred");
 
         if (isEntry) {
-            // Entry need special init
+            // 对于函数的起始块而言, 其交汇结果应该是其 in()
+            // 对于 main 函数, in 是所有全局变量的初始值
+            // 对于其它函数, in 是空集
             return block.getAnalysisInfo(MemoryInfo.class).in();
         }
 
@@ -52,7 +57,7 @@ class CollectMemoryDefinition extends ForwardDataFlowPass<MemCache, MemoryInfo> 
     protected MemCache entryIn(BasicBlock block) {
         final var function = block.getParent();
 
-        // 只有 main 函数开头才能保证全局变量的值是本身
+        // 只有 main 函数开头才能保证全局变量的值是初始值本身
         if (function.getFunctionSourceName().equals("main")) {
             final var cache = MemCache.empty();
             globalVars.forEach(cache::setByGlobalVar);

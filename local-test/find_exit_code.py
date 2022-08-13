@@ -32,7 +32,8 @@ if __name__ == '__main__':
 
     def is_ir_verify(no: int, line: str) -> bool:
         return 128 + (no % 128) == lineNo \
-            and (line.find('IRVerifyException') != -1 or line.find('ensure') != -1)
+            and (line.find('IRVerifyException') != -1 or line.find('ensure') != -1) \
+            and line.find('Log') == -1
 
     pred = is_log_ensure if lineNo < 128 else is_ir_verify
 

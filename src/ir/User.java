@@ -49,6 +49,11 @@ public class User extends Value {
     /** 删除其所有 operand 使其再也不会使用其他 Value */
     public void freeFromUseDef() {
         ensure(getUserList().isEmpty(), "Can NOT call freeFromUseDef on value that are current being used");
+        freeFromUseDefUncheck();
+    }
+
+    /** Dangerous !!! */
+    public void freeFromUseDefUncheck() {
         removeOperandAllCO();
         GlobalModifitationStatus.current().markAsChanged();
     }

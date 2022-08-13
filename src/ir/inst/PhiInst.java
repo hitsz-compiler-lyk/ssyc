@@ -11,6 +11,9 @@ import java.util.Iterator;
 import java.util.List;
 
 public class PhiInst extends Instruction {
+    /**
+     * @param symbol 最开始的 Phi 所代表的变量的 symbol, 它既是最初的 getSymbol(), 也是永远的 waitFor
+     */
     public PhiInst(IRType type, SourceCodeSymbol symbol) {
         super(InstKind.Phi, type);
         super.setSymbol(symbol);
@@ -25,10 +28,10 @@ public class PhiInst extends Instruction {
         ensure(getIncomingSize() == 0,
             "Phi could only set incoming once");
 
-        setIncomingWithoutCheckIncomingBlockCO(incomingValues);
+        setIncomingValueWithoutCheckingPredecessorsCO(incomingValues);
     }
 
-    public void setIncomingWithoutCheckIncomingBlockCO(List<Value> incomingValues) {
+    public void setIncomingValueWithoutCheckingPredecessorsCO(List<Value> incomingValues) {
         super.addAllOperandsCO(incomingValues);
     }
 
@@ -50,6 +53,11 @@ public class PhiInst extends Instruction {
 
     public List<Value> getIncomingValues() {
         return getOperands();
+    }
+
+    /** 危险! 请自行维护关系 */
+    public void addIncomingValueWithoutChecking(Value newIncomingValue) {
+        addOperandCO(newIncomingValue);
     }
 
     public static final class IncomingInfo {
@@ -98,6 +106,12 @@ public class PhiInst extends Instruction {
 
     public Value getIncomingValue(int index) {
         return getIncomingValues().get(index);
+    }
+
+    @Override
+    public void freeFromUseDef() {
+        getUserList().stream().filter(user -> user == this).forEach(this::removeUser);
+        super.freeFromUseDef();
     }
 
     @Override
