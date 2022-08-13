@@ -72,11 +72,10 @@ public class ConstructDominatorInfo
 
     void buildDomTree(Function function) {
         for (final var block : function) {
-            final var info = DominatorInfo.getInfo(block);
-            final var idom = info.getImmediateDom();
+            final var idom = DominatorInfo.idom(block);
 
             if (idom != block) {
-                info.domTreeChildren.add(block);
+                DominatorInfo.getInfo(idom).domTreeChildren.add(block);
             } else {
                 Log.ensure(function.getEntryBBlock() == block);
             }
