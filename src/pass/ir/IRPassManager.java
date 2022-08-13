@@ -25,7 +25,6 @@ public class IRPassManager {
             runPass(new FunctionInline());
             runPass(new ClearUselessFunction());
             runDefaultBlockClearUpPasses();
-            runPass(new ConstructDominatorInfo());
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
             runMemoryOptimizePass();
