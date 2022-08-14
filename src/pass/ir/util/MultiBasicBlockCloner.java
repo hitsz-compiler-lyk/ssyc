@@ -40,10 +40,10 @@ public class MultiBasicBlockCloner implements ValueVisitor<Value> {
             final var newPreds = block.getPredecessors().stream()
                 .map(this::getOrCreate).collect(Collectors.toList());
 
-            // 在目标块没有 phi 的情况下, 可以不复位其前继
+            // 在目标块完全没有前继的情况下, 可以不要求其前继数量等于旧块的前继数量
             // 这意味着在该 cloner 只复制原来函数中的一小块块时, 可以直接忽略开头的那些边界块的前继
             if (newPreds.size() != newBlock.getPredecessorSize()) {
-                if (newBlock.phis().size() == 0) {
+                if (newBlock.getPredecessorSize() == 0) {
                     Log.info("Ignoring the pred of %s (old as %s)".formatted(newBlock, oldBlocks));
                 } else {
                     Log.ensure(false);
