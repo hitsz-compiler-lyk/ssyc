@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.Module;
 import ir.Value;
+import ir.constant.Constant;
 import ir.inst.BinaryOpInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
@@ -11,9 +12,10 @@ public class InstructionCombiner implements IRPass {
     public void runPass(Module module) {
         new ConstructDominatorInfo().runPass(module);
         IRPass.instructionStream(module)
-                .filter(this::matchPattern)
+                .filter(this::matchMultiOp)
                 .map(self -> (BinaryOpInst) self)
                 .forEach(this::combine);
+        IRPass.instructionStream(module).forEach(this::swapConst);
     }
 
     private boolean isKind(Value value, InstKind kind) {
@@ -28,7 +30,7 @@ public class InstructionCombiner implements IRPass {
         return inst.getKind().equals(kind);
     }
 
-    private boolean matchPattern(Instruction inst) {
+    private boolean matchMultiOp(Instruction inst) {
         if (inst instanceof BinaryOpInst) {
             final var binst = (BinaryOpInst) inst;
             final var kind = binst.getKind();
@@ -95,6 +97,21 @@ public class InstructionCombiner implements IRPass {
                 inst.insertBeforeCO(reRInst);
                 inst.replaceRHS(reRInst);
                 inst.replaceLHS(RInst.getRHS());
+            }
+        }
+    }
+
+    private boolean isConst(Value value) {
+        return value instanceof Constant;
+    }
+    private void swapConst(Instruction inst) {
+        if (inst instanceof BinaryOpInst && inst.getType().isInt()) {
+            final var binst = (BinaryOpInst) inst;
+            final var lhs = binst.getLHS();
+            final var rhs = binst.getRHS();
+            if (!isConst(rhs) && isConst(lhs)) {
+                binst.replaceLHS(rhs);
+                binst.replaceRHS(lhs);
             }
         }
     }
