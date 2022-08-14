@@ -40,7 +40,7 @@ public abstract class Value {
         final var oldUserList = new ArrayList<>(userList);
         oldUserList.forEach(u -> u.replaceOperandCO(this, newValue));
         ensure(userList.isEmpty(), "User list should be empty after RAUW");
-        GlobalModifitationStatus.current().markAsChanged();
+        GlobalModificationStatus.current().markAsChanged();
     }
 
     // public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {

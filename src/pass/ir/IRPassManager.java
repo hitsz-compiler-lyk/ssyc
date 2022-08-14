@@ -1,6 +1,6 @@
 package pass.ir;
 
-import ir.GlobalModifitationStatus;
+import ir.GlobalModificationStatus;
 import ir.Module;
 import pass.ir.loop.LoopUnroll;
 import pass.ir.memory.RemoveUnnecessaryArray;
@@ -21,7 +21,7 @@ public class IRPassManager {
     }
 
     public void runAllClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
             runPass(new ClearUselessFunction());
@@ -36,7 +36,7 @@ public class IRPassManager {
     public void runGlobalVariableToValuePass() {
         runPass(new GlobalVariableToValue());
 
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
@@ -44,7 +44,7 @@ public class IRPassManager {
     }
 
     public void runMemoryOptimizePass() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runPass(new ReplaceUnnecessaryLoad());
             runDefaultBlockClearUpPasses();
             runPass(new RemoveUnnecessaryArray());
@@ -53,8 +53,8 @@ public class IRPassManager {
     }
 
     public void runDefaultBlockClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
-            runDefaultInstructionClearUpPasses();
+        GlobalModificationStatus.doUntilNoChange(() -> {
+            // runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
             runPass(new FuseBasicBlock());
@@ -67,10 +67,11 @@ public class IRPassManager {
     }
 
     public void runDefaultInstructionClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runPass(new ConstantFold());
-            runPass(new RemoveTravialPhi());
+            runPass(new RemoveTrivialPhi());
             runPass(new ClearUselessInstruction());
+            // runPass(new GCM());
         });
     }
 

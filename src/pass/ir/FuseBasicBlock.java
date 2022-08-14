@@ -1,14 +1,14 @@
 package pass.ir;
 
 import ir.Function;
-import ir.GlobalModifitationStatus;
+import ir.GlobalModificationStatus;
 import ir.Module;
 import utils.Log;
 
 public class FuseBasicBlock implements IRPass {
     @Override
     public void runPass(final Module module) {
-        GlobalModifitationStatus.doUntilNoChange(() ->
+        GlobalModificationStatus.doUntilNoChange(() ->
             module.getNonExternalFunction().forEach(this::mergeBlock));
     }
 

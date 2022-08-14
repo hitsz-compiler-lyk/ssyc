@@ -55,7 +55,7 @@ public class User extends Value {
     /** Dangerous !!! */
     public void freeFromUseDefUncheck() {
         removeOperandAllCO();
-        GlobalModifitationStatus.current().markAsChanged();
+        GlobalModificationStatus.current().markAsChanged();
     }
 
     @Override
