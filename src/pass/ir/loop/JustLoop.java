@@ -3,6 +3,7 @@ package pass.ir.loop;
 import ir.BasicBlock;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class JustLoop {
     JustLoop(JustLoop parent, BasicBlock header) {
@@ -33,6 +34,26 @@ public class JustLoop {
 
     public List<JustLoop> getSubLoops() {
         return subLoops;
+    }
+
+    /**
+     * 顶层循环是 1, 不在循环中的块是 0
+     */
+    public int getLoopDepth() {
+        return parent.map(JustLoop::getLoopDepth).map(i -> i + 1).orElse(1);
+    }
+
+    public List<JustLoop> allSubLoopsInPostOrder() {
+        final var children = subLoops.stream()
+            .map(JustLoop::allSubLoopsInPostOrder)
+            .flatMap(List::stream).collect(Collectors.toList());
+
+        children.add(this);
+        return children;
+    }
+
+    public static List<JustLoop> allLoopsInPostOrder(List<JustLoop> loops) {
+        return loops.stream().map(JustLoop::allSubLoopsInPostOrder).flatMap(List::stream).collect(Collectors.toList());
     }
 
     BasicBlock header;

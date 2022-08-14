@@ -15,9 +15,33 @@ public class CollectLoops {
         return collector.collectAllLoops(function);
     }
 
+    public static List<JustLoop> allAndaddToBlockInfo(Function function) {
+        for (final var block : function) {
+            if (block.containsAnalysisInfo(JustLoopBlockInfo.class)) {
+                block.removeAnalysisInfo(JustLoopBlockInfo.class);
+            }
+
+            block.addAnalysisInfo(new JustLoopBlockInfo());
+        }
+
+        final var allLoops = JustLoop.allLoopsInPostOrder(topLevel(function));
+        for (final var loop : allLoops) {
+            for (final var block : loop.getAll()) {
+                final var info = block.getAnalysisInfo(JustLoopBlockInfo.class);
+                info.setLoop(loop);
+            }
+        }
+
+        return allLoops;
+    }
+
     public static List<JustLoop> topLevel(Function function) {
         final var collector = new CollectLoops();
         return collector.collectTopLevelLoops(function);
+    }
+
+    private List<JustLoop> collectTopLevelLoops(Function function) {
+        return collectAllLoops(function).stream().filter(loop -> loop.getParent().isEmpty()).collect(Collectors.toList());
     }
 
     private JustLoop currLoop = null;
@@ -55,10 +79,6 @@ public class CollectLoops {
         }
 
         return loops;
-    }
-
-    private List<JustLoop> collectTopLevelLoops(Function function) {
-        return collectAllLoops(function).stream().filter(loop -> loop.getParent().isEmpty()).collect(Collectors.toList());
     }
 
     private void collectBlocksInLoop(BasicBlock block) {
