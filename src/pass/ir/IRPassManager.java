@@ -14,6 +14,7 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
+//        runPass(new ClearUnreachableBlock());
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
         runPass(new LoopUnroll());
@@ -70,6 +71,8 @@ public class IRPassManager {
         GlobalModifitationStatus.doUntilNoChange(() -> {
             runPass(new ConstantFold());
             runPass(new RemoveTravialPhi());
+            runPass(new ClearUnreachableBlock());
+            runPass(new InstructionCombiner());
             runPass(new ClearUselessInstruction());
         });
     }
