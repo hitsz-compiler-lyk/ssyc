@@ -59,6 +59,9 @@ public class ConstructDominatorInfo
 
     @Override
     public void runOnFunction(Function function) {
+        // 数据流分析的支配树构造算法似乎是 O(n^2) 的
+        // 并且每次计算涉及大量 Java 数据结构, 常数巨大
+        // 在优化性能时发现此处耗时甚多, 遂缓存之
         if (FunctionStructureCache.needUpdate(function)) {
             super.runOnFunction(function);
             calcIDom(function);
