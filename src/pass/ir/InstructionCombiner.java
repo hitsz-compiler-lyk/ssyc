@@ -105,7 +105,7 @@ public class InstructionCombiner implements IRPass {
         return value instanceof Constant;
     }
     private void swapConst(Instruction inst) {
-        if (inst instanceof BinaryOpInst && inst.getType().isInt()) {
+        if (inst instanceof BinaryOpInst && (isKind(inst, InstKind.IAdd) || isKind(inst, InstKind.IMul))) {
             final var binst = (BinaryOpInst) inst;
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
