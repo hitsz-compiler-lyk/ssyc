@@ -17,12 +17,15 @@ public class ArmInstBinary extends ArmInst {
             put(ArmInstKind.IRsb, "rsb");
             put(ArmInstKind.IMul, "mul");
             put(ArmInstKind.IDiv, "sdiv");
+            put(ArmInstKind.ILMul, "smmul"); // smmul Rd Rm Rs : Rd = (Rm * Rs)[63:32]
             put(ArmInstKind.FAdd, "vadd.f32");
             put(ArmInstKind.FSub, "vsub.f32");
             put(ArmInstKind.FMul, "vmul.f32");
             put(ArmInstKind.FDiv, "vdiv.f32");
         }
     };
+
+    ArmShift shift;
 
     public static boolean isBinary(ArmInstKind kind) {
         return binaryMap.containsKey(kind);
@@ -37,6 +40,7 @@ public class ArmInstBinary extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.shift = null;
     }
 
     public ArmInstBinary(ArmBlock block, ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -45,12 +49,14 @@ public class ArmInstBinary extends ArmInst {
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.shift = null;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.shift = null;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs, ArmCondType cond) {
@@ -58,6 +64,7 @@ public class ArmInstBinary extends ArmInst {
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
         this.setPrintCnt(1);
+        this.shift = null;
     }
 
     public Operand getDst() {
@@ -72,6 +79,14 @@ public class ArmInstBinary extends ArmInst {
         return this.getOperand(2);
     }
 
+    public void setShift(ArmShift shift) {
+        this.shift = shift;
+    }
+
+    public ArmShift getShift() {
+        return shift;
+    }
+
     @Override
     public String print() {
         String op = binaryMap.get(getInst());
@@ -79,8 +94,12 @@ public class ArmInstBinary extends ArmInst {
         var lhs = getLhs();
         var rhs = getRhs();
         Log.ensure(op != null);
-        String ret = "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
-                + rhs.print() + "\n";
-        return ret;
+        if (shift != null) {
+            return "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
+                    + rhs.print() + shift.toString() + "\n";
+        } else {
+            return "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
+                    + rhs.print() + "\n";
+        }
     }
 }

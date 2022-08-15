@@ -8,6 +8,8 @@ import utils.Log;
 
 // mla dst op1 op2 op3: dst = op3 + op1 * op2
 // mls dst op1 op2 op3: dst = op3 - op1 * op2
+// smmla dst op1 op2 op3: dst = op3 + op1 * op2[63:32]
+// smmls dst op1 op2 op3: dst = op3 - op1 * op2[63:32]
 // 0: dst RegDef
 // 1: op1 RegUse
 // 2: op2 RegUse
@@ -18,6 +20,8 @@ public class ArmInstTernay extends ArmInst {
         {
             put(ArmInstKind.IMulAdd, "mla");
             put(ArmInstKind.IMulSub, "mls");
+            put(ArmInstKind.ILMulAdd, "smmla");
+            put(ArmInstKind.ILMulSub, "smmls");
             put(ArmInstKind.FMulAdd, "vmla.f32");
             put(ArmInstKind.FMulSub, "vmls.f32");
         }
