@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.BasicBlock;
 import ir.Function;
+import ir.analysis.AnalysisInfo;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import pass.ir.dataflow.DataFlowInfo;
 import pass.ir.dataflow.ForwardDataFlowPass;
@@ -57,10 +58,14 @@ public class ConstructDominatorInfo
     }
 
     @Override
-    public void runOnFunction(Function func) {
-        super.runOnFunction(func);
-        calcIDom(func);
-        buildDomTree(func);
+    public void runOnFunction(Function function) {
+        if (FunctionStructureCache.needUpdate(function)) {
+            super.runOnFunction(function);
+            calcIDom(function);
+            buildDomTree(function);
+
+            FunctionStructureCache.updateCache(function);
+        }
     }
 
     void calcIDom(Function function) {
@@ -141,4 +146,49 @@ public class ConstructDominatorInfo
             return Collections.unmodifiableSet(getInfo(block).domTreeChildren);
         }
     }
+}
+
+class FunctionStructureCache implements AnalysisInfo {
+    public static boolean needUpdate(Function function) {
+        if (!function.containsAnalysisInfo(FunctionStructureCache.class)) {
+            return true;
+        }
+
+        final var info = function.getAnalysisInfo(FunctionStructureCache.class);
+        return function.size() != info.size || calcStructureHash(function) != info.hash;
+    }
+
+    public static void updateCache(Function function) {
+        if (function.containsAnalysisInfo(FunctionStructureCache.class)) {
+            function.removeAnalysisInfo(FunctionStructureCache.class);
+        }
+
+        final var size = function.size();
+        final var hash = calcStructureHash(function);
+        final var info = new FunctionStructureCache(size, hash);
+
+        function.addAnalysisInfo(info);
+    }
+
+    static int calcStructureHash(Function function) {
+        // 需要一个与块顺序无关的 hash
+        return function.stream().mapToInt(FunctionStructureCache::calcStructureHash).sum();
+    }
+
+    static int calcStructureHash(BasicBlock block) {
+        // 需要一个与前继/后继顺序无关的 hash (但是显然不能前继变后继之后还不变的)
+        int selfHash = System.identityHashCode(block);
+        int predHash = block.getPredecessors().stream().mapToInt(System::identityHashCode).sum();
+        int succHash = block.getSuccessors().stream().mapToInt(System::identityHashCode).sum();
+
+        return ((selfHash * 37) + predHash) * 37 + succHash;
+    }
+
+    FunctionStructureCache(int size, int hash) {
+        this.size = size;
+        this.hash = hash;
+    }
+
+    private final int size;
+    private final int hash;
 }
