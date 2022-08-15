@@ -1,15 +1,11 @@
 package backend.codegen;
 
-import java.net.ContentHandler;
-import java.net.FileNameMap;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 
 import backend.arm.ArmBlock;
@@ -34,6 +30,7 @@ import backend.arm.ArmInstStackStore;
 import backend.arm.ArmInstStore;
 import backend.arm.ArmInstTernay;
 import backend.arm.ArmInstUnary;
+import backend.arm.ArmShift;
 import backend.operand.FImm;
 import backend.operand.FPhyReg;
 import backend.operand.FVirtualReg;
@@ -368,21 +365,6 @@ public class CodeGenManager {
         }
     }
 
-    private Operand resolveOffset(Operand dst, int val, ArmBlock block, ArmFunction func) {
-        if (checkOffsetRange(val, dst)) {
-            // 可以直接表示 直接返回一个IImm
-            return new IImm(val);
-        } else {
-            // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
-            var vr = new IVirtualReg();
-            var addr = new IImm(val);
-            // MOV32 VR #imm32
-            var move = new ArmInstMove(block, vr, addr);
-            func.getImmMap().put(vr, move);
-            return vr;
-        }
-    }
-
     private Operand resolveLhsIImmOperand(int val, ArmBlock block, ArmFunction func) {
         // 因为无法直接表示 需要先MOVE到一个虚拟寄存器当中, 再返回这个虚拟寄存器
         var vr = new IVirtualReg();
@@ -554,20 +536,40 @@ public class CodeGenManager {
             case IDiv: {
                 // 除法无法交换操作数
                 lhsReg = resolveLhsOperand(lhs, block, func);
-                rhsReg = resolveLhsOperand(rhs, block, func); // sdiv 不允许立即数
                 dstReg = resolveOperand(dst, block, func);
-                // SDIV inst inst.getLHS() inst.getRHS()
-                new ArmInstBinary(block, ArmInstKind.IDiv, dstReg, lhsReg, rhsReg);
+                if (rhs instanceof IntConst) {
+                    var imm = ((IntConst) rhs).getValue();
+                    resolveConstDiv(dstReg, lhsReg, imm, block, func);
+                } else {
+                    rhsReg = resolveLhsOperand(rhs, block, func); // sdiv 不允许立即数
+                    // SDIV inst inst.getLHS() inst.getRHS()
+                    new ArmInstBinary(block, ArmInstKind.IDiv, dstReg, lhsReg, rhsReg);
+                }
                 break;
             }
             case IMod: {
                 // x % y == x - (x / y) *y
+                // % 0 特殊判断
+                if (rhs instanceof IntConst) {
+                    var imm = ((IntConst) rhs).getValue();
+                    if (imm == 0) {
+                        dstReg = resolveOperand(dst, block, func);
+                        lhsReg = resolveOperand(lhs, block, func);
+                        new ArmInstMove(block, dstReg, lhsReg);
+                        break;
+                    }
+                }
                 lhsReg = resolveLhsOperand(lhs, block, func);
                 rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会再Ternay变成 lhs
                 dstReg = resolveOperand(dst, block, func);
                 var vr = new IVirtualReg();
                 // SDIV VR inst.getLHS() inst.getRHS()
-                new ArmInstBinary(block, ArmInstKind.IDiv, vr, lhsReg, rhsReg);
+                if (rhs instanceof IntConst) {
+                    var imm = ((IntConst) rhs).getValue();
+                    resolveConstDiv(vr, lhsReg, imm, block, func);
+                } else {
+                    new ArmInstBinary(block, ArmInstKind.IDiv, vr, lhsReg, rhsReg);
+                }
                 // MLS inst VR inst.getRHS() inst.getLHS()
                 // inst = inst.getLHS() - VR * inst.getRHS()
                 new ArmInstTernay(block, ArmInstKind.IMulSub, dstReg, vr, rhsReg, lhsReg);
@@ -1583,13 +1585,78 @@ public class CodeGenManager {
         }
     }
 
-    private String getSymbol(String symbol) {
-        var sb = new StringBuffer("@" + symbol);
-        int p = sb.indexOf("\n");
-        while (p != sb.length() - 1 && p != -1) {
-            sb.insert(p + 1, "@");
-            p = sb.indexOf("\n", p + 1);
-        }
-        return sb.toString();
+    private boolean is2Power(int val) {
+        return (val & (val - 1)) == 0;
     }
+
+    private int ctz(int val) {
+        int ret = 0;
+        while (val != 0) {
+            val >>>= 1;
+            ret++;
+            if ((val & 1) == 1) {
+                return ret;
+            }
+        }
+        return ret;
+    }
+
+    private void resolveConstDiv(Operand dst, Operand src, int imm, ArmBlock block, ArmFunction func) {
+        int abs = Math.abs(imm);
+        if (abs == 1) {
+            if (imm > 0) {
+                new ArmInstMove(block, dst, src);
+            } else {
+                new ArmInstUnary(block, ArmInstKind.INeg, dst, src);
+            }
+            return;
+        } else if (is2Power(abs)) {
+            int l = ctz(abs);
+            var vr = src;
+            var vr2 = new IVirtualReg();
+            if (abs != 2) {
+                vr = new IVirtualReg();
+                var move = new ArmInstMove(block, vr, src);
+                move.setShift(new ArmShift(ArmShift.ShiftType.Asr, 31));
+            }
+            var add = new ArmInstBinary(block, ArmInstKind.IAdd, vr2, src, vr);
+            add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 32 - l));
+            var move = new ArmInstMove(block, dst, vr2);
+            move.setShift(new ArmShift(ArmShift.ShiftType.Asr, l));
+        } else {
+            long up = (1L << 31) - ((1L << 31) % abs) - 1;
+            int p = 32;
+            while ((1L << p) <= up * (abs - (1L << p) % abs)) {
+                p++;
+            }
+            long m = (((1L << p) + (long) abs - (1L << p) % abs) / (long) abs);
+            int n = (int) ((m << 32) >>> 32);
+            int l = p - 32;
+            var vn = resolveLhsIImmOperand(n, block, func);
+            var vr = new IVirtualReg();
+            if (m >= 2147483648L) {
+                new ArmInstTernay(block, ArmInstKind.ILMulAdd, vr, src, vn, src);
+            } else {
+                new ArmInstBinary(block, ArmInstKind.ILMul, vr, src, vn);
+            }
+            var vr2 = new IVirtualReg();
+            var move = new ArmInstMove(block, vr2, vr);
+            move.setShift(new ArmShift(ArmShift.ShiftType.Asr, l));
+            var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst, vr2, src);
+            add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 31));
+        }
+        if (imm < 0) {
+            new ArmInstUnary(block, ArmInstKind.INeg, dst, dst);
+        }
+    }
+
+    // private String getSymbol(String symbol) {
+    // var sb = new StringBuffer("@" + symbol);
+    // int p = sb.indexOf("\n");
+    // while (p != sb.length() - 1 && p != -1) {
+    // sb.insert(p + 1, "@");
+    // p = sb.indexOf("\n", p + 1);
+    // }
+    // return sb.toString();
+    // }
 }

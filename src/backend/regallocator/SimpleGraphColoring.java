@@ -233,6 +233,9 @@ public class SimpleGraphColoring implements RegAllocator {
         }
         if (spillNode == null) {
             for (var reg : remainNodes) {
+                if (func.getSpillNodes().contains(reg)) {
+                    continue;
+                }
                 if (spillNode == null
                         || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
                     spillNode = reg;
