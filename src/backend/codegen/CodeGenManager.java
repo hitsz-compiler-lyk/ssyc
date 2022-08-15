@@ -290,12 +290,8 @@ public class CodeGenManager {
             // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
             // MOVE Phi Incoming.Value
             Map<ArmBlock, ArmInst> fristBranch = new HashMap<>();
-            Map<ArmBlock, List<ArmInstMove>> phiMoveLists = new HashMap<>();
-            Map<ArmBlock, Map<Operand, List<Operand>>> phiEdges = new HashMap<>();
             for (var block : func.asElementView()) {
                 var armBlock = blockMap.get(block);
-                phiMoveLists.put(armBlock, new ArrayList<>());
-                phiEdges.put(armBlock, new HashMap<>());
                 for (var inst : armBlock.asElementView()) {
                     if (inst instanceof ArmInstBranch) {
                         fristBranch.put(armBlock, inst);
@@ -311,102 +307,20 @@ public class CodeGenManager {
                     var phi = phiIt.next();
                     var incomingInfoIt = phi.getIncomingInfos().iterator();
                     var phiReg = resolveOperand(phi, armBlock, armFunc);
+                    var temp = phiReg.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                    armBlock.asElementView().add(0, new ArmInstMove(phiReg, temp));
                     while (incomingInfoIt.hasNext()) {
                         var incomingInfo = incomingInfoIt.next();
                         var src = incomingInfo.getValue();
                         var incomingBlock = blockMap.get(incomingInfo.getBlock());
                         var srcReg = resolvePhiOperand(src, incomingBlock, armFunc);
-                        var incomingPhiList = phiMoveLists.get(incomingBlock);
-                        var incomingPhiEdge = phiEdges.get(incomingBlock);
-                        if (srcReg.IsImm()) {
-                            var move = new ArmInstMove(incomingBlock, phiReg, srcReg);
-                            incomingPhiList.add(move);
-                            // 因为对于phi而言不是唯一赋值 因此不能在寄存器分配时进行优化
+                        var move = new ArmInstMove(temp, srcReg);
+                        if (fristBranch.containsKey(incomingBlock)) {
+                            var branch = fristBranch.get(incomingBlock);
+                            branch.insertBeforeCO(move);
                         } else {
-                            if (!incomingPhiEdge.containsKey(srcReg)) {
-                                incomingPhiEdge.put(srcReg, new ArrayList<>());
-                            }
-                            incomingPhiEdge.get(srcReg).add(phiReg);
-                            Operand vr = phiReg.IsInt() ? new IVirtualReg() : new FVirtualReg();
-                            var move = new ArmInstMove(vr, srcReg);
-                            incomingPhiList.add(0, move);
-                            move = new ArmInstMove(phiReg, vr);
-                            incomingPhiList.add(move);
+                            incomingBlock.asElementView().add(move);
                         }
-                    }
-                }
-            }
-
-            for (var block : func.asElementView()) {
-                var armBlock = blockMap.get(block);
-                var phiEdge = phiEdges.get(armBlock);
-                var phiList = phiMoveLists.get(armBlock);
-                Map<Operand, Integer> in = new HashMap<>();
-                Set<Operand> opSet = new HashSet<>();
-                for (var op : phiEdge.keySet()) {
-                    in.put(op, 0);
-                    opSet.add(op);
-                }
-                for (var ops : phiEdge.values()) {
-                    for (var op : ops) {
-                        if (in.containsKey(op)) {
-                            in.put(op, in.get(op) + 1);
-                        }
-                    }
-                }
-                Queue<Operand> q = new ArrayDeque<>();
-                for (var entry : in.entrySet()) {
-                    if (entry.getValue() == 0) {
-                        q.add(entry.getKey());
-                        opSet.remove(entry.getKey());
-                    }
-                }
-                while ((!q.isEmpty()) || (!opSet.isEmpty())) {
-                    if (q.isEmpty()) {
-                        var op = opSet.iterator().next();
-                        opSet.remove(op);
-                        Operand vr = op.IsInt() ? new IVirtualReg() : new FVirtualReg();
-                        phiList.add(new ArmInstMove(vr, op));
-                        var edge = phiEdge.get(op);
-                        phiEdge.put(op, new ArrayList<>());
-                        for (var to : edge) {
-                            phiList.add(new ArmInstMove(to, vr));
-                            if (in.containsKey(to)) {
-                                in.put(to, in.get(to) - 1);
-                                if (in.get(to) == 0) {
-                                    q.add(to);
-                                }
-                            }
-                        }
-                        continue;
-                    }
-                    var now = q.element();
-                    q.remove();
-                    var edge = phiEdge.get(now);
-                    phiEdge.put(now, new ArrayList<>());
-                    for (var to : edge) {
-                        phiList.add(new ArmInstMove(to, now));
-                        if (in.containsKey(to)) {
-                            in.put(to, in.get(to) - 1);
-                            if (in.get(to) == 0) {
-                                q.add(to);
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (var block : func.asElementView()) {
-                var armBlock = blockMap.get(block);
-                var phiList = phiMoveLists.get(armBlock);
-                if (fristBranch.containsKey(armBlock)) {
-                    var branch = fristBranch.get(armBlock);
-                    for (var move : phiList) {
-                        branch.insertBeforeCO(move);
-                    }
-                } else {
-                    for (var move : phiList) {
-                        armBlock.asElementView().add(move);
                     }
                 }
             }
