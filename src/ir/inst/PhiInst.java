@@ -33,6 +33,7 @@ public class PhiInst extends Instruction {
 
     public void setIncomingValueWithoutCheckingPredecessorsCO(List<Value> incomingValues) {
         super.addAllOperandsCO(incomingValues);
+        this.markAsCompleted();
     }
 
     public void clearIncomingCO() {

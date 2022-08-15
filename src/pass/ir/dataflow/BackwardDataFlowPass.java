@@ -8,18 +8,18 @@ import pass.ir.IRPass;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implements IRPass {
-    protected abstract T transfer(BasicBlock block, T in);
-    protected abstract T meet(BasicBlock block, List<T> predOuts);
+public abstract class BackwardDataFlowPass<T, I extends DataFlowInfo<T>> implements IRPass {
+    protected abstract T transfer(BasicBlock block, T out);
+    protected abstract T meet(BasicBlock block, List<T> succIns);
 
     protected abstract T topElement(BasicBlock block);
-    protected abstract T entryIn(BasicBlock block);
+    protected abstract T tailOut(BasicBlock tail);
 
     protected abstract Class<I> getInfoClass();
     protected abstract I createInfo(BasicBlock block);
 
     @Override
-    public void runPass(Module module) {
+    public void runPass(final Module module) {
         module.getNonExternalFunction().forEach(this::runOnFunction);
     }
 
@@ -40,8 +40,8 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
 
     public void insertInfo(Function function) {
         for (final var block : function) {
-            if (block.getPredecessorSize() == 0) {
-                block.addAnalysisInfo(createEntryInfo(block));
+            if (block.getSuccessors().size() == 0) {
+                block.addAnalysisInfo(createTailInfo(block));
             } else {
                 block.addAnalysisInfo(createEmptyInfo(block));
             }
@@ -56,14 +56,14 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
             for (final var block : function) {
                 final var info = getInfo(block);
 
-                final var predOuts = block.getPredecessors().stream()
-                    .map(this::getInfo).map(DataFlowInfo::out).collect(Collectors.toList());
-                final var newIn = meet(block, predOuts);
+                final var succIns = block.getSuccessors().stream()
+                    .map(this::getInfo).map(DataFlowInfo::in).collect(Collectors.toList());
+                final var newOut = meet(block, succIns);
 
-                if (!newIn.equals(info.in)) {
+                if (!newOut.equals(info.out)) {
                     hasChanged = true;
-                    info.in = newIn;
-                    info.out = transfer(block, newIn);
+                    info.out = newOut;
+                    info.in = transfer(block, newOut);
                 }
             }
         }
@@ -71,16 +71,16 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
 
     private I createEmptyInfo(BasicBlock block) {
         final var info = createInfo(block);
-        info.in = topElement(block);
         info.out = topElement(block);
+        info.in = topElement(block);
         info.needUpdate = false;
         return info;
     }
 
-    private I createEntryInfo(BasicBlock block) {
+    private I createTailInfo(BasicBlock block) {
         final var info = createInfo(block);
-        info.in = entryIn(block);
-        info.out = transfer(block, info.in);
+        info.out = tailOut(block);
+        info.in = transfer(block, info.out);
         info.needUpdate = true;
         return info;
     }

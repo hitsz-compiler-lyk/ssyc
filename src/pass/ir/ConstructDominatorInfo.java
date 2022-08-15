@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.BasicBlock;
 import ir.Function;
+import ir.analysis.AnalysisInfo;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import pass.ir.dataflow.DataFlowInfo;
 import pass.ir.dataflow.ForwardDataFlowPass;
@@ -57,10 +58,18 @@ public class ConstructDominatorInfo
     }
 
     @Override
-    public void runOnFunction(Function func) {
-        super.runOnFunction(func);
-        calcIDom(func);
-        buildDomTree(func);
+    public void runOnFunction(Function function) {
+        // 数据流分析的支配树构造算法似乎是 O(n^2) 的
+        // 并且每次计算涉及大量 Java 数据结构, 常数巨大
+        // 在优化性能时发现此处耗时甚多, 遂缓存之
+        if (FunctionStructureCache.needUpdate(function)) {
+            super.runOnFunction(function);
+            calcIDom(function);
+            buildDomTree(function);
+            calcDomTreeDepth(function.getEntryBBlock(), 0);
+
+            FunctionStructureCache.updateCache(function);
+        }
     }
 
     void calcIDom(Function function) {
@@ -79,6 +88,15 @@ public class ConstructDominatorInfo
             } else {
                 Log.ensure(function.getEntryBBlock() == block);
             }
+        }
+    }
+
+    void calcDomTreeDepth(BasicBlock currBlock, int currDepth) {
+        final var info = DominatorInfo.getInfo(currBlock);
+        info.domTreeDepth = currDepth;
+
+        for (final var child : info.domTreeChildren) {
+            calcDomTreeDepth(child, currDepth + 1);
         }
     }
 
@@ -123,6 +141,7 @@ public class ConstructDominatorInfo
         private final BasicBlock self;
         private BasicBlock idom;
         private final Set<BasicBlock> domTreeChildren;
+        private int domTreeDepth = -1; //! entry 是 0
 
         private static DominatorInfo getInfo(BasicBlock block) {
             return block.getAnalysisInfo(DominatorInfo.class);
@@ -140,5 +159,55 @@ public class ConstructDominatorInfo
         public static Set<BasicBlock> domTreeChildren(BasicBlock block) {
             return Collections.unmodifiableSet(getInfo(block).domTreeChildren);
         }
+        public static int domTreeDepth(BasicBlock block) {
+            final var depth = getInfo(block).domTreeDepth;
+            Log.ensure(depth >= 0);
+            return depth;
+        }
     }
+}
+
+class FunctionStructureCache implements AnalysisInfo {
+    public static boolean needUpdate(Function function) {
+        if (!function.containsAnalysisInfo(FunctionStructureCache.class)) {
+            return true;
+        }
+
+        final var info = function.getAnalysisInfo(FunctionStructureCache.class);
+        return function.size() != info.size || calcStructureHash(function) != info.hash;
+    }
+
+    public static void updateCache(Function function) {
+        if (function.containsAnalysisInfo(FunctionStructureCache.class)) {
+            function.removeAnalysisInfo(FunctionStructureCache.class);
+        }
+
+        final var size = function.size();
+        final var hash = calcStructureHash(function);
+        final var info = new FunctionStructureCache(size, hash);
+
+        function.addAnalysisInfo(info);
+    }
+
+    static int calcStructureHash(Function function) {
+        // 需要一个与块顺序无关的 hash
+        return function.stream().mapToInt(FunctionStructureCache::calcStructureHash).sum();
+    }
+
+    static int calcStructureHash(BasicBlock block) {
+        // 需要一个与前继/后继顺序无关的 hash (但是显然不能前继变后继之后还不变的)
+        int selfHash = System.identityHashCode(block);
+        int predHash = block.getPredecessors().stream().mapToInt(System::identityHashCode).sum();
+        int succHash = block.getSuccessors().stream().mapToInt(System::identityHashCode).sum();
+
+        return ((selfHash * 37) + predHash) * 37 + succHash;
+    }
+
+    FunctionStructureCache(int size, int hash) {
+        this.size = size;
+        this.hash = hash;
+    }
+
+    private final int size;
+    private final int hash;
 }
