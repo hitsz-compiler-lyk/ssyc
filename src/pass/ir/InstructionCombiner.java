@@ -7,14 +7,16 @@ import ir.inst.BinaryOpInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
 
+import java.util.Set;
+
 public class InstructionCombiner implements IRPass {
     @Override
     public void runPass(Module module) {
         new ConstructDominatorInfo().runPass(module);
         IRPass.instructionStream(module)
-                .filter(this::matchMultiOp)
-                .map(self -> (BinaryOpInst) self)
-                .forEach(this::combine);
+            .filter(this::matchMultiOp)
+            .map(BinaryOpInst.class::cast)
+            .forEach(this::combine);
         IRPass.instructionStream(module).forEach(this::swapConst);
     }
 
@@ -105,7 +107,8 @@ public class InstructionCombiner implements IRPass {
         return value instanceof Constant;
     }
     private void swapConst(Instruction inst) {
-        if (inst instanceof BinaryOpInst && inst.getType().isInt()) {
+        final var canSwap = Set.of(InstKind.IAdd, InstKind.IMul);
+        if (canSwap.contains(inst.getKind())) {
             final var binst = (BinaryOpInst) inst;
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
