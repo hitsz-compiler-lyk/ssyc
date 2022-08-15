@@ -14,7 +14,9 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
+//        runPass(new ClearUnreachableBlock());
         runAllClearUpPasses();
+        runGlobalVariableToValuePass();
         runPass(new LoopUnroll());
         runAllClearUpPasses();
     }
@@ -28,6 +30,16 @@ public class IRPassManager {
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
             runMemoryOptimizePass();
+            runDefaultBlockClearUpPasses();
+        });
+    }
+
+    public void runGlobalVariableToValuePass() {
+        runPass(new GlobalVariableToValue());
+
+        GlobalModifitationStatus.doUntilNoChange(() -> {
+            runDefaultBlockClearUpPasses();
+            runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
         });
     }
@@ -59,6 +71,8 @@ public class IRPassManager {
         GlobalModifitationStatus.doUntilNoChange(() -> {
             runPass(new ConstantFold());
             runPass(new RemoveTravialPhi());
+            runPass(new ClearUnreachableBlock());
+            runPass(new InstructionCombiner());
             runPass(new ClearUselessInstruction());
         });
     }
