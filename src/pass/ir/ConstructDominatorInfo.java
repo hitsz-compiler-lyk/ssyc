@@ -66,6 +66,7 @@ public class ConstructDominatorInfo
             super.runOnFunction(function);
             calcIDom(function);
             buildDomTree(function);
+            calcDomTreeDepth(function.getEntryBBlock(), 0);
 
             FunctionStructureCache.updateCache(function);
         }
@@ -87,6 +88,15 @@ public class ConstructDominatorInfo
             } else {
                 Log.ensure(function.getEntryBBlock() == block);
             }
+        }
+    }
+
+    void calcDomTreeDepth(BasicBlock currBlock, int currDepth) {
+        final var info = DominatorInfo.getInfo(currBlock);
+        info.domTreeDepth = currDepth;
+
+        for (final var child : info.domTreeChildren) {
+            calcDomTreeDepth(child, currDepth + 1);
         }
     }
 
@@ -131,6 +141,7 @@ public class ConstructDominatorInfo
         private final BasicBlock self;
         private BasicBlock idom;
         private final Set<BasicBlock> domTreeChildren;
+        private int domTreeDepth = -1; //! entry 是 0
 
         private static DominatorInfo getInfo(BasicBlock block) {
             return block.getAnalysisInfo(DominatorInfo.class);
@@ -147,6 +158,11 @@ public class ConstructDominatorInfo
         }
         public static Set<BasicBlock> domTreeChildren(BasicBlock block) {
             return Collections.unmodifiableSet(getInfo(block).domTreeChildren);
+        }
+        public static int domTreeDepth(BasicBlock block) {
+            final var depth = getInfo(block).domTreeDepth;
+            Log.ensure(depth >= 0);
+            return depth;
         }
     }
 }

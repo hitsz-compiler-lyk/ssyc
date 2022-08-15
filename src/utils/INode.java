@@ -1,6 +1,6 @@
 package utils;
 
-import ir.GlobalModifitationStatus;
+import ir.GlobalModificationStatus;
 
 import java.util.Optional;
 
@@ -74,7 +74,7 @@ public class INode<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> {
 
     public void freeFromIList() {
         getParentOpt().ifPresent(p -> p.asINodeView().remove(this));
-        GlobalModifitationStatus.current().markAsChanged();
+        GlobalModificationStatus.current().markAsChanged();
     }
 
     public void insertBeforeCO(INode<E, P> newPrev) {

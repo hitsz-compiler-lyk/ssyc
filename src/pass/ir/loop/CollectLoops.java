@@ -2,6 +2,7 @@ package pass.ir.loop;
 
 import ir.BasicBlock;
 import ir.Function;
+import pass.ir.ConstructDominatorInfo;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import utils.Log;
 
@@ -12,7 +13,7 @@ import java.util.stream.Collectors;
 public class CollectLoops {
     public static List<JustLoop> all(Function function) {
         final var collector = new CollectLoops();
-        return collector.collectAllLoops(function);
+        return collector.runOnFunction(function);
     }
 
     public static List<JustLoop> allAndaddToBlockInfo(Function function) {
@@ -41,7 +42,13 @@ public class CollectLoops {
     }
 
     private List<JustLoop> collectTopLevelLoops(Function function) {
-        return collectAllLoops(function).stream().filter(loop -> loop.getParent().isEmpty()).collect(Collectors.toList());
+        return runOnFunction(function).stream().filter(loop -> loop.getParent().isEmpty()).collect(Collectors.toList());
+    }
+
+    private List<JustLoop> runOnFunction(Function function) {
+        final var domConstructor = new ConstructDominatorInfo();
+        domConstructor.runOnFunction(function);
+        return collectAllLoops(function);
     }
 
     private JustLoop currLoop = null;
