@@ -4,10 +4,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import backend.arm.ArmInst;
+import backend.arm.ArmInstBinary;
 import backend.arm.ArmInstCall;
 import backend.arm.ArmInstMove;
 import backend.arm.ArmInstStackLoad;
 import backend.arm.ArmInstStackStore;
+import backend.arm.ArmInst.ArmInstKind;
 import backend.codegen.CodeGenManager;
 import backend.operand.Operand;
 import backend.operand.Reg;
@@ -24,20 +26,20 @@ public class Peephole implements BackendPass {
                     var nxtInstOp = inst.getINode().getNext();
                     var nxtInst = nxtInstOp.isPresent() ? nxtInstOp.get().getValue() : null;
 
-                    // str a, [b, x]
-                    // ldr c, [b, x]
-                    // replace
-                    // str a, [b, x]
-                    // mov c, a
-                    // 这个情况理论上是用于处理寄存器分配的栈存取
                     if (inst instanceof ArmInstStackLoad) {
                         var load = (ArmInstStackLoad) inst;
                         if (preInst != null && preInst instanceof ArmInstStackStore) {
+                            // str a, [b, imm]
+                            // ldr c, [b, imm]
+                            // =>
+                            // str a, [b, imm]
+                            // mov c, a
+                            // 这个情况理论上是用于处理寄存器分配的栈存取
                             var store = (ArmInstStackStore) preInst;
-                            boolean isSameAddr = store.getAddr().equals(load.getAddr());
-                            boolean isSameOffset = store.getOffset().equals(load.getOffset());// 和比较true offset等价
+                            boolean isEqualAddr = store.getAddr().equals(load.getAddr());
+                            boolean isEqualOffset = store.getOffset().equals(load.getOffset());// 和比较true offset等价
                             boolean isNoCond = store.getCond().equals(ArmInst.ArmCondType.Any);
-                            if (isSameAddr && isSameOffset && isNoCond) {
+                            if (isEqualAddr && isEqualOffset && isNoCond) {
                                 if (!load.getDst().equals(store.getDst())) {
                                     var move = new ArmInstMove(load.getDst(), store.getDst());
                                     move.setCond(move.getCond());
@@ -49,12 +51,72 @@ public class Peephole implements BackendPass {
                         }
                     }
 
-                    // 删除 mov a, a
                     if (inst instanceof ArmInstMove) {
                         var move = (ArmInstMove) inst;
                         if (move.getDst().equals(move.getSrc()) && move.getShift() == null) {
+                            // 删除 mov a, a
                             move.freeFromIList();
                             done = false;
+                        } else if (preInst != null && preInst instanceof ArmInstMove) {
+                            // mov a, b
+                            // mov b, a
+                            // =>
+                            // mov a, b
+                            var preMove = (ArmInstMove) preInst;
+                            boolean isEqualDst = move.getDst().equals(preMove.getSrc());
+                            boolean isEqualSrc = move.getSrc().equals(preMove.getDst());
+                            boolean isNoCond = preMove.getCond().equals(ArmInst.ArmCondType.Any);
+                            boolean isNoShift = move.getShift() == null && preMove.getShift() == null;
+                            if (isEqualDst && isEqualSrc && isNoCond && isNoShift) {
+                                move.freeFromIList();
+                                done = false;
+                            }
+                        }
+                    }
+
+                    if (inst.getInst().equals(ArmInstKind.IAdd) || inst.getInst().equals(ArmInstKind.ISub) || inst.getInst().equals(ArmInstKind.IRsb)) {
+                        var binay = (ArmInstBinary) inst;
+                        if (preInst != null && preInst instanceof ArmInstMove) {
+                            // mov a, b shift
+                            // sub/add d, c, a
+                            // add d, a, c
+                            // =>
+                            // mov a, b shift
+                            // sub/add d, c, b shift
+                            // add d, c, b shift
+                            var move = (ArmInstMove) preInst;
+                            boolean isReg = move.getSrc().IsReg();
+                            boolean isEqualLhs = move.getDst().equals(binay.getLhs());
+                            boolean isEqualRhs = move.getDst().equals(binay.getRhs());
+                            boolean isNoShift = binay.getShift() == null;
+                            boolean isNoCond = move.getCond().equals(ArmInst.ArmCondType.Any);
+                            boolean canFix = (!move.getDst().equals(move.getSrc()))
+                                    || (move.getDst().equals(move.getSrc()) && move.getDst().equals(binay.getDst())
+                                            && !binay.getLhs().equals(binay.getRhs()));
+                            // mov a ,a shift
+                            // sub/add a, b, a
+                            if (isReg && isEqualLhs && isNoShift && isNoCond && canFix
+                                    && binay.getInst().equals(ArmInstKind.IAdd) && binay.getRhs().IsReg()) {
+                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(), binay.getRhs(),
+                                        move.getSrc());
+                                binay2.setShift(move.getShift());
+                                binay.insertBeforeCO(binay2);
+                                binay.freeFromIList();
+                                if (move.getDst().equals(move.getSrc())) {
+                                    move.freeFromIList();
+                                }
+                                done = false;
+                            } else if (isReg && isEqualRhs && isNoShift && isNoCond && canFix) {
+                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(), binay.getLhs(),
+                                        move.getSrc());
+                                binay2.setShift(move.getShift());
+                                binay.insertBeforeCO(binay2);
+                                binay.freeFromIList();
+                                if (move.getDst().equals(move.getSrc())) {
+                                    move.freeFromIList();
+                                }
+                                done = false;
+                            }
                         }
                     }
                 }
