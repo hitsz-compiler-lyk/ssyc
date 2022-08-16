@@ -1,13 +1,13 @@
 package ir;
 
+import ir.type.IRType;
+import utils.Log;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
-
-import ir.type.IRType;
-import utils.Log;
 
 public class User extends Value {
     public User(IRType type) {
@@ -55,7 +55,7 @@ public class User extends Value {
     /** Dangerous !!! */
     public void freeFromUseDefUncheck() {
         removeOperandAllCO();
-        GlobalModifitationStatus.current().markAsChanged();
+        GlobalModificationStatus.current().markAsChanged();
     }
 
     @Override

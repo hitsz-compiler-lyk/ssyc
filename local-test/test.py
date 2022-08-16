@@ -271,21 +271,22 @@ def check_funcs(funcs):
         exit_with('Last pass should return a .s file')
 
 if __name__ == '__main__':
+    test_items = {
+        'ssyc_llvm': [build, ssyc_llvm, llc, gcc_as, run],
+        'ssyc_asm': [build, ssyc_asm, gcc_as, run],
+
+        'ssyc_llvm_long': [build, ssyc_llvm, llc, gcc_as, run_for_long_time, print_fail],
+        'ssyc_asm_long': [build, ssyc_asm, llc, gcc_as, run_for_long_time, print_fail],
+
+        'clang': [clang, gcc_as, run],
+        'clang_O2': [clang_O2, gcc_as, run],
+
+        'generate_stdout': [clang, gcc_as, generate_stdout]
+    }
+
     try:
         pgm, subdir, test_item = sys.argv
 
-        test_items = {
-            'ssyc_llvm': [build, ssyc_llvm, llc, gcc_as, run],
-            'ssyc_asm': [build, ssyc_asm, gcc_as, run],
-
-            'ssyc_llvm_long': [build, ssyc_llvm, llc, gcc_as, run_for_long_time, print_fail],
-            'ssyc_asm_long': [build, ssyc_asm, llc, gcc_as, run_for_long_time, print_fail],
-
-            'clang': [clang, gcc_as, run],
-            'clang_O2': [clang_O2, gcc_as, run],
-
-            'generate_stdout': [clang, gcc_as, generate_stdout]
-        }
         funcs = test_items[test_item]
         # check_funcs(funcs)
 
@@ -295,6 +296,6 @@ if __name__ == '__main__':
 
     except ValueError:
         console.print('[white bold]Usage: ./m test <data-subdir> <test-item>')
-        console.print('    <data-subdir>: ', sorted(os.listdir(rel('test-data'))))
-        console.print('    <test-item>: ', ['ssyc_llvm', 'ssyc_asm', 'clang', 'clang_O2'])
-        console.print('\nPassed: ', sys.argv)
+        console.print(f'    <data-subdir> : {sorted(os.listdir(rel("test-data")))}')
+        console.print(f'    <test-item>   : {list(test_items.keys())}')
+        console.print(f'Passed: {sys.argv}')

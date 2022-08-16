@@ -1,17 +1,17 @@
 package pass.ir;
 
 import ir.Function;
-import ir.GlobalModifitationStatus;
+import ir.GlobalModificationStatus;
 import ir.Module;
 import ir.Value;
 import ir.inst.PhiInst;
 
 import java.util.HashSet;
 
-public class RemoveTravialPhi implements IRPass {
+public class RemoveTrivialPhi implements IRPass {
     @Override
     public void runPass(final Module module) {
-        GlobalModifitationStatus.doUntilNoChange(() ->
+        GlobalModificationStatus.doUntilNoChange(() ->
             module.getNonExternalFunction().forEach(this::removeTrivialPhi));
     }
 
@@ -39,7 +39,8 @@ public class RemoveTravialPhi implements IRPass {
         // incoming 去重
         final var incoming = new HashSet<>(phi.getIncomingValues());
         // 这里的 phi 不能删除自己, 因为此时的 phi 如果还有到自己的引用, 那必然是直接循环导致的
-        // incoming.remove(phi);
+        // ? 为什么直接循环导致的到自己的引用不能删来着 ?
+        incoming.remove(phi);
 
         final var isDeadBlock = phi.getParentOpt().orElseThrow().getPredecessors().isEmpty();
         if (incoming.isEmpty() && !isDeadBlock) {

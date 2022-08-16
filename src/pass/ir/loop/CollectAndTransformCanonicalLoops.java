@@ -8,7 +8,6 @@ import ir.Value;
 import ir.inst.BrCondInst;
 import ir.inst.BrInst;
 import ir.inst.PhiInst;
-import pass.ir.ConstructDominatorInfo;
 import pass.ir.IRPass;
 import utils.CollectionTools;
 import utils.Log;
@@ -34,9 +33,7 @@ public class CollectAndTransformCanonicalLoops {
     }
 
     public List<CanonicalLoop> collect(Function function) {
-        final var domInfoConstructor = new ConstructDominatorInfo();
-        domInfoConstructor.runOnFunction(function);
-
+        // collect loops 会构造 dom 信息的
         return CollectLoops.topLevel(function).stream()
             .map(loop -> transformToCanonicalLoop(null, loop))
             .collect(Collectors.toList());

@@ -1,6 +1,6 @@
 package ir;
 
-public class GlobalModifitationStatus {
+public class GlobalModificationStatus {
     public void resetStatus() {
         hasChanged = false;
     }
@@ -13,8 +13,8 @@ public class GlobalModifitationStatus {
         return hasChanged;
     }
 
-    public static GlobalModifitationStatus newStage() {
-        status = new GlobalModifitationStatus(status);
+    public static GlobalModificationStatus newStage() {
+        status = new GlobalModificationStatus(status);
         return status;
     }
 
@@ -28,26 +28,26 @@ public class GlobalModifitationStatus {
     }
 
     public static void doUntilNoChange(Runnable runner) {
-        final var status = GlobalModifitationStatus.newStage();
+        final var status = GlobalModificationStatus.newStage();
 
         do {
             status.resetStatus();
             runner.run();
         } while (status.hasChanged());
 
-        GlobalModifitationStatus.mergeStage();
+        GlobalModificationStatus.mergeStage();
     }
 
-    public static GlobalModifitationStatus current() {
+    public static GlobalModificationStatus current() {
         return status;
     }
 
-    private GlobalModifitationStatus(GlobalModifitationStatus parent) {
+    private GlobalModificationStatus(GlobalModificationStatus parent) {
         this.hasChanged = false;
         this.parent = parent;
     }
 
-    private static GlobalModifitationStatus status = new GlobalModifitationStatus(null);
+    private static GlobalModificationStatus status = new GlobalModificationStatus(null);
     private boolean hasChanged;
-    private GlobalModifitationStatus parent;
+    private GlobalModificationStatus parent;
 }

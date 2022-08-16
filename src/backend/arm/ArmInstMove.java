@@ -9,6 +9,7 @@ import utils.Log;
 // 0: dst RegUse
 // 1: drc RegUse
 public class ArmInstMove extends ArmInst {
+    ArmShift shift;
 
     public ArmInstMove(ArmInstKind inst) {
         super(inst);
@@ -30,6 +31,7 @@ public class ArmInstMove extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstMove(Operand dst, Operand src) {
@@ -47,6 +49,7 @@ public class ArmInstMove extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstMove(ArmBlock block, Operand dst, Operand src, ArmCondType cond) {
@@ -66,6 +69,7 @@ public class ArmInstMove extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstMove(Operand dst, Operand src, ArmCondType cond) {
@@ -84,6 +88,7 @@ public class ArmInstMove extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public Operand getDst() {
@@ -92,6 +97,14 @@ public class ArmInstMove extends ArmInst {
 
     public Operand getSrc() {
         return this.getOperand(1);
+    }
+
+    public void setShift(ArmShift shift) {
+        this.shift = shift;
+    }
+
+    public ArmShift getShift() {
+        return shift;
     }
 
     @Override
@@ -138,6 +151,9 @@ public class ArmInstMove extends ArmInst {
             // src.print() + "\n";
             return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + src.print() + "\n" +
                     "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + src.print() + "\n";
+        } else if (shift != null) {
+            return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print()
+                    + shift.toString() + "\n";
         } else {
             return "\t" + isVector + "mov" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
         }

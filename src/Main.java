@@ -1,14 +1,13 @@
-import java.io.*;
-import java.lang.Thread.UncaughtExceptionHandler;
-
-import org.antlr.v4.runtime.*;
-
 import backend.codegen.CodeGenManager;
-import frontend.*;
+import frontend.IRGen;
+import frontend.SysYLexer;
+import frontend.SysYParser;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import pass.ir.IRPassManager;
 import utils.LLVMDumper;
-import utils.Log;
-import utils.LogFailException;
+
+import java.io.*;
 
 public class Main {
     public static void main(String[] args) throws IOException {

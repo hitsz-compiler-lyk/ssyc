@@ -1,11 +1,14 @@
 package pass.ir;
 
-import ir.GlobalModifitationStatus;
+import ir.GlobalModificationStatus;
 import ir.Module;
+import pass.ir.loop.InductionVariableReduce;
 import pass.ir.loop.LoopUnroll;
 import pass.ir.memory.RemoveUnnecessaryArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
+
+import java.util.List;
 
 public class IRPassManager {
     public IRPassManager(Module module) {
@@ -14,22 +17,31 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
-//        runPass(new ClearUnreachableBlock());
+        final var blockCount = module.getNonExternalFunction().stream()
+            .flatMap(List::stream).mapToInt(List::size).sum();
+        if (blockCount >= 5000) {
+            // very large program, just run simple opt
+            runPass(new ClearUnreachableBlock());
+            runPass(new ClearUselessInstruction());
+            return;
+        }
+
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
+        runMemoryOptimizePass();
+        runPass(new HoistGlobalArrayLoad());
+        runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
         runAllClearUpPasses();
     }
 
     public void runAllClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
             runPass(new ClearUselessFunction());
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
-            runDefaultBlockClearUpPasses();
-            runMemoryOptimizePass();
             runDefaultBlockClearUpPasses();
         });
     }
@@ -37,7 +49,7 @@ public class IRPassManager {
     public void runGlobalVariableToValuePass() {
         runPass(new GlobalVariableToValue());
 
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
@@ -45,7 +57,7 @@ public class IRPassManager {
     }
 
     public void runMemoryOptimizePass() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runPass(new ReplaceUnnecessaryLoad());
             runDefaultBlockClearUpPasses();
             runPass(new RemoveUnnecessaryArray());
@@ -54,7 +66,7 @@ public class IRPassManager {
     }
 
     public void runDefaultBlockClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
@@ -68,12 +80,13 @@ public class IRPassManager {
     }
 
     public void runDefaultInstructionClearUpPasses() {
-        GlobalModifitationStatus.doUntilNoChange(() -> {
+        GlobalModificationStatus.doUntilNoChange(() -> {
             runPass(new ConstantFold());
-            runPass(new RemoveTravialPhi());
+            runPass(new RemoveTrivialPhi());
             runPass(new ClearUnreachableBlock());
             runPass(new InstructionCombiner());
             runPass(new ClearUselessInstruction());
+            runPass(new GCM());
         });
     }
 

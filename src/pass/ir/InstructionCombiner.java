@@ -7,14 +7,16 @@ import ir.inst.BinaryOpInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
 
+import java.util.Set;
+
 public class InstructionCombiner implements IRPass {
     @Override
     public void runPass(Module module) {
         new ConstructDominatorInfo().runPass(module);
         IRPass.instructionStream(module)
-                .filter(this::matchMultiOp)
-                .map(self -> (BinaryOpInst) self)
-                .forEach(this::combine);
+            .filter(this::matchMultiOp)
+            .map(BinaryOpInst.class::cast)
+            .forEach(this::combine);
         IRPass.instructionStream(module).forEach(this::swapConst);
     }
 

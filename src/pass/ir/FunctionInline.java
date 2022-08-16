@@ -12,7 +12,7 @@ import java.util.*;
 public class FunctionInline implements IRPass {
     @Override
     public void runPass(final Module module) {
-        GlobalModifitationStatus.doUntilNoChange(() ->
+        GlobalModificationStatus.doUntilNoChange(() ->
             IRPass.instructionStream(module)
                 .filter(CallInst.class::isInstance).map(CallInst.class::cast)
                 .filter(this::canInline)
