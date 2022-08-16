@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.*;
 
 import backend.codegen.CodeGenManager;
 import frontend.*;
+import pass.backend.BackendPassManager;
 import pass.ir.IRPassManager;
 import utils.LLVMDumper;
 import utils.Log;
@@ -112,6 +113,10 @@ public class Main {
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
                 codeGenManager.regAllocate();
+
+                final var BackendPass = new BackendPassManager(codeGenManager);
+                BackendPass.runAllPasses();
+
                 writer.append(codeGenManager.codeGenArm());
                 writer.close();
             }
