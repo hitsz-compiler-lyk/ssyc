@@ -3,9 +3,7 @@ package pass.ir;
 import ir.Module;
 import ir.Value;
 import ir.constant.Constant;
-import ir.constant.IntConst;
 import ir.inst.BinaryOpInst;
-import ir.inst.GEPInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
 
@@ -18,7 +16,6 @@ public class InstructionCombiner implements IRPass {
                 .map(self -> (BinaryOpInst) self)
                 .forEach(this::combine);
         IRPass.instructionStream(module).forEach(this::swapConst);
-        IRPass.instructionStream(module).forEach(this::gepZeroComb);
     }
 
     private boolean isKind(Value value, InstKind kind) {
@@ -115,27 +112,6 @@ public class InstructionCombiner implements IRPass {
             if (!isConst(rhs) && isConst(lhs)) {
                 binst.replaceLHS(rhs);
                 binst.replaceRHS(lhs);
-            }
-        }
-    }
-
-    /**
-     * (gep %ptr 0) ==> %ptr
-     * @param inst 待化简的 instruction
-     */
-    private void gepZeroComb(Instruction inst) {
-        if (inst instanceof GEPInst) {
-            final var gepInst = (GEPInst) inst;
-            if (gepInst.getIndices().size() == 1) {
-                final var off = gepInst.getIndices().get(0);
-                if (off instanceof IntConst) {
-                    final var con = (IntConst) off;
-                    if (con.getValue() == 0) {
-                        final var ptr = gepInst.getPtr();
-                        inst.replaceAllUseWith(ptr);
-                        inst.freeAll();
-                    }
-                }
             }
         }
     }
