@@ -3,6 +3,7 @@ package pass.ir;
 import ir.Module;
 import ir.Value;
 import ir.constant.Constant;
+import ir.constant.IntConst;
 import ir.inst.BinaryOpInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
@@ -18,6 +19,7 @@ public class InstructionCombiner implements IRPass {
             .map(BinaryOpInst.class::cast)
             .forEach(this::combine);
         IRPass.instructionStream(module).forEach(this::swapConst);
+        IRPass.instructionStream(module).forEach(this::biOpWithZeroOneComb);
     }
 
     private boolean isKind(Value value, InstKind kind) {
@@ -118,4 +120,50 @@ public class InstructionCombiner implements IRPass {
         }
     }
 
+    private boolean equalToInt(Value value,int intValue) {
+        return (value instanceof IntConst) &&
+                ((IntConst) value).getValue() == intValue;
+    }
+
+    /**
+     * 在 swapConst 之后进行,
+     * 确保了 Iadd 和 Imul 的 lhs 不会是 Const <br>
+     * (Iadd a 0) ==> a <br>
+     * (Imul a 1) ==> a <br>
+     * (Imul a 0) ==> 0 <br>
+     * (Isub a 0) ==> a <br>
+     * (Idiv a 1) ==> a
+     * @param inst 待化简的 instruction
+     */
+    private void biOpWithZeroOneComb(Instruction inst) {
+        if (inst instanceof BinaryOpInst) {
+            final var binst = (BinaryOpInst) inst;
+            final var lhs = binst.getLHS();
+            final var rhs = binst.getRHS();
+            if (isKind(inst, InstKind.IAdd)) {
+                 if (equalToInt(rhs, 0)) {
+                    inst.replaceAllUseWith(lhs);
+                    inst.freeAll();
+                }
+            } else if (isKind(inst, InstKind.IMul)) {
+                if (equalToInt(rhs, 1)) {
+                    inst.replaceAllUseWith(lhs);
+                    inst.freeAll();
+                } else if (equalToInt(rhs, 0)) {
+                    inst.replaceAllUseWith(Constant.INT_0);
+                    inst.freeAll();
+                }
+            } else if (isKind(inst, InstKind.ISub)) {
+                if (equalToInt(rhs, 0)) {
+                    inst.replaceAllUseWith(lhs);
+                    inst.freeAll();
+                }
+            } else if (isKind(inst, InstKind.IDiv)) {
+                if (equalToInt(rhs, 1)) {
+                    inst.replaceAllUseWith(lhs);
+                    inst.freeAll();
+                }
+            }
+        }
+    }
 }
