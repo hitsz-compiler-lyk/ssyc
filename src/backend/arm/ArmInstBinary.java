@@ -22,6 +22,7 @@ public class ArmInstBinary extends ArmInst {
             put(ArmInstKind.FSub, "vsub.f32");
             put(ArmInstKind.FMul, "vmul.f32");
             put(ArmInstKind.FDiv, "vdiv.f32");
+            put(ArmInstKind.Bic, "bic");
         }
     };
 
