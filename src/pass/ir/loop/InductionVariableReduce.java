@@ -2,9 +2,12 @@ package pass.ir.loop;
 
 import frontend.SourceCodeSymbol;
 import ir.BasicBlock;
+import ir.Module;
 import ir.Value;
 import ir.constant.IntConst;
 import ir.inst.*;
+import pass.ir.ConstructDominatorInfo;
+import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import utils.CollectionTools;
 import utils.Log;
 
@@ -15,6 +18,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class InductionVariableReduce implements LoopPass {
+    @Override
+    public void runPass(final Module module) {
+        new ConstructDominatorInfo().runPass(module);
+        LoopPass.super.runPass(module);
+    }
+
     @Override
     public void runOnLoop(final CanonicalLoop loop) {
         final var forLoop = ForLoop.tryConvertFrom(loop);
@@ -33,6 +42,7 @@ class InductionVariableTransformer implements Runnable {
     private final Value indexStep;
     private final BasicBlock preHeader;
     private final BasicBlock header;
+    private final BasicBlock latch;
 
     public InductionVariableTransformer(ForLoop loop) {
         this.loop = loop;
@@ -40,6 +50,7 @@ class InductionVariableTransformer implements Runnable {
         this.indexStep = loop.getStep();
         this.preHeader = loop.canonical().getPreHeader();
         this.header = loop.canonical().getHeader();
+        this.latch = loop.canonical().getLatch();
     }
 
     @Override
@@ -53,10 +64,25 @@ class InductionVariableTransformer implements Runnable {
         mulForms.removeIf(mul -> mulAddForms.containsAll(mul.getUserList()));
         mulAddForms.removeIf(mulAdd -> gepForms.containsAll(mulAdd.getUserList()));
 
+        // 然后移除那些只会在循环的某些分支里出现的语句
+        // TODO: 判断常见分支? 感觉毫无头绪啊
+        mulForms.removeIf(this::doNotDomLatch);
+        mulAddForms.removeIf(this::doNotDomLatch);
+        gepForms.removeIf(this::doNotDomLatch);
+
         // 然后依次转换
         gepForms.forEach(this::transformGEP);
         mulAddForms.forEach(this::transformMulAdd);
         mulForms.forEach(this::transformMul);
+
+        header.adjustPhiEnd();
+    }
+
+    boolean doNotDomLatch(Value value) {
+        Log.ensure(value instanceof Instruction);
+        final var block = ((Instruction) value).getParent();
+
+        return !DominatorInfo.dom(latch).contains(block);
     }
 
     void transformGEP(Value gep) {
@@ -64,7 +90,10 @@ class InductionVariableTransformer implements Runnable {
         final var ptr = extractor.getPtr();
         final var invariantIndex = extractor.getInvariantIndices();
         final var variantIndex = extractor.getVariantIndex();
+
         final var phi = extractor.getEmptyPhi();
+        gep.replaceAllUseWith(phi);
+        header.addPhi(phi);
 
         // 也许应该直接抽一个返回两个指令的函数的
         // 不过没 record 类 Java 写多返回值超~~麻烦的, 还是直接这样吧
@@ -124,7 +153,8 @@ class InductionVariableTransformer implements Runnable {
 
         // init 要加到 preHeader, body 要替代原 gep, phi 要设置 incoming
         preHeader.addInstBeforeTerminator(init);
-        replaceAll(gep, body);
+        insertBodyAndRemoveOld(gep, body);
+
         phi.setIncomingCO(List.of(init, body));
     }
 
@@ -134,6 +164,7 @@ class InductionVariableTransformer implements Runnable {
         final var offset = extractor.getOffset();
 
         final var phi = extractor.getEmptyPhi();
+        mulAdd.replaceAllUseWith(phi);
         header.addPhi(phi);
 
         final var initMul = createMul(indexInit, factor);
@@ -145,7 +176,7 @@ class InductionVariableTransformer implements Runnable {
         preHeader.addInstBeforeTerminator(newStep);
 
         final var body = createAdd(phi, newStep);
-        replaceAll(mulAdd, body);
+        insertBodyAndRemoveOld(mulAdd, body);
 
         phi.setIncomingCO(List.of(initAdd, body));
     }
@@ -155,6 +186,7 @@ class InductionVariableTransformer implements Runnable {
         final var factor = extractor.getFactor();
 
         final var phi = extractor.getEmptyPhi();
+        mul.replaceAllUseWith(phi);
         header.addPhi(phi);
 
         final var init = createMul(indexInit, factor);
@@ -164,7 +196,7 @@ class InductionVariableTransformer implements Runnable {
         preHeader.addInstBeforeTerminator(newStep);
 
         final var body = createAdd(phi, newStep);
-        replaceAll(mul, body);
+        insertBodyAndRemoveOld(mul, body);
 
         phi.setIncomingCO(List.of(init, body));
     }
@@ -177,14 +209,12 @@ class InductionVariableTransformer implements Runnable {
         return new BinaryOpInst(InstKind.IAdd, lhs, rhs);
     }
 
-    private void replaceAll(Value oldValue, Value newValue) {
-        oldValue.replaceAllUseWith(newValue);
-        if (oldValue instanceof Instruction && newValue instanceof Instruction) {
-            final var oldInst = (Instruction) oldValue;
-            final var newInst = (Instruction) newValue;
+    private void insertBodyAndRemoveOld(Value oldValue, Instruction body) {
+        final var inst = (Instruction) oldValue;
+        final var block = inst.getParent();
 
-            oldInst.replaceInIList(newInst);
-        }
+        block.addInstBeforeTerminator(body);
+        inst.freeAll();
     }
 
     boolean isPhiForm(Value value) {
