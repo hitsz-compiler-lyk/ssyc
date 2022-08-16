@@ -111,6 +111,7 @@ public class Main {
 
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
+                codeGenManager.regAllocate();
                 writer.append(codeGenManager.codeGenArm());
                 writer.close();
             }
