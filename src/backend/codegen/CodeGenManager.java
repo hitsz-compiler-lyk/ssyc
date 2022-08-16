@@ -583,13 +583,35 @@ public class CodeGenManager {
             }
             case IMod: {
                 // x % y == x - (x / y) *y
-                // % 0 特殊判断
+                // % 0  % 1  % 2^n 特殊判断
                 if (rhs instanceof IntConst) {
                     var imm = ((IntConst) rhs).getValue();
                     if (imm == 0) {
                         dstReg = resolveOperand(dst, block, func);
                         lhsReg = resolveOperand(lhs, block, func);
                         new ArmInstMove(block, dstReg, lhsReg);
+                        break;
+                    } else if (Math.abs(imm) == 1) {
+                        dstReg = resolveOperand(dst, block, func);
+                        new ArmInstMove(block, dstReg, new IImm(0));
+                        break;
+                    } else if (is2Power(Math.abs(imm))) {
+                        int abs = Math.abs(imm);
+                        int l = ctz(abs);
+                        dstReg = resolveOperand(dst, block, func);
+                        var src = resolveLhsOperand(lhs, block, func);
+                        var vr = src;
+                        var vr2 = new IVirtualReg();
+                        if (abs != 2) {
+                            vr = new IVirtualReg();
+                            var move = new ArmInstMove(block, vr, src);
+                            move.setShift(new ArmShift(ArmShift.ShiftType.Asr, 31));
+                        }
+                        var add = new ArmInstBinary(block, ArmInstKind.IAdd, vr2, src, vr);
+                        add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 32 - l));
+                        var bicImm = resolveIImmOperand(abs - 1, block, func);
+                        new ArmInstBinary(block, ArmInstKind.Bic, vr2, vr2, bicImm);
+                        new ArmInstBinary(block, ArmInstKind.ISub, dstReg, src, vr2);
                         break;
                     }
                 }

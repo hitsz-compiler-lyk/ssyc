@@ -19,6 +19,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     public enum ArmInstKind {
         IAdd, ISub, IRsb, IMul, IDiv, ILMul,
         FAdd, FSub, FMul, FDiv,
+        Bic,
 
         IMulAdd, IMulSub, ILMulAdd, ILMulSub,
         FMulAdd, FMulSub,
@@ -50,7 +51,8 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             // ArmInstBinary
             for (var kind : Arrays.asList(ArmInstKind.IAdd, ArmInstKind.ISub, ArmInstKind.IRsb, ArmInstKind.IMul,
                     ArmInstKind.ILMul,
-                    ArmInstKind.IDiv, ArmInstKind.FAdd, ArmInstKind.FSub, ArmInstKind.FMul, ArmInstKind.FDiv)) {
+                    ArmInstKind.IDiv, ArmInstKind.FAdd, ArmInstKind.FSub, ArmInstKind.FMul, ArmInstKind.FDiv,
+                    ArmInstKind.Bic)) {
                 put(kind, 1);
             }
 

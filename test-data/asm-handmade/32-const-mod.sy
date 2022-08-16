@@ -53,6 +53,22 @@ int main() {
         putch(10);
         putint(x % 6412637);
         putch(10);
+        putint(x % 131072);
+        putch(10);
+        putint(x % -131072);
+        putch(10);
+        putint(x % 1024);
+        putch(10);
+        putint(x % -1024);
+        putch(10);
+        putint(x % 2);
+        putch(10);
+        putint(x % -2);
+        putch(10);
+        putint(x % 1);
+        putch(10);
+        putint(x % -1);
+        putch(10);
     }
     return 0;
 }
