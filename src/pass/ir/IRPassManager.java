@@ -2,8 +2,7 @@ package pass.ir;
 
 import ir.GlobalModificationStatus;
 import ir.Module;
-import pass.ir.loop.CollectInductionValue;
-import pass.ir.loop.LoopUnroll;
+import pass.ir.loop.InductionVariableReduce;
 import pass.ir.memory.RemoveUnnecessaryArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
@@ -28,7 +27,8 @@ public class IRPassManager {
 
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
-        runPass(new LoopUnroll());
+        runPass(new InductionVariableReduce());
+        // runPass(new LoopUnroll());
         runAllClearUpPasses();
     }
 

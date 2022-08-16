@@ -1,5 +1,6 @@
 package pass.ir.loop;
 
+import ir.GlobalVar;
 import ir.Value;
 import ir.inst.Instruction;
 import ir.inst.LoadInst;
@@ -19,8 +20,14 @@ public class LoopInvariantInfo {
 
     public boolean isVariants(Value value) {
         if (value instanceof Instruction) {
-            return value instanceof LoadInst
-                || variants.contains((Instruction) value);
+            // 对全局数组的 load 不应该算是 variant 的
+            // 但是对全局变量的 load 就有可能是了
+            if (value instanceof LoadInst) {
+                final var ptr = ((LoadInst) value).getPtr();
+                return !(ptr instanceof GlobalVar && ((GlobalVar) ptr).isArray());
+            } else {
+                return variants.contains((Instruction) value);
+            }
         } else {
             // 非指令以外的 Value 必然都是循环无关的
             return false;
