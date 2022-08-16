@@ -494,22 +494,34 @@ public class CodeGenManager {
 
         switch (inst.getKind()) {
             case IAdd: {
-                // 这里其实可以加一个判断逻辑 如果 ~imm是合法条件 是不是可以变成减法 从而减少一个MOV32
-                if (lhs instanceof Constant) {
+                // 这里其实可以加一个判断逻辑 如果 -imm是合法条件 是不是可以变成减法 从而减少一个MOV32
+                var instKind = ArmInstKind.IAdd;
+                if (lhs instanceof IntConst) {
+                    int imm = ((IntConst) lhs).getValue();
+                    if (checkEncodeImm(-imm)) {
+                        rhsReg = resolveIImmOperand(-imm, block, func);
+                        instKind = ArmInstKind.ISub;
+                    } else {
+                        rhsReg = resolveOperand(lhs, block, func);
+                    }
                     lhsReg = resolveLhsOperand(rhs, block, func);
-                    rhsReg = resolveOperand(lhs, block, func);
                     dstReg = resolveOperand(dst, block, func);
                 } else {
+                    if (rhs instanceof IntConst && checkEncodeImm(-((IntConst) rhs).getValue())) {
+                        rhsReg = resolveIImmOperand(-((IntConst) rhs).getValue(), block, func);
+                        instKind = ArmInstKind.ISub;
+                    } else {
+                        rhsReg = resolveOperand(rhs, block, func);
+                    }
                     lhsReg = resolveLhsOperand(lhs, block, func);
-                    rhsReg = resolveOperand(rhs, block, func);
                     dstReg = resolveOperand(dst, block, func);
                 }
                 // ADD inst inst.getLHS() inst.getRHS()
-                new ArmInstBinary(block, ArmInstKind.IAdd, dstReg, lhsReg, rhsReg);
+                new ArmInstBinary(block, instKind, dstReg, lhsReg, rhsReg);
                 break;
             }
             case ISub: {
-                if (lhs instanceof Constant) {
+                if (lhs instanceof IntConst) {
                     // 操作数交换 使用反向减法
                     lhsReg = resolveLhsOperand(rhs, block, func);
                     rhsReg = resolveOperand(lhs, block, func);
@@ -517,11 +529,17 @@ public class CodeGenManager {
                     // RSB inst inst.getRHS() inst.getLHS()
                     new ArmInstBinary(block, ArmInstKind.IRsb, dstReg, lhsReg, rhsReg);
                 } else {
+                    var instKind = ArmInstKind.ISub;
+                    if (rhs instanceof IntConst && checkEncodeImm(-((IntConst) rhs).getValue())) {
+                        rhsReg = resolveIImmOperand(-((IntConst) rhs).getValue(), block, func);
+                        instKind = ArmInstKind.IAdd;
+                    } else {
+                        rhsReg = resolveOperand(rhs, block, func);
+                    }
                     lhsReg = resolveLhsOperand(lhs, block, func);
-                    rhsReg = resolveOperand(rhs, block, func);
                     dstReg = resolveOperand(dst, block, func);
                     // SUB inst inst.getLHS() inst.getRHS()
-                    new ArmInstBinary(block, ArmInstKind.ISub, dstReg, lhsReg, rhsReg);
+                    new ArmInstBinary(block, instKind, dstReg, lhsReg, rhsReg);
                 }
                 break;
             }
