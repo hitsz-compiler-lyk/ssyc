@@ -5,6 +5,7 @@ import java.util.Map;
 
 import backend.arm.ArmInst;
 import backend.arm.ArmInstBinary;
+import backend.arm.ArmInstBranch;
 import backend.arm.ArmInstCall;
 import backend.arm.ArmInstMove;
 import backend.arm.ArmInstStackLoad;
@@ -13,6 +14,7 @@ import backend.arm.ArmInst.ArmInstKind;
 import backend.codegen.CodeGenManager;
 import backend.operand.Operand;
 import backend.operand.Reg;
+import utils.Log;
 
 public class Peephole implements BackendPass {
 
@@ -25,6 +27,34 @@ public class Peephole implements BackendPass {
                     var preInst = preInstOp.isPresent() ? preInstOp.get().getValue() : null;
                     var nxtInstOp = inst.getINode().getNext();
                     var nxtInst = nxtInstOp.isPresent() ? nxtInstOp.get().getValue() : null;
+
+                    if (inst instanceof ArmInstBranch) {
+                        var branch = (ArmInstBranch) inst;
+                        var nxtBlockOp = block.getINode().getNext();
+                        var nxtBlock = nxtBlockOp.isPresent() ? nxtBlockOp.get().getValue() : null;
+                        boolean isEqualBlock = branch.getTargetBlock().equals(nxtBlock);
+                        if (branch.getCond().equals(ArmInst.ArmCondType.Any)) {
+                            if (isEqualBlock) {
+                                branch.freeFromIList();
+                                done = false;
+                            }
+                        } else if (nxtInst != null && nxtInst instanceof ArmInstBranch) {
+                            var nxtBranch = (ArmInstBranch) nxtInst;
+                            boolean isNxtBranchAny = nxtBranch.getCond().equals(ArmInst.ArmCondType.Any);
+                            if (isEqualBlock && isNxtBranchAny) {
+                                var newBranch = new ArmInstBranch(nxtBranch.getTargetBlock(),
+                                        branch.getCond().getOppCondType());
+                                branch.insertBeforeCO(newBranch);
+                                branch.freeFromIList();
+                                nxtBranch.freeFromIList();
+                                var trueBlock = block.getTrueSuccBlock();
+                                var falseBlock = block.getFalseSuccBlock();
+                                Log.ensure(trueBlock != null && falseBlock != null, "true false succ block exist null");
+                                block.setFalseSuccBlock(trueBlock);
+                                block.setTrueSuccBlock(falseBlock);
+                            }
+                        }
+                    }
 
                     if (inst instanceof ArmInstStackLoad) {
                         var load = (ArmInstStackLoad) inst;
@@ -74,16 +104,21 @@ public class Peephole implements BackendPass {
                         }
                     }
 
-                    if (inst.getInst().equals(ArmInstKind.IAdd) || inst.getInst().equals(ArmInstKind.ISub) || inst.getInst().equals(ArmInstKind.IRsb)) {
+                    if (inst instanceof ArmInstBinary) {
                         var binay = (ArmInstBinary) inst;
-                        if (preInst != null && preInst instanceof ArmInstMove) {
+                        var isAddSub = binay.getInst().equals(ArmInstKind.IAdd)
+                                || binay.getInst().equals(ArmInstKind.ISub)
+                                || binay.getInst().equals(ArmInstKind.IRsb)
+                                || binay.getInst().equals(ArmInstKind.IMul)
+                                || binay.getInst().equals(ArmInstKind.IDiv);
+                        if (preInst != null && preInst instanceof ArmInstMove && isAddSub) {
                             // mov a, b shift
-                            // sub/add d, c, a
-                            // add d, a, c
+                            // sub/add/rsb/mul/div d, c, a
+                            // add/mul d, a, c
                             // =>
                             // mov a, b shift
-                            // sub/add d, c, b shift
-                            // add d, c, b shift
+                            // sub/add/rsb/mul/div d, c, b shift
+                            // add/mul d, c, b shift
                             var move = (ArmInstMove) preInst;
                             boolean isReg = move.getSrc().IsReg();
                             boolean isEqualLhs = move.getDst().equals(binay.getLhs());
@@ -96,7 +131,9 @@ public class Peephole implements BackendPass {
                             // mov a ,a shift
                             // sub/add a, b, a
                             if (isReg && isEqualLhs && isNoShift && isNoCond && canFix
-                                    && binay.getInst().equals(ArmInstKind.IAdd) && binay.getRhs().IsReg()) {
+                                    && (binay.getInst().equals(ArmInstKind.IAdd)
+                                            || (binay.getInst().equals(ArmInstKind.IMul)))
+                                    && binay.getRhs().IsReg()) {
                                 var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(), binay.getRhs(),
                                         move.getSrc());
                                 binay2.setShift(move.getShift());
