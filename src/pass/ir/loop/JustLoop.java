@@ -20,7 +20,7 @@ public class JustLoop {
         return set;
     }
 
-    public Set<BasicBlock> getBody() {
+    public LinkedHashSet<BasicBlock> getBody() {
         return body;
     }
 
@@ -30,6 +30,10 @@ public class JustLoop {
 
     public Optional<JustLoop> getParent() {
         return parent;
+    }
+
+    public void setParent(final JustLoop parent) {
+        this.parent = Optional.ofNullable(parent);
     }
 
     public List<JustLoop> getSubLoops() {
@@ -57,7 +61,7 @@ public class JustLoop {
     }
 
     BasicBlock header;
-    Set<BasicBlock> body;
+    LinkedHashSet<BasicBlock> body;
 
     Optional<JustLoop> parent;
     List<JustLoop> subLoops;

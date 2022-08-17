@@ -122,14 +122,12 @@ public class ConstructDominatorInfo
         }
 
         private BasicBlock calcImmediateDom() {
-            final var selfSDom = sdom(self);
+            final var sdom = sdom(self);
 
-            for (final var block : getDom()) {
-                final var sdom = sdom(block);
-                sdom.retainAll(selfSDom);
-                if (sdom.isEmpty()) {
-                    // do NOT contain any other sdom of n
-                    return block;
+            for (final var possibleIdom : sdom) {
+                final var dom = dom(possibleIdom);
+                if (dom.containsAll(sdom)) {
+                    return possibleIdom;
                 }
             }
 

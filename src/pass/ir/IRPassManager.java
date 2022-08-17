@@ -2,6 +2,7 @@ package pass.ir;
 
 import ir.GlobalModificationStatus;
 import ir.Module;
+import pass.ir.loop.FullyUnroll;
 import pass.ir.loop.InductionVariableReduce;
 import pass.ir.loop.LoopUnroll;
 import pass.ir.memory.RemoveUnnecessaryArray;
@@ -29,6 +30,9 @@ public class IRPassManager {
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
         runMemoryOptimizePass();
+        runPass(new FullyUnroll());
+        runDefaultBlockClearUpPasses();
+        runMemoryOptimizePass();
         runPass(new HoistGlobalArrayLoad());
         runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
@@ -39,6 +43,7 @@ public class IRPassManager {
         GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
+            runDefaultBlockClearUpPasses();
             runPass(new ClearUselessFunction());
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
@@ -77,6 +82,8 @@ public class IRPassManager {
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
         });
+
+        runPass(new BlockReorder());
     }
 
     public void runDefaultInstructionClearUpPasses() {
