@@ -48,8 +48,6 @@ public class IRPassManager {
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
             runDefaultBlockClearUpPasses();
-            runMemoryOptimizePass();
-            runDefaultBlockClearUpPasses();
         });
     }
 

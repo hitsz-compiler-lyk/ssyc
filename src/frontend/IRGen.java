@@ -748,7 +748,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     private Value getRightValue(Value value, List<Value> indices) {
         if (value instanceof GlobalVar) {
-            value = builder.insertLoad(value);
+            final var gv = (GlobalVar) value;
+            value = builder.insertLoad(gv);
+            value.setSymbol(gv.getSymbol());
         }
 
         if (indices.isEmpty()) {
@@ -976,7 +978,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         } else {
             if (value instanceof GlobalVar) {
-                value = builder.insertLoad(value);
+                final var gv = (GlobalVar) value;
+                value = builder.insertLoad(gv);
+                value.setSymbol(gv.getSymbol());
             }
 
             return Optional.of(builder.insertGEP(value, indices));
