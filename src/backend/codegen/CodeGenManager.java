@@ -583,7 +583,7 @@ public class CodeGenManager {
             }
             case IMod: {
                 // x % y == x - (x / y) *y
-                // % 0  % 1  % 2^n 特殊判断
+                // % 0 % 1 % 2^n 特殊判断
                 if (rhs instanceof IntConst) {
                     var imm = ((IntConst) rhs).getValue();
                     if (imm == 0) {
@@ -1088,14 +1088,69 @@ public class CodeGenManager {
         }
     }
 
+    public void regAllocate() {
+        for (var func : functions) {
+            fixStack(func);
+            boolean isFix = true;
+            while (isFix) {
+                var allocatorMap = regAllocator.run(func);
+                for (var kv : allocatorMap.entrySet()) {
+                    Log.ensure(kv.getKey().IsVirtual(), "allocatorMap key not Virtual");
+                    ;
+                    Log.ensure(kv.getValue().IsPhy(), "allocatorMap value not Phy");
+                }
+                Set<IPhyReg> iPhyRegs = new HashSet<>();
+                Set<FPhyReg> fPhyRegs = new HashSet<>();
+                for (var block : func.asElementView()) {
+                    for (var inst : block.asElementView()) {
+                        for (var op : inst.getOperands()) {
+                            if (allocatorMap.containsKey(op)) {
+                                op = allocatorMap.get(op);
+                            }
+                            if (op instanceof IPhyReg) {
+                                iPhyRegs.add((IPhyReg) op);
+                            }
+                            if (op instanceof FPhyReg) {
+                                fPhyRegs.add((FPhyReg) op);
+                            }
+                        }
+                    }
+                }
+                calcIUseRegs(func, iPhyRegs);
+                calcFUseRegs(func, fPhyRegs);
+                isFix = fixStack(func);
+
+                if (isFix) {
+                    continue;
+                } else {
+                    for (var block : func.asElementView()) {
+                        for (var inst : block.asElementView()) {
+                            inst.InitSymbol();
+                            String symbol = "@";
+                            for (var op : inst.getOperands()) {
+                                if (op.IsVirtual()) {
+                                    Log.ensure(allocatorMap.containsKey(op),
+                                            "virtual reg:" + op.print() + " not exist in allocator map");
+                                    inst.replaceOperand(op, allocatorMap.get(op));
+                                    symbol += op.print() + ":" + allocatorMap.get(op).print() + "\t";
+                                }
+                            }
+                            symbol += "\n";
+                            if (symbol.length() > 2) {
+                                inst.addSymbol(symbol);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // code gen arm
 
     public StringBuilder codeGenArm() {
         var arm = new StringBuilder();
         arm.append(".arch armv7ve\n");
-        if (!globalvars.isEmpty() || !arrayConstMap.isEmpty()) {
-            arm.append("\n.data\n.align 4\n\n");
-        }
         Set<ArrayConst> acSet = new HashSet<>();
         for (var entry : globalvars.entrySet()) {
             var key = entry.getKey();
@@ -1134,176 +1189,75 @@ public class CodeGenManager {
 
         arm.append("\n.text\n");
         for (var func : functions) {
-            fixStack(func);
-            // arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
-            // for (var block : func.asElementView()) {
-            // arm.append("@" + block.getLabel() + ":\n");
-            // if (block.getTrueSuccBlock() != null) {
-            // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-            // if (block.getFalseSuccBlock() == null) {
-            // arm.append("\n");
-            // } else {
-            // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-            // "\n");
-            // }
-            // }
-            // for (var inst : block.asElementView()) {
-            // inst.InitSymbol();
-            // arm.append(inst.getSymbol());
-            // }
-            // }
+            var stackSize = func.getFinalstackSize();
+            String prologuePrint = "";
 
-            boolean isFix = true;
-            while (isFix) {
-                var allocatorMap = regAllocator.run(func);
-                for (var kv : allocatorMap.entrySet()) {
-                    Log.ensure(kv.getKey().IsVirtual(), "allocatorMap key not Virtual");
-                    ;
-                    Log.ensure(kv.getValue().IsPhy(), "allocatorMap value not Phy");
+            var iuse = new StringBuilder();
+            var first = true;
+            for (var reg : func.getiUsedRegs()) {
+                if (!first) {
+                    iuse.append(", ");
                 }
-                Set<IPhyReg> iPhyRegs = new HashSet<>();
-                Set<FPhyReg> fPhyRegs = new HashSet<>();
-                for (var block : func.asElementView()) {
-                    for (var inst : block.asElementView()) {
-                        for (var op : inst.getOperands()) {
-                            if (allocatorMap.containsKey(op)) {
-                                op = allocatorMap.get(op);
-                            }
-                            if (op instanceof IPhyReg) {
-                                iPhyRegs.add((IPhyReg) op);
-                            }
-                            if (op instanceof FPhyReg) {
-                                fPhyRegs.add((FPhyReg) op);
-                            }
-                        }
-                    }
-                }
-                calcIUseRegs(func, iPhyRegs);
-                calcFUseRegs(func, fPhyRegs);
-                isFix = fixStack(func);
+                iuse.append(reg.print());
+                first = false;
+            }
 
-                var stackSize = func.getFinalstackSize();
-                String prologuePrint = "";
-
-                var iuse = new StringBuilder();
-                var first = true;
-                for (var reg : func.getiUsedRegs()) {
-                    if (!first) {
-                        iuse.append(", ");
-                    }
-                    iuse.append(reg.print());
-                    first = false;
+            var fuse1 = new StringBuilder();
+            var fuse2 = new StringBuilder();
+            var fusedList = func.getfUsedRegs();
+            first = true;
+            for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
+                var reg = fusedList.get(i);
+                if (!first) {
+                    fuse1.append(", ");
                 }
-
-                var fuse1 = new StringBuilder();
-                var fuse2 = new StringBuilder();
-                var fusedList = func.getfUsedRegs();
-                first = true;
-                for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
-                    var reg = fusedList.get(i);
-                    if (!first) {
-                        fuse1.append(", ");
-                    }
-                    fuse1.append(reg.print());
-                    first = false;
+                fuse1.append(reg.print());
+                first = false;
+            }
+            first = true;
+            for (int i = 16; i < fusedList.size(); i++) {
+                var reg = fusedList.get(i);
+                if (!first) {
+                    fuse2.append(", ");
                 }
-                first = true;
-                for (int i = 16; i < fusedList.size(); i++) {
-                    var reg = fusedList.get(i);
-                    if (!first) {
-                        fuse2.append(", ");
-                    }
-                    fuse2.append(reg.print());
-                    first = false;
-                }
+                fuse2.append(reg.print());
+                first = false;
+            }
 
-                if (!func.getiUsedRegs().isEmpty()) {
-                    prologuePrint += "\tpush\t{" + iuse.toString() + "}\n";
-                }
+            if (!func.getiUsedRegs().isEmpty()) {
+                prologuePrint += "\tpush\t{" + iuse.toString() + "}\n";
+            }
 
-                if (fuse1.length() != 0) {
-                    prologuePrint += "\tvpush\t{" + fuse1.toString() + "}\n";
-                }
+            if (fuse1.length() != 0) {
+                prologuePrint += "\tvpush\t{" + fuse1.toString() + "}\n";
+            }
 
-                if (fuse2.length() != 0) {
-                    prologuePrint += "\tvpush\t{" + fuse2.toString() + "}\n";
-                }
+            if (fuse2.length() != 0) {
+                prologuePrint += "\tvpush\t{" + fuse2.toString() + "}\n";
+            }
 
-                if (stackSize > 0) {
-                    if (CodeGenManager.checkEncodeImm(stackSize)) {
-                        prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
-                    } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                        prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
-                    } else {
-                        var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
-                        prologuePrint += move.print();
-                        prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
-                    }
-                }
-
-                if (isFix) {
-                    // arm.append("\n@.global\t" + func.getName() + "\n@" + func.getName() + ":\n");
-                    // arm.append(getSymbol(prologuePrint));
-                    // for (var block : func.asElementView()) {
-                    // arm.append("@" + block.getLabel() + ":\n");
-                    // if (block.getTrueSuccBlock() != null) {
-                    // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-                    // if (block.getFalseSuccBlock() == null) {
-                    // arm.append("\n");
-                    // } else {
-                    // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-                    // "\n");
-                    // }
-                    // }
-                    // for (var inst : block.asElementView()) {
-                    // inst.InitSymbol();
-                    // arm.append(inst.getSymbol());
-                    // }
-                    // }
-                    continue;
+            if (stackSize > 0) {
+                if (CodeGenManager.checkEncodeImm(stackSize)) {
+                    prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
+                } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
+                    prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
                 } else {
-                    for (var block : func.asElementView()) {
-                        for (var inst : block.asElementView()) {
-                            inst.InitSymbol();
-                            String symbol = "@";
-                            for (var op : inst.getOperands()) {
-                                if (op.IsVirtual()) {
-                                    Log.ensure(allocatorMap.containsKey(op),
-                                            "virtual reg:" + op.print() + " not exist in allocator map");
-                                    inst.replaceOperand(op, allocatorMap.get(op));
-                                    symbol += op.print() + ":" + allocatorMap.get(op).print() + "\t";
-                                }
-                            }
-                            symbol += "\n";
-                            if (symbol.length() > 2) {
-                                inst.addSymbol(symbol);
-                            }
-                        }
-                    }
+                    var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                    prologuePrint += move.print();
+                    prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
                 }
-
-                arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
-                arm.append(prologuePrint);
-                fixLtorg(func);
-                for (var block : func.asElementView()) {
-                    arm.append(block.getLabel() + ":\n");
-                    // if (block.getTrueSuccBlock() != null) {
-                    // arm.append("@trueSuccBlock: " + block.getTrueSuccBlock().getLabel());
-                    // if (block.getFalseSuccBlock() == null) {
-                    // arm.append("\n");
-                    // } else {
-                    // arm.append("\tfalseSuccBlock: " + block.getFalseSuccBlock().getLabel() +
-                    // "\n");
-                    // }
-                    // }
-                    for (var inst : block.asElementView()) {
-                        arm.append(inst.print());
-                        // arm.append(inst.getSymbol());
-                    }
+            }
+            arm.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
+            arm.append(prologuePrint);
+            fixLtorg(func);
+            for (var block : func.asElementView()) {
+                arm.append(block.getLabel() + ":\n");
+                for (var inst : block.asElementView()) {
+                    arm.append(inst.print());
+                    // arm.append(inst.getSymbol());
                 }
             }
         }
-
         return arm;
     }
 

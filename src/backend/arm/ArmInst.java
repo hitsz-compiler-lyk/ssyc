@@ -121,10 +121,10 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         public ArmCondType getOppCondType() {
             return switch (this) {
-                case Le -> Ge;
-                case Ge -> Le;
-                case Gt -> Lt;
-                case Lt -> Gt;
+                case Le -> Gt;
+                case Ge -> Lt;
+                case Gt -> Le;
+                case Lt -> Ge;
                 case Eq -> Ne;
                 case Ne -> Eq;
                 default -> this;

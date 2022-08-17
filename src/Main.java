@@ -4,10 +4,14 @@ import frontend.SysYLexer;
 import frontend.SysYParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+
+import pass.backend.BackendPassManager;
 import pass.ir.IRPassManager;
 import utils.LLVMDumper;
+import utils.Log;
 
 import java.io.*;
+
 
 public class Main {
     public static void main(String[] args) throws IOException {
@@ -100,6 +104,7 @@ public class Main {
             }
 
             case "asm" -> {
+                Log.inOnlineJudge();
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
@@ -110,6 +115,11 @@ public class Main {
 
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
+                codeGenManager.regAllocate();
+
+                final var BackendPass = new BackendPassManager(codeGenManager);
+                BackendPass.runAllPasses();
+
                 writer.append(codeGenManager.codeGenArm());
                 writer.close();
             }
