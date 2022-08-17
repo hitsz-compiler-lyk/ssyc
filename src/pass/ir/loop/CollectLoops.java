@@ -4,7 +4,6 @@ import ir.BasicBlock;
 import ir.Function;
 import pass.ir.ConstructDominatorInfo;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
-import utils.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,56 +50,78 @@ public class CollectLoops {
         return collectAllLoops(function);
     }
 
-    private JustLoop currLoop = null;
     private List<JustLoop> collectAllLoops(Function function) {
         final var loops = new ArrayList<JustLoop>();
 
         for (final var block : function) {
             // 理论上基本块都是按顺序排列的
-            // 那么当我们第一次碰到不在当前循环里的块的时候, 我们就离开了这个循环了
-            while (currLoop != null && !currLoop.body.contains(block)) {
-                currLoop = currLoop.parent.orElse(null);
-            }
-            // 确保弹出一次 currLoop 之后, 当前块在 currLoop 里
-            Log.ensure(currLoop == null || currLoop.body.contains(block));
+            // 但实际上不是, 所以我们需要一个与基本块排列顺序无关的方法来识别循环
 
             final var domChildrenInPred = block.getPredecessors().stream()
                 .filter(pred -> DominatorInfo.dom(pred).contains(block)).collect(Collectors.toList());
 
             if (!domChildrenInPred.isEmpty()) {
-                currLoop = new JustLoop(currLoop, block);
-                domChildrenInPred.forEach(this::collectBlocksInLoop);
-
-                loops.add(currLoop);
-                currLoop.parent.ifPresent(parent -> {
-                    // 有时候会有触及不到的情况
-                    // 考虑功能性样例 55, CFG 如下的情况:
-                    // ^> A
-                    // |  v
-                    // C< B <-> D
-                    // BD 组成的循环相当于 "外挂" 在外层循环 ABC 上, 这时候做前继闭包是做不到 D 的
-                    parent.body.addAll(currLoop.body);
-                    parent.subLoops.add(currLoop);
-                });
+                final var loop = new JustLoop(null, block);
+                domChildrenInPred.forEach(pred -> collectBlocksInLoop(loop, pred));
+                loops.add(loop);
             }
+        }
+
+        for (final var loop : loops) {
+            for (final var possibleParentLoop : loops) {
+                if (!isAncestor(possibleParentLoop, loop)) {
+                    continue;
+                }
+
+                // 有时候直接做前继闭包会有触及不到的情况
+                // 考虑功能性样例 55, CFG 如下的情况:
+                // ^> A
+                // |  v
+                // C< B <-> D
+                // BD 组成的循环相当于 "外挂" 在外层循环 ABC 上, 这时候做前继闭包是做不到 D 的, 需要特别对父循环再加入子循环
+                possibleParentLoop.body.addAll(loop.body);
+            }
+        }
+
+        for (final var loop : loops) {
+            int currMinParentSize = Integer.MAX_VALUE;
+            JustLoop currDirectParent = null;
+
+            for (final var possibleParentLoop : loops) {
+                if (!isAncestor(possibleParentLoop, loop)) {
+                    continue;
+                }
+
+                final var bodySize = possibleParentLoop.body.size();
+                if (bodySize < currMinParentSize) {
+                    currMinParentSize = bodySize;
+                    currDirectParent = possibleParentLoop;
+                }
+            }
+
+            loop.setParent(currDirectParent);
         }
 
         return loops;
     }
 
-    private void collectBlocksInLoop(BasicBlock block) {
-        if (block == currLoop.header) {
+    private boolean isAncestor(JustLoop possibleSon, JustLoop possibleAncestor) {
+        return possibleAncestor.body.contains(possibleSon.header);
+    }
+
+    private void collectBlocksInLoop(JustLoop loop, BasicBlock block) {
+        if (block == loop.header) {
             return;
         }
 
-        currLoop.body.add(block);
+        loop.body.add(block);
 
         block.getPredecessors().stream()
             // 防止无限循环或超出循环范围
-            .filter(pred -> !currLoop.body.contains(pred) && pred != currLoop.header)
+            .filter(pred -> !loop.body.contains(pred) && pred != loop.header)
             // 理论上基本块都是按顺序排列的
             // 一个块如果在一个内层循环里, 那它必然会先加入到外层循环,再加入到内层循环中
             // 那么最后这个块就会在最内层循环里了
-            .forEach(this::collectBlocksInLoop);
+            .forEach(pred -> collectBlocksInLoop(loop, pred));
     }
 }

@@ -4,6 +4,7 @@ import ir.BasicBlock;
 import ir.Value;
 import ir.constant.Constant;
 import ir.inst.*;
+import pass.ir.loop.CanonicalLoop.CanonicalLoopUpdater;
 import pass.ir.util.MultiBasicBlockCloner;
 import utils.CollectionTools;
 import utils.Log;
@@ -79,11 +80,19 @@ public class LoopUnroll implements LoopPass {
             oldPhi.replaceOperandCO(0, newPhi);
         });
 
+        final var blocksToAdd = new LinkedHashSet<BasicBlock>();
+        blocksToAdd.add(newHeader);
+        unrolled.forEach(blocksToAdd::addAll);
+
         final var function = oldHeader.getParent();
         final var headerPosition = function.indexOf(oldHeader);
-        function.add(headerPosition, newHeader);
-        unrolled.forEach(blocks -> function.addAll(headerPosition, blocks));
+        function.addAll(headerPosition, blocksToAdd);
 
+        // 依次向上更新这个新循环的信息
+        // 因为循环遍历是后序的, 所以不需要构建新的循环信息来对新循环做优化了
+        // 但是依然要把我们新构建的基本块加到上级循环中, 使上级循环在展开的时候可以复制到这些块
+        final var updater = new CanonicalLoopUpdater(blocksToAdd, Set.of());
+        loop.getParent().ifPresent(updater::update);
     }
 }
 
@@ -304,7 +313,7 @@ class NewHeaderCreator extends MultiBasicBlockCloner {
         return super.getOrCreate(old);
     }
 
-    private final ForLoop loop;
+    protected final ForLoop loop;
     private final int totalUnrollCount;
     private BasicBlock block;
     private CmpInst cond;
@@ -375,7 +384,7 @@ class IndexBlockCreator extends MultiBasicBlockCloner {
         return block;
     }
 
-    private IndexBlockCreator(ForLoop loop, int unrollCount) {
+    protected IndexBlockCreator(ForLoop loop, int unrollCount) {
         super(Set.of(loop.canonical().getHeader()));
 
         this.loop = loop;
@@ -390,6 +399,8 @@ class IndexBlockCreator extends MultiBasicBlockCloner {
 class ForBodyCloner extends MultiBasicBlockCloner {
     public ForBodyCloner(IndexBlockCreator indexBlockCreator) {
         // 必须要是 getAll 才能使得 MultiBasicBlockCloner 认为来自 header 的 value 是需要替换的
+        // 但是这样会导致块中出现一个对应于 header 的克隆块, 这个块理论上是不应该出现的, 而且它有可能包含了某些新 body 内的块作为前继
+        // 所以我们必须需在 convert 后处理掉这个多余的, 对应 header 的块
         super(indexBlockCreator.getLoop().canonical().getAll());
 
         this.loop = indexBlockCreator.getLoop();
@@ -413,7 +424,11 @@ class ForBodyCloner extends MultiBasicBlockCloner {
         final var latch = getNewLatch();
         Log.ensure(latch.isTerminated());
         Log.ensure(latch.getTerminator() instanceof BrInst);
-        latch.remove(latch.size() - 1);
+        latch.getTerminator().freeAll();
+
+        // 清除构造函数中提到的被多生成出来的 header 块
+        final var redundantNewHeader = getOrCreate(loop.canonical().getHeader());
+        redundantNewHeader.freeAll();
 
         // 保证 indexBlockCreator 在 Set 的最开始
         final var result = new LinkedHashSet<BasicBlock>();

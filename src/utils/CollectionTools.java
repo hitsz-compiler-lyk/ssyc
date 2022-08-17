@@ -143,5 +143,32 @@ public final class CollectionTools {
         return new TwoList<>(first, second);
     }
 
+    public static <K, V> Map<Integer, V> createIdentifierMap(Map<K, V> map) {
+        final var identMap = new HashMap<Integer, V>();
+
+        for (final var entry : map.entrySet()) {
+            final var ident = System.identityHashCode(entry.getKey());
+            identMap.put(ident, entry.getValue());
+        }
+
+        return identMap;
+    }
+
+    public static <T> List<T> findRedundant(List<T> origin) {
+        final var result = new ArrayList<T>();
+        final var elms = new HashSet<>(origin);
+
+        for (final var elm : origin) {
+            if (elms.contains(elm)) {
+                elms.remove(elm);
+                continue;
+            }
+
+            result.add(elm);
+        }
+
+        return result;
+    }
+
     private CollectionTools() {}
 }
