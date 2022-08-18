@@ -4,6 +4,8 @@ import ir.BasicBlock;
 import ir.Function;
 import ir.Module;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
+import pass.ir.loop.CollectLoops;
+import pass.ir.loop.JustLoopBlockInfo;
 import utils.CollectionTools;
 
 import java.util.*;
@@ -14,8 +16,8 @@ import java.util.stream.Collectors;
  * <ol>
  *     <li>符合支配顺序: 设 A, B 为基本块, 若 A 支配 B, 则 A 在 function 中的顺序在 B 之前 (反之则不成立) </li>
  *     <li>直接跳转优先: 设 A, B, C 为基本块且 A 支配 B, C. 若 A 直接跳转到 B 且不直接跳转到 C, 则 B 在 function 中的顺序在 C 之前</li>
- *     <li>小块优先: 设 A, B, C 为基本块且 A 支配并直接跳转到 B, C. 若 B 的指令数小于等于 4 且 C 不符合此条件, 则 B 在 function 中的顺序在 C 之前</li>
  *     <li>循环优先: 设 A, B, C 为基本块且 A 支配并直接跳转到 B, C. 若 B 在 CFG 中的后继闭包中存在节点 D, D 有到 A 的 CFG 中的返祖边, 并且 C 不符合此条件, 则 B 在 function 中的顺序在 C 之前</li>
+ *     <li>小块优先: 设 A, B, C 为基本块且 A 支配并直接跳转到 B, C. 若 B 的指令数小于等于 4 且 C 不符合此条件, 则 B 在 function 中的顺序在 C 之前</li>
  * </ol>
  * 上述四条规则优先级自上而下. 规则中没有提到的情况则顺序随机.
  */
@@ -27,6 +29,7 @@ public class BlockReorder implements IRPass {
     }
 
     public void runOnFunction(Function function) {
+        CollectLoops.allAndaddToBlockInfo(function);
         final var newOrder = collect(function.getEntryBBlock());
         function.clear();
         function.addAll(newOrder);
@@ -44,12 +47,12 @@ public class BlockReorder implements IRPass {
                 childrenPoint.compute(child, (block, point) -> point + 3);
             }
 
-            if (child.size() <= 4) {
-                childrenPoint.compute(child, (block, point) -> point + 2);
+            if (isLoopHeaderAndBody(curr, child)) {
+                childrenPoint.compute(child, ((block, point) -> point + 2));
             }
 
-            if (child.getSuccessors().contains(curr)) {
-                childrenPoint.compute(child, ((block, point) -> point + 1));
+            if (child.size() <= 4) {
+                childrenPoint.compute(child, (block, point) -> point + 1);
             }
         }
 
@@ -62,5 +65,12 @@ public class BlockReorder implements IRPass {
             .collect(Collectors.toList());
 
         return CollectionTools.concatHead(curr, orderFromChildren);
+    }
+
+    private boolean isLoopHeaderAndBody(BasicBlock possibleHeader, BasicBlock possibleBody) {
+        final var loopInfo = possibleHeader.getAnalysisInfo(JustLoopBlockInfo.class);
+        return loopInfo.getLoop()
+            .map(loop -> loop.getHeader() == possibleHeader && loop.getBody().contains(possibleBody))
+            .orElse(false);
     }
 }
