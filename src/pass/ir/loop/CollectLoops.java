@@ -99,14 +99,17 @@ public class CollectLoops {
                 }
             }
 
-            loop.setParent(currDirectParent);
+            if (currDirectParent != null) {
+                loop.setParent(currDirectParent);
+                currDirectParent.subLoops.add(loop);
+            }
         }
 
         return loops;
     }
 
-    private boolean isAncestor(JustLoop possibleSon, JustLoop possibleAncestor) {
-        return possibleAncestor.body.contains(possibleSon.header);
+    private boolean isAncestor(JustLoop possibleAncestor, JustLoop possibleSon) {
+        return possibleSon != possibleAncestor && possibleAncestor.body.contains(possibleSon.header);
     }
 
     private void collectBlocksInLoop(JustLoop loop, BasicBlock block) {

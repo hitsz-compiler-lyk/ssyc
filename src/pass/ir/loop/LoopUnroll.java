@@ -93,6 +93,25 @@ public class LoopUnroll implements LoopPass {
         // 但是依然要把我们新构建的基本块加到上级循环中, 使上级循环在展开的时候可以复制到这些块
         final var updater = new CanonicalLoopUpdater(blocksToAdd, Set.of());
         loop.getParent().ifPresent(updater::update);
+
+        // 挂在后面的处理尾部的旧循环需要改名
+        /* 考虑两个嵌套的循环同时被展开了:
+         * while (A) { while (B) {}}
+         * 这时候如果不改末尾的名字的话, 就会变成:
+         * while_A_unroll_k
+         *      while_B_unroll_k_unroll_m
+         *      while_B_unroll_k
+         * while_A
+         *      while_B_unroll_m
+         *      while_B
+         * 可见 外层循环的尾部 内层循环的展开 有可能跟 外层循环的展开 内层循环的尾部 冲突
+         * 所以我们需要把尾部全部改个名字
+         */
+        for (final var block : loop.getAll()) {
+            final var oldSym = block.getSymbol();
+            final var newSym = oldSym.newSymbolWithSuffix("_unroll_tail");
+            block.setSymbol(newSym);
+        }
     }
 }
 
