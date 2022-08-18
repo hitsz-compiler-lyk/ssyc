@@ -108,7 +108,8 @@ class MemVariable {
 
             final var locationEqual = this.location == position.location;
             final var kindEqual = this.kind == position.kind;
-            Log.ensure(locationEqual == kindEqual, "LocationEqual should equal to kindEqual");
+            // locationEqual ==> kindEqual (蕴含关系)
+            Log.ensure(!locationEqual || kindEqual, "LocationEqual should equal to kindEqual");
 
             return locationEqual;
 

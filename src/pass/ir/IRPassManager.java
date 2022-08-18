@@ -7,6 +7,7 @@ import pass.ir.loop.InductionVariableReduce;
 import pass.ir.loop.LoopUnroll;
 import pass.ir.loop.SimpleInvariantHoist;
 import pass.ir.memory.RemoveUnnecessaryArray;
+import pass.ir.memory.ReplaceConstantArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
 
@@ -30,8 +31,10 @@ public class IRPassManager {
 
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
+        runPass(new ReplaceConstantArray());
         runMemoryOptimizePass();
         runPass(new FullyUnroll());
+        runPass(new ReplaceConstantArray());
         runDefaultBlockClearUpPasses();
         runMemoryOptimizePass();
         runPass(new HoistGlobalArrayLoad());
