@@ -27,7 +27,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     private List<Integer> stackObjectOffset;
     private Map<Operand, ArmInstParamLoad> paramLoadMap;
     private Map<Operand, ArmInstLoad> addrLoadMap;
-    private Map<Operand, ArmInstStackAddr> stackAddrtMap;
+    private Map<Operand, ArmInstStackAddr> stackAddrMap;
+    private Map<Operand, ArmInstStackLoad> stackLoadMap;
     private Map<Operand, ArmInstMove> immMap;
     private Set<Operand> spillNodes;
 
@@ -140,8 +141,12 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return addrLoadMap;
     }
 
-    public Map<Operand, ArmInstStackAddr> getStackAddrtMap() {
-        return stackAddrtMap;
+    public Map<Operand, ArmInstStackAddr> getStackAddrMap() {
+        return stackAddrMap;
+    }
+
+    public Map<Operand, ArmInstStackLoad> getStackLoadMap() {
+        return stackLoadMap;
     }
 
     public Map<Operand, ArmInstMove> getImmMap() {
@@ -166,7 +171,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.stackObjectOffset = new ArrayList<>();
         this.addrLoadMap = new HashMap<>();
         this.paramLoadMap = new HashMap<>();
-        this.stackAddrtMap = new HashMap<>();
+        this.stackAddrMap = new HashMap<>();
+        this.stackLoadMap = new HashMap<>();
         this.immMap = new HashMap<>();
         this.spillNodes = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
@@ -186,7 +192,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.stackObjectOffset = new ArrayList<>();
         this.addrLoadMap = new HashMap<>();
         this.paramLoadMap = new HashMap<>();
-        this.stackAddrtMap = new HashMap<>();
+        this.stackAddrMap = new HashMap<>();
+        this.stackLoadMap = new HashMap<>();
         this.immMap = new HashMap<>();
         this.spillNodes = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
