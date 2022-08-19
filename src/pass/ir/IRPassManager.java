@@ -17,8 +17,7 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
-        final var blockCount = module.getNonExternalFunction().stream()
-            .flatMap(List::stream).mapToInt(List::size).sum();
+        final var blockCount = module.getNonExternalFunction().stream().mapToInt(List::size).sum();
         if (blockCount >= 5000) {
             // very large program, just run simple opt
             runPass(new ClearUnreachableBlock());
