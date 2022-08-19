@@ -12,6 +12,7 @@ public class Compiler {
             final var needOptimize = args.length == 6;
 
             Log.inOnlineJudge();
+            Main.needOptimize = needOptimize;
             Main.runWithLargeStack("asm", inputFileName, outputFileName);
 
         } catch (LogFailException e) {
