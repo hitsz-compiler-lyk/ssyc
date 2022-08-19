@@ -18,6 +18,7 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
+        runPass(new RemoveCurrDef());
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
         runPass(new ReplaceConstantArray());
