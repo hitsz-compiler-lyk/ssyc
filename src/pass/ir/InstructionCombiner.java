@@ -236,45 +236,8 @@ public class InstructionCombiner implements IRPass {
         }
     }
 
-    // // 在树型结构上递归收集叶子
-    // // 这是好看的递归版本
-    // private Map<Value, Integer> collectAddTreeLeaves(Value curr) {
-    //     if (!(curr instanceof BinaryOpInst)) {
-    //         return Map.of(curr, 1);
-    //     }
-    //
-    //     final var binop = (BinaryOpInst) curr;
-    //     final var lhs = binop.getLHS();
-    //     final var rhs = binop.getRHS();
-    //
-    //     if (binop.getKind() == InstKind.IAdd) {
-    //         return mergeMap(collectAddTreeLeaves(lhs), collectAddTreeLeaves(rhs), Integer::sum);
-    //     } else {
-    //         return Map.of(curr, 1);
-    //     }
-    // }
-
-    // static <K, V> Map<K, V> mapMap(Map<K, V> map, UnaryOperator<V> mapper) {
-    //     final var result = new HashMap<K, V>();
-    //
-    //     for (final var entry : map.entrySet()) {
-    //         result.put(entry.getKey(), mapper.apply(entry.getValue()));
-    //     }
-    //
-    //     return result;
-    // }
-    //
-    // static <K, V> Map<K, V> mergeMap(Map<K, V> a, Map<K, V> b, BinaryOperator<V> merger) {
-    //     final var result = new HashMap<>(a);
-    //
-    //     for (final var entry : b.entrySet()) {
-    //         result.merge(entry.getKey(), entry.getValue(), merger);
-    //     }
-    //
-    //     return result;
-    // }
-
-    // 下面是难看的用来提升处理速度的迭代版本
+    // 好看的递归函数版本去 VCS 里看去
+    // 下面是难看的用来提升处理速度的迭代版本 (速度直接提升一倍)
     private Map<Value, Integer> collectAddTreeLeaves(BinaryOpInst root) {
         final var leaves = new HashMap<Value, Integer>();
         final var queue = new ArrayDeque<BinaryOpInst>();
