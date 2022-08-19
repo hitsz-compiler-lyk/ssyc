@@ -9,7 +9,7 @@ public class Compiler {
         try {
             final var outputFileName = args[2];
             final var inputFileName = args[3];
-            final var needOptimize = args.length == 6;
+            final var needOptimize = args.length == 5;
 
             Log.inOnlineJudge();
             Main.needOptimize = needOptimize;
