@@ -43,21 +43,7 @@ public abstract class Value {
         GlobalModificationStatus.current().markAsChanged();
     }
 
-    // public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
-    //     final var usersInBlock = userList.stream()
-    //         .filter(Instruction.class::isInstance)
-    //         .filter(i -> i.as(Instruction.class).getParent().isPresent())
-    //         .collect(Collectors.toUnmodifiableList());
-    //
-    //     for (final var user : usersInBlock) {
-    //         user.replaceOperandCO(this, newValue);
-    //         newValue.addUser(user);
-    //     }
-    //
-    //     userList.removeAll(usersInBlock);
-    // }
-
-    public boolean isUseless() {
+    public boolean haveNoUser() {
         return userList.isEmpty();
     }
 

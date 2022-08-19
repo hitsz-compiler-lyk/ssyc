@@ -4,7 +4,6 @@ import frontend.SysYLexer;
 import frontend.SysYParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-
 import pass.backend.BackendPassManager;
 import pass.ir.IRPassManager;
 import utils.LLVMDumper;
@@ -14,6 +13,8 @@ import java.io.*;
 
 
 public class Main {
+    public static boolean needOptimize = true;
+
     public static void main(String[] args) throws IOException {
         if (args.length != 3) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
@@ -82,6 +83,7 @@ public class Main {
         final var parser = new SysYParser(tokens);
         final var ruleContext = parser.compUnit();
 
+        Log.inOnlineJudge();
         switch (target) {
             case "ast" -> {
                 writer.write(DebugTools.toDebugTreeString(ruleContext).toString());
@@ -94,9 +96,11 @@ public class Main {
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
 
-                final var mgr = new IRPassManager(module);
-                mgr.runAllPasses();
-                module.verifyAll();
+                if (needOptimize) {
+                    final var mgr = new IRPassManager(module);
+                    mgr.runAllPasses();
+                    module.verifyAll();
+                }
 
                 final var dumper = new LLVMDumper(outputStream);
                 dumper.dump(module);
@@ -104,21 +108,24 @@ public class Main {
             }
 
             case "asm" -> {
-                Log.inOnlineJudge();
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();
 
-                 final var mgr = new IRPassManager(module);
-                 mgr.runAllPasses();
-                 module.verifyAll();
+                if (needOptimize) {
+                    final var mgr = new IRPassManager(module);
+                    mgr.runAllPasses();
+                    module.verifyAll();
+                }
 
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
                 codeGenManager.regAllocate();
 
-                final var BackendPass = new BackendPassManager(codeGenManager);
-                BackendPass.runAllPasses();
+                if (needOptimize) {
+                    final var BackendPass = new BackendPassManager(codeGenManager);
+                    BackendPass.runAllPasses();
+                }
 
                 writer.append(codeGenManager.codeGenArm());
                 writer.close();

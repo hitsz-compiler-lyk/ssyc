@@ -11,8 +11,6 @@ import pass.ir.memory.ReplaceConstantArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
 
-import java.util.List;
-
 public class IRPassManager {
     public IRPassManager(Module module) {
         this.module = module;
@@ -20,15 +18,7 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
-        final var blockCount = module.getNonExternalFunction().stream()
-            .flatMap(List::stream).mapToInt(List::size).sum();
-        if (blockCount >= 5000) {
-            // very large program, just run simple opt
-            runPass(new ClearUnreachableBlock());
-            runPass(new ClearUselessInstruction());
-            return;
-        }
-
+        runPass(new RemoveCurrDef());
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
         runPass(new ReplaceConstantArray());

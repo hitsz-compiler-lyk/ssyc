@@ -1,24 +1,13 @@
 package backend.regallocator;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import backend.Consts;
-import backend.arm.ArmFunction;
-import backend.arm.ArmInst;
-import backend.arm.ArmInstLoad;
-import backend.arm.ArmInstMove;
-import backend.arm.ArmInstParamLoad;
-import backend.arm.ArmInstStackAddr;
-import backend.arm.ArmInstStackLoad;
-import backend.arm.ArmInstStackStore;
-import backend.operand.FVirtualReg;
-import backend.operand.IImm;
-import backend.operand.IVirtualReg;
-import backend.operand.Operand;
-import backend.operand.Reg;
+import backend.arm.*;
+import backend.operand.*;
 import utils.Log;
 import utils.Pair;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class SimpleGraphColoring implements RegAllocator {
     public static class InterfereRegs {
@@ -174,9 +163,10 @@ public class SimpleGraphColoring implements RegAllocator {
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func.asElementView()) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
-            var insts = block.asElementView();
-            for (int i = insts.size() - 1; i >= 0; i--) {
-                var inst = insts.get(i);
+
+            var instsInReverse = new ArrayList<>(block);
+            Collections.reverse(instsInReverse);
+            for (final var inst : instsInReverse) {
                 for (var def : inst.getRegDef()) {
                     for (var reg : live) {
                         if (!def.equals(reg)) {

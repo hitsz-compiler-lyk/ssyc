@@ -1,15 +1,15 @@
 package frontend.info;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
 import frontend.SourceCodeSymbol;
 import ir.User;
 import ir.Value;
 import ir.analysis.AnalysisInfo;
 import ir.type.IRType;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * <p>  保存翻译时块中 "源语言变量" --> "当前对应的版本" 的信息
@@ -64,6 +64,10 @@ public class CurrDefInfo implements AnalysisInfo {
 
     public Set<Map.Entry<SourceCodeSymbol, Entry>> getAllEntries() {
         return definitions.entrySet();
+    }
+
+    public void freeFromUseDef() {
+        definitions.values().forEach(User::freeFromUseDef);
     }
 
     public static class Entry extends User {

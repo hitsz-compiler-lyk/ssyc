@@ -1,8 +1,5 @@
 package frontend;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 import frontend.folder.CondFolder;
 import frontend.folder.FloatConstantFolder;
 import frontend.folder.IntConstantFolder;
@@ -15,8 +12,11 @@ import ir.constant.Constant;
 import ir.inst.*;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
-import utils.Log;
 import utils.CollectionTools;
+import utils.Log;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class IRBuilder {
     public IRBuilder() {
@@ -209,7 +209,7 @@ public class IRBuilder {
         }
     }
 
-    private static Value foldExp(Instruction val) {
+    public static Value foldExp(Instruction val) {
         final var type = val.getType();
         if (type.isInt() && IntConstantFolder.canFold(val)) {
             return IntConstantFolder.foldConst(val);
