@@ -1,5 +1,7 @@
 package pass.ir;
 
+import frontend.IRBuilder;
+import ir.Function;
 import ir.Module;
 import ir.Value;
 import ir.constant.Constant;
@@ -7,32 +9,23 @@ import ir.constant.IntConst;
 import ir.inst.BinaryOpInst;
 import ir.inst.InstKind;
 import ir.inst.Instruction;
-import utils.Log;
-import utils.Pair;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class InstructionCombiner implements IRPass {
     @Override
     public void runPass(Module module) {
-        instRepeatInfoMap = new HashMap<>();
-        IRPass.instructionStream(module)
-                .map(inst->new Pair<>(inst,getRepeatInfo(inst)))
-                .forEach(this::repeatedAddComb);
         new ConstructDominatorInfo().runPass(module);
+
         IRPass.instructionStream(module)
-            .filter(this::matchMultiOp)
-            .map(BinaryOpInst.class::cast)
+            .filter(this::matchMultiOp).map(BinaryOpInst.class::cast)
             .forEach(this::combine);
+
         IRPass.instructionStream(module).forEach(this::swapConst);
         IRPass.instructionStream(module).forEach(this::biOpWithZeroOneComb);
-    }
 
-    private Map<Instruction,RepeatInfo> instRepeatInfoMap;
+        module.getNonExternalFunction().forEach(this::tryFlattenNestedAddOnFunction);
+    }
 
     private boolean isKind(Value value, InstKind kind) {
         if (value instanceof Instruction) {
@@ -178,124 +171,143 @@ public class InstructionCombiner implements IRPass {
             }
         }
     }
-    private static class RepeatInfo {
-        private boolean isRepeatedAdd;
-        /**
-         * 是否 Top 节点, 即是否需要展开
-         */
-        private boolean isTop;
-        /**
-         * key 需为 Instruction 或 IntConst
-         */
-        private Map<Value, Integer> valueFrequencyMap;
-        RepeatInfo(boolean isRepeatedAdd,boolean isTop) {
-            this.isRepeatedAdd = isRepeatedAdd;
-            this.isTop = isTop;
-            this.valueFrequencyMap = new HashMap<>();
-        }
-        void put(Value key,Integer value) {
-            Log.ensure((key instanceof IntConst) || (key instanceof Instruction));
-            valueFrequencyMap.put(key, value);
-        }
 
-        void merge(Value key,Integer value) {
-            valueFrequencyMap.merge(key, value, Integer::sum);
-        }
-
-        void mergeAll(RepeatInfo info) {
-            info.valueFrequencyMap.forEach(this::merge);
-        }
+    private void tryFlattenNestedAddOnFunction(Function function) {
+        final var instInReverse = function.stream().collect(ArrayList<Instruction>::new, List::addAll, List::addAll);
+        Collections.reverse(instInReverse);
+        instInReverse.forEach(this::tryFlattenNestedAdd);
     }
 
-    private boolean isIntConst(Value value) {
-        return value instanceof IntConst;
-    }
+    private void tryFlattenNestedAdd(Instruction instruction) {
+        // ((+ a b) (+ a b) (+ b c)) ==> (+ (+ (* a 2) (* b 2)) (* c 1))
+        if (isIAdd(instruction)) {
+            final var leaves = collectAddTreeLeaves((BinaryOpInst) instruction);
+            final var hasLotsOfRedundant = leaves.values().stream().anyMatch(i -> i >= 5);
 
-    /**
-     * 需要记录的 value 只有 inst 和 Const
-     * @param inst 待记录的 instruction
-     * @return info
-     */
-    private RepeatInfo getRepeatInfo(Instruction inst) {
-        if (instRepeatInfoMap.containsKey(inst)) {
-            return instRepeatInfoMap.get(inst);
-        }
-        if (inst instanceof BinaryOpInst) {
-            final var binst = (BinaryOpInst) inst;
-            final var lhs = binst.getLHS();
-            final var rhs = binst.getRHS();
-            if (isKind(inst, InstKind.IAdd)) {
-                final var info = new RepeatInfo(true, true);
-                if (lhs instanceof Instruction) {
-                    info.mergeAll(getRepeatInfo((Instruction) lhs));
-                } else if (lhs instanceof IntConst) {
-                    info.merge(lhs, 1);
+            if (!hasLotsOfRedundant) {
+                return;
+            }
+
+            final var newLeaves = new LinkedHashSet<Value>();
+            for (final var entry : leaves.entrySet()) {
+                final var value = entry.getKey();
+                final var count = entry.getValue();
+
+                if (count > 1) {
+                    // (* leaf count)
+                    final var mul = new BinaryOpInst(InstKind.IMul, value, Constant.createIntConstant(count));
+                    newLeaves.add(foldOrAddBefore(instruction, mul));
                 } else {
-                    Log.ensure(false,"lhs must be a Instruction or IntConst.");
-                }
-                if (rhs instanceof Instruction) {
-                    info.mergeAll(getRepeatInfo((Instruction) rhs));
-                } else if (rhs instanceof IntConst) {
-                    info.merge(rhs, 1);
-                } else {
-                    Log.ensure(false,"rhs must be a Instruction or IntConst.");
-                }
-                instRepeatInfoMap.put(inst, info);
-                return info;
-            } else if (isKind(inst, InstKind.IMul)) {
-                if (isIntConst(lhs) && !isIntConst(rhs)) {
-                    final var info = new RepeatInfo(true, false);
-                    final var con = (IntConst) lhs;
-                    info.put(rhs,con.getValue());
-                    instRepeatInfoMap.put(inst, info);
-                    return info;
-                }
-                if (!isIntConst(lhs) && isIntConst(rhs)) {
-                    final var info = new RepeatInfo(true, false);
-                    final var con = (IntConst) rhs;
-                    info.put(rhs, con.getValue());
-                    instRepeatInfoMap.put(inst, info);
-                    return info;
+                    newLeaves.add(value);
                 }
             }
-        }
 
-        final var info = new RepeatInfo(false, false);
-        info.put(inst, 1);
-        instRepeatInfoMap.put(inst, info);
-        return info;
+            // 依次将叶子加起来 (+ ... (+ (+ (+ 0 l1) l2) l3)...)
+            Value currTopAdd = Constant.INT_0;
+            for (final var newLeaf : newLeaves) {
+                final var add = new BinaryOpInst(InstKind.IAdd, currTopAdd, newLeaf);
+                currTopAdd = foldOrAddBefore(instruction, add);
+            }
+
+            // 最后用加起来的结果替换掉旧的 instruction
+            instruction.replaceAllUseWith(currTopAdd);
+            clearUselessTreeNode(currTopAdd);
+        }
     }
 
-    private void repeatedAddComb(Pair<Instruction,RepeatInfo> pair) {
-        final var inst = pair.getKey();
-        final var info = pair.getValue();
-        if (info.isTop && info.isRepeatedAdd) {
-            final var entryList = info.valueFrequencyMap.entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue()).collect(Collectors.toList());
-            final List<Value> valueList = new LinkedList<>();
-            for (var entry : entryList) {
-                if (entry.getValue() > 0 && entry.getValue() < 5) {
-                    for (int i = 0; i < entry.getValue(); i++) {
-                        valueList.add(entry.getKey());
-                    }
-                } else if (entry.getValue() >= 5) {
-                    final var mulInst = new BinaryOpInst(InstKind.IMul, entry.getKey(),
-                            Constant.createIntConstant(entry.getValue()));
-                    inst.insertBeforeCO(mulInst);
-                    valueList.add(mulInst);
-                }
-            }
-            Log.ensure(valueList.size() >= 2, "valueList must have two or more elements.");
-            final var flhs = valueList.remove(0);
-            final var frhs = valueList.remove(0);
-            Instruction lastInst = new BinaryOpInst(InstKind.IAdd, flhs, frhs);
-            for (var value : valueList) {
-                inst.insertBeforeCO(lastInst);
-                lastInst = new BinaryOpInst(InstKind.IAdd, value, lastInst);
-            }
-            inst.replaceAllUseWith(lastInst);
-            inst.replaceInIList(lastInst);
-            inst.freeAll();
+    private Value foldOrAddBefore(Instruction originInst, Instruction newInst) {
+        final var afterFolded = IRBuilder.foldExp(newInst);
+        if (afterFolded instanceof Instruction) {
+            originInst.insertBeforeCO((Instruction) afterFolded);
         }
+
+        return afterFolded;
+    }
+
+    // 按树形结构先序遍历, 清扫无用节点
+    private void clearUselessTreeNode(Value curr) {
+        if (curr instanceof Instruction) {
+            final var inst = (Instruction) curr;
+            if (ClearUselessInstruction.canBeRemove(inst)) {
+                final var oldOperands = IRPass.copyForChange(inst.getOperands());
+                ClearUselessInstruction.deleteInstruction(inst);
+                oldOperands.forEach(this::clearUselessTreeNode);
+            }
+        }
+    }
+
+    // // 在树型结构上递归收集叶子
+    // // 这是好看的递归版本
+    // private Map<Value, Integer> collectAddTreeLeaves(Value curr) {
+    //     if (!(curr instanceof BinaryOpInst)) {
+    //         return Map.of(curr, 1);
+    //     }
+    //
+    //     final var binop = (BinaryOpInst) curr;
+    //     final var lhs = binop.getLHS();
+    //     final var rhs = binop.getRHS();
+    //
+    //     if (binop.getKind() == InstKind.IAdd) {
+    //         return mergeMap(collectAddTreeLeaves(lhs), collectAddTreeLeaves(rhs), Integer::sum);
+    //     } else {
+    //         return Map.of(curr, 1);
+    //     }
+    // }
+
+    // static <K, V> Map<K, V> mapMap(Map<K, V> map, UnaryOperator<V> mapper) {
+    //     final var result = new HashMap<K, V>();
+    //
+    //     for (final var entry : map.entrySet()) {
+    //         result.put(entry.getKey(), mapper.apply(entry.getValue()));
+    //     }
+    //
+    //     return result;
+    // }
+    //
+    // static <K, V> Map<K, V> mergeMap(Map<K, V> a, Map<K, V> b, BinaryOperator<V> merger) {
+    //     final var result = new HashMap<>(a);
+    //
+    //     for (final var entry : b.entrySet()) {
+    //         result.merge(entry.getKey(), entry.getValue(), merger);
+    //     }
+    //
+    //     return result;
+    // }
+
+    // 下面是难看的用来提升处理速度的迭代版本
+    private Map<Value, Integer> collectAddTreeLeaves(BinaryOpInst root) {
+        final var leaves = new HashMap<Value, Integer>();
+        final var queue = new ArrayDeque<BinaryOpInst>();
+        queue.addLast(root);
+
+        while (!queue.isEmpty()) {
+            final var head = queue.pollFirst();
+
+            // 不将叶子节点放进队列又拿出来可以有效提升效率
+            final var lhs = head.getLHS();
+            if (isIAdd(lhs)) {
+                queue.addLast((BinaryOpInst) lhs);
+            } else {
+                leaves.merge(lhs, 1, Integer::sum);
+            }
+
+            final var rhs = head.getRHS();
+            if (isIAdd(rhs)) {
+                queue.addLast((BinaryOpInst) rhs);
+            } else {
+                leaves.merge(rhs, 1, Integer::sum);
+            }
+        }
+
+        return leaves;
+    }
+
+    private boolean isIAdd(Value value) {
+        return value instanceof BinaryOpInst
+            && ((BinaryOpInst) value).getKind() == InstKind.IAdd;
+    }
+
+    private boolean isIAdd(Instruction instruction) {
+        return instruction.getKind() == InstKind.IAdd;
     }
 }
