@@ -1,0 +1,26 @@
+int main() {
+    const int bitcount = 30;
+    int x[bitcount + 1] = {};
+
+    x[0] = 1;
+    x[1] = x[0] * 2;
+    x[2] = x[1] * 2;
+    x[3] = x[2] * 2;
+    x[4] = x[3] * 2;
+    x[5] = x[4] * 2;
+    x[6] = x[5] * 2;
+    x[7] = x[6] * 2;
+    x[8] = x[7] * 2;
+    x[9] = x[8] * 2;
+    x[10] = x[9] * 2;
+
+    int i = 10;
+    while (i < bitcount){
+        i = i + 1;
+        x[i] = x[i - 1] * 2;
+    }
+
+    putarray(bitcount, x);
+
+    return 0;
+}

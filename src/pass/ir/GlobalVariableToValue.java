@@ -59,19 +59,21 @@ public class GlobalVariableToValue implements IRPass {
 
                 final var gv = (GlobalVar) ptr;
                 if (gv.isVariable()) {
-                    final var def = currDef.get(gv);
-
-                    if (def instanceof PhiInst) {
-                        final var phi = (PhiInst) def;
-                        if (!currBlock.phis().contains(phi)) {
-                            currBlock.addPhi((PhiInst) def);
-                        }
-                    }
-
+                    final var def = findOrInsertPhi(currBlock, currDef, gv);
                     load.replaceAllUseWith(def);
                     load.freeAll();
                 }
             }
+        }
+    }
+
+    private Value findOrInsertPhi(BasicBlock currBlock, GVCurrDef currDef, GlobalVar gv) {
+        if (currDef.contains(gv)) {
+            return currDef.get(gv);
+        } else {
+            final var phi = currDef.makePhiAndAddToIncomplete(gv);
+            currBlock.addPhi(phi);
+            return phi;
         }
     }
 
@@ -136,6 +138,12 @@ class GVCurrDef implements AnalysisInfo {
         return currDef.containsKey(gv);
     }
 
+    public PhiInst makePhiAndAddToIncomplete(GlobalVar gv) {
+        final var phi = makePhi(gv);
+        incompletePhis.put(gv, phi);
+        return phi;
+    }
+
     public PhiInst makePhi(GlobalVar gv) {
         Log.ensure(!currDef.containsKey(gv));
 
@@ -145,13 +153,8 @@ class GVCurrDef implements AnalysisInfo {
     }
 
     public Value get(GlobalVar gv) {
-        if (!currDef.containsKey(gv)) {
-            final var phi = makePhi(gv);
-            incompletePhis.put(gv, phi);
-            return phi;
-        } else {
-            return currDef.get(gv);
-        }
+        Log.ensure(currDef.containsKey(gv));
+        return currDef.get(gv);
     }
 
     public void kill(GlobalVar gv, Value value) {

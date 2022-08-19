@@ -2,9 +2,12 @@ package pass.ir;
 
 import ir.GlobalModificationStatus;
 import ir.Module;
+import pass.ir.loop.FullyUnroll;
 import pass.ir.loop.InductionVariableReduce;
 import pass.ir.loop.LoopUnroll;
+import pass.ir.loop.SimpleInvariantHoist;
 import pass.ir.memory.RemoveUnnecessaryArray;
+import pass.ir.memory.ReplaceConstantArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
 
@@ -27,8 +30,14 @@ public class IRPassManager {
 
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
+        runPass(new ReplaceConstantArray());
+        runMemoryOptimizePass();
+        runPass(new FullyUnroll());
+        runPass(new ReplaceConstantArray());
+        runDefaultBlockClearUpPasses();
         runMemoryOptimizePass();
         runPass(new HoistGlobalArrayLoad());
+        runPass(new SimpleInvariantHoist());
         runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
         runAllClearUpPasses();
@@ -38,6 +47,7 @@ public class IRPassManager {
         GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
+            runDefaultBlockClearUpPasses();
             runPass(new ClearUselessFunction());
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
@@ -76,6 +86,8 @@ public class IRPassManager {
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
         });
+
+        runPass(new BlockReorder());
     }
 
     public void runDefaultInstructionClearUpPasses() {

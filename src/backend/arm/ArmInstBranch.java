@@ -14,6 +14,13 @@ public class ArmInstBranch extends ArmInst {
         this.setPrintCnt(1);
     }
 
+    public ArmInstBranch(ArmBlock targetBlock) {
+        super(ArmInstKind.Branch);
+        this.targetBlock = targetBlock;
+        this.setPrintCnt(1);
+    }
+
+
     public ArmInstBranch(ArmBlock block, ArmBlock targetBlock, ArmCondType cond) {
         super(ArmInstKind.Branch);
         this.targetBlock = targetBlock;
@@ -24,6 +31,25 @@ public class ArmInstBranch extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+    }
+
+    public ArmInstBranch(ArmBlock targetBlock, ArmCondType cond) {
+        super(ArmInstKind.Branch);
+        this.targetBlock = targetBlock;
+        this.setCond(cond);
+        if (cond.equals(ArmCondType.Any)) {
+            this.setPrintCnt(2);
+        } else {
+            this.setPrintCnt(1);
+        }
+    }
+
+    public ArmBlock getTargetBlock() {
+        return targetBlock;
+    }
+
+    public void setTargetBlock(ArmBlock targetBlock) {
+        this.targetBlock = targetBlock;
     }
 
     @Override

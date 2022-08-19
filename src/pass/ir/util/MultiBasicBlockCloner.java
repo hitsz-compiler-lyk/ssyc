@@ -83,6 +83,13 @@ public class MultiBasicBlockCloner implements ValueVisitor<Value> {
 
     @Override
     public Value visitInstruction(final Instruction oldInst) {
+        // 如果 phi 有到自己的引用, 那么当 phi 尝试 getOrCreate 参数时, 会把自己传进来
+        // 而此时这个指令还没有 parent, 所以需要特判一下, 直接把自己返回
+        if (oldInst.getParentOpt().isEmpty()) {
+            Log.ensure(oldInst instanceof PhiInst);
+            return oldInst;
+        }
+
         // 外界的 Instruction 就不要复制了
         if (shouldNotBeCloned(oldInst)) {
             return oldInst;

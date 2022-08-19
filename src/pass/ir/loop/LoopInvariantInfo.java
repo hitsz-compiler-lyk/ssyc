@@ -2,11 +2,10 @@ package pass.ir.loop;
 
 import ir.GlobalVar;
 import ir.Value;
-import ir.inst.Instruction;
-import ir.inst.LoadInst;
-import ir.inst.MemInitInst;
+import ir.inst.*;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 public class LoopInvariantInfo {
@@ -39,15 +38,20 @@ public class LoopInvariantInfo {
     }
 
     private void collectVariants() {
-        // phis in header are variants
-        // use of variants are variants
-        loop.getHeader().phis().forEach(this::collectAsVariantsWithAllUser);
+        // phi/load/call/calloc 是与控制流相关的, 即循环相关的
+        // 与循环相关的指令有关的指令都是循环相关的
+        loop.getAll().stream().flatMap(List::stream)
+            .filter(inst -> (inst instanceof PhiInst) || (inst instanceof LoadInst) || (inst instanceof CallInst) || (inst instanceof CAllocInst))
+            .forEach(this::collectAsVariantsWithAllUser);
 
         for (final var block : loop.getBody()) {
             for (final var inst : block) {
+                // 带副作用的都是相关的
                 if (inst instanceof MemInitInst) {
                     variants.add(inst);
                 } else if (inst.getKind().isBr()) {
+                    variants.add(inst);
+                } else if (inst instanceof StoreInst) {
                     variants.add(inst);
                 }
                 // 不使用 variant 的 Store 和 Load 是 invariant 的
