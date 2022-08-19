@@ -22,8 +22,10 @@ public class InstructionCombiner implements IRPass {
             .forEach(this::combine);
 
         IRPass.instructionStream(module).forEach(this::swapConst);
+        // 以下的 int bop 常数将在右手
         IRPass.instructionStream(module).forEach(this::biOpWithZeroOneComb);
-
+        IRPass.instructionStream(module).forEach(this::distributeIMulComb);
+        IRPass.instructionStream(module).forEach(this::addMulConstComb);
         module.getNonExternalFunction().forEach(this::tryFlattenNestedAddOnFunction);
     }
 
@@ -273,4 +275,73 @@ public class InstructionCombiner implements IRPass {
     private boolean isIAdd(Instruction instruction) {
         return instruction.getKind() == InstKind.IAdd;
     }
+
+    /**
+     * (+ (* a b) (* a d)) ==> (* a (+ b d))
+     * @param inst 待化简的 instruction
+     */
+    private void distributeIMulComb(Instruction inst) {
+        if (isIAdd(inst)) {
+            final var binst = (BinaryOpInst) inst;
+            final var lhs = binst.getLHS();
+            final var rhs = binst.getRHS();
+            if (isKind(lhs, InstKind.IMul) && isKind(rhs, InstKind.IMul) && lhs.getUserList().size() == 1 && rhs.getUserList().size() == 1) {
+                final var linst = (BinaryOpInst) lhs;
+                final var rinst = (BinaryOpInst) rhs;
+                final var addMulOperands = getAddMulOperands(
+                        linst.getLHS(), linst.getRHS(), rinst.getLHS(), rinst.getRHS()
+                );
+                if (addMulOperands.isPresent()) {
+                    final var addInst = new BinaryOpInst(InstKind.IAdd, addMulOperands.get().get(1), addMulOperands.get().get(2));
+                    final var mulInst = new BinaryOpInst(InstKind.IMul, addMulOperands.get().get(0), addInst);
+                    inst.insertBeforeCO(addInst);
+                    inst.replaceInIList(mulInst);
+                    inst.replaceAllUseWith(mulInst);
+                    inst.freeAll();
+                }
+            }
+        }
+    }
+
+    private Optional<List<Value>> getAddMulOperands(Value a, Value b, Value c, Value d) {
+        if (a.equals(c)) {
+            return Optional.of(List.of(a, b, d));
+        }
+        if (a.equals(d)) {
+            return Optional.of(List.of(a, b, c));
+        }
+        if (b.equals(c)) {
+            return Optional.of(List.of(b, a, d));
+        }
+        if (b.equals(d)) {
+            return Optional.of(List.of(b, a, c));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * (* (+ a constB) constC) ==> (+ (* a constC) constB*C)
+     * @param inst 待化简的 instruction
+     */
+    private void addMulConstComb(Instruction inst) {
+        if (isKind(inst, InstKind.IMul)) {
+            final var binst = (BinaryOpInst) inst;
+            final var lhs = binst.getLHS();
+            final var rhs = binst.getRHS();
+            if (isConst(rhs) && isKind(lhs, InstKind.IAdd)) {
+                final var addInst = (BinaryOpInst) lhs;
+                if (isConst(addInst.getRHS())) {
+                    final var lMulInst = new BinaryOpInst(InstKind.IMul, addInst.getLHS(), rhs);
+                    final var rMul = Constant.createIntConstant(
+                            ((IntConst) addInst.getRHS()).getValue()* ((IntConst) rhs).getValue());
+                    final var reInst = new BinaryOpInst(InstKind.IAdd, lMulInst, rMul);
+                    inst.insertBeforeCO(lMulInst);
+                    inst.insertBeforeCO(reInst);
+                    inst.replaceAllUseWith(reInst);
+                    inst.freeAll();
+                }
+            }
+        }
+    }
+
 }
