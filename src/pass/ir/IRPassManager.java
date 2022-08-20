@@ -87,11 +87,12 @@ public class IRPassManager {
 
     public void runDefaultInstructionClearUpPasses() {
         GlobalModificationStatus.doUntilNoChange(() -> {
-            runPass(new ConstantFold());
-            runPass(new RemoveTrivialPhi());
             runPass(new ClearUnreachableBlock());
             runPass(new InstructionCombiner());
+            runPass(new ConstantFold());
+            runPass(new RemoveTrivialPhi());
             runPass(new ClearUselessInstruction());
+            runPass(new ClearUnreachableBlock());
             runPass(new GCM());
         });
     }

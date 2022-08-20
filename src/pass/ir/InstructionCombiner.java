@@ -1,16 +1,16 @@
 package pass.ir;
 
 import frontend.IRBuilder;
-import ir.Function;
+import frontend.SourceCodeSymbol;
 import ir.Module;
-import ir.Value;
+import ir.*;
 import ir.constant.Constant;
 import ir.constant.IntConst;
-import ir.inst.BinaryOpInst;
-import ir.inst.InstKind;
-import ir.inst.Instruction;
+import ir.inst.*;
+import ir.type.IRType;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class InstructionCombiner implements IRPass {
     @Override
@@ -26,7 +26,9 @@ public class InstructionCombiner implements IRPass {
         IRPass.instructionStream(module).forEach(this::biOpWithZeroOneComb);
         IRPass.instructionStream(module).forEach(this::distributeIMulComb);
         IRPass.instructionStream(module).forEach(this::addMulConstComb);
-        module.getNonExternalFunction().forEach(this::tryFlattenNestedAddOnFunction);
+
+        runWithInstructionInReverseOrder(module, this::tryFlattenNestedAdd);
+        // runWithInstructionInReverseOrder(module, this::tryFlattenNestedMul);
     }
 
     private boolean isKind(Value value, InstKind kind) {
@@ -174,12 +176,6 @@ public class InstructionCombiner implements IRPass {
         }
     }
 
-    private void tryFlattenNestedAddOnFunction(Function function) {
-        final var instInReverse = function.stream().collect(ArrayList<Instruction>::new, List::addAll, List::addAll);
-        Collections.reverse(instInReverse);
-        instInReverse.forEach(this::tryFlattenNestedAdd);
-    }
-
     private void tryFlattenNestedAdd(Instruction instruction) {
         // ((+ a b) (+ a b) (+ b c)) ==> (+ (+ (* a 2) (* b 2)) (* c 1))
         if (isIAdd(instruction)) {
@@ -190,7 +186,7 @@ public class InstructionCombiner implements IRPass {
                 return;
             }
 
-            final var newLeaves = new LinkedHashSet<Value>();
+            final var newLeaves = new ArrayList<Value>();
             for (final var entry : leaves.entrySet()) {
                 final var value = entry.getKey();
                 final var count = entry.getValue();
@@ -213,17 +209,22 @@ public class InstructionCombiner implements IRPass {
 
             // 最后用加起来的结果替换掉旧的 instruction
             instruction.replaceAllUseWith(currTopAdd);
-            clearUselessTreeNode(currTopAdd);
+            clearUselessTreeNode(instruction);
         }
     }
 
-    private Value foldOrAddBefore(Instruction originInst, Instruction newInst) {
-        final var afterFolded = IRBuilder.foldExp(newInst);
-        if (afterFolded instanceof Instruction) {
-            originInst.insertBeforeCO((Instruction) afterFolded);
-        }
+    private Value foldOrAddBefore(Instruction originInst, Value newValue) {
+        if (newValue instanceof Instruction) {
+            final var afterFolded = IRBuilder.foldExp((Instruction) newValue);
+            if (afterFolded instanceof Instruction) {
+                originInst.insertBeforeCO((Instruction) afterFolded);
+            }
 
-        return afterFolded;
+            return afterFolded;
+
+        } else {
+            return newValue;
+        }
     }
 
     // 按树形结构先序遍历, 清扫无用节点
@@ -344,4 +345,223 @@ public class InstructionCombiner implements IRPass {
         }
     }
 
+    private static Function fpowFunction = constructFastPowFunction();
+
+    // 连续乘法转快速幂
+    static Function constructFastPowFunction() {
+        /* // 返回 a^i
+         * int fpow(int a, int i) {
+         *      int p = 1;
+         *      while (i != 0) {
+         *          if (i % 2 == 1) {
+         *              p = p * a;
+         *          }
+         *          a = a * a;
+         *          i = i / 2;
+         *      }
+         *      return p;
+         * }
+         */
+
+        // define i32 @fpow(i32 %a0, i32 %i0) {
+        final var a_0 = new Parameter(newSym("a"), IRType.IntTy);
+        final var i_0 = new Parameter(newSym("i"), IRType.IntTy);
+        final var function = new Function(IRType.IntTy, List.of(a_0, i_0), newSym("__origami404_self_fpow__"));
+
+        final var entry = BasicBlock.createFreeBBlock(newSym("entry"));
+        final var cond = BasicBlock.createFreeBBlock(newSym("while_cond"));
+        final var body = BasicBlock.createFreeBBlock(newSym("while_body"));
+        final var if_then = BasicBlock.createFreeBBlock(newSym("if_then"));
+        final var if_exit = BasicBlock.createFreeBBlock(newSym("if_exit"));
+        final var exit = BasicBlock.createFreeBBlock(newSym("while_exit"));
+
+        // entry:
+        //      br cond
+        entry.setBr(cond);
+
+        // cond:
+        //      %p = phi [1, entry], [%p2, if_exit]
+        //      %a = phi [%a0, entry], [%a1, if_exit]
+        //      %i = phi [%i0, entry], [%i1, if_exit]
+        //      %1 = icmp ne %i, 0
+        //      br %1, body, exit
+        final var phi_p = new PhiInst(IRType.IntTy, newSym("p"));
+        final var phi_a = new PhiInst(IRType.IntTy, newSym("a"));
+        final var phi_i = new PhiInst(IRType.IntTy, newSym("i"));
+        final var tmp_1 = new CmpInst(InstKind.ICmpNe, phi_i, Constant.INT_0);
+
+        cond.addAll(List.of(phi_p, phi_a, phi_i, tmp_1));
+        cond.setBrCond(tmp_1, body, exit);
+
+        // body:
+        //      %2 = imod %i, 2
+        //      %3 = icmp eq %2, 1
+        //      br %3, if_then, if_exit
+        final var tmp_2 = new BinaryOpInst(InstKind.IMod, phi_i, Constant.createIntConstant(2));
+        final var tmp_3 = new CmpInst(InstKind.ICmpEq, tmp_2, Constant.createIntConstant(1));
+        body.addAll(List.of(tmp_2, tmp_3));
+        body.setBrCond(tmp_3, if_then, if_exit);
+
+        // if_then:
+        //      %p1 = imul %p, %a
+        //      br if_exit
+        final var p_1 = new BinaryOpInst(InstKind.IMul, phi_p, phi_a);
+        if_then.add(p_1);
+        if_then.setBr(if_exit);
+
+        // if_exit:
+        //      %p2 = phi [%p, body], [%p1, if_then]
+        //      %a1 = imul %a, %a
+        //      %i1 = idiv %i, 2
+        //      br cond
+        final var p_2 = new PhiInst(IRType.IntTy, newSym("p"));
+        p_2.setIncomingValueWithoutCheckingPredecessorsCO(List.of(phi_p, p_1));
+        final var a_1 = new BinaryOpInst(InstKind.IMul, phi_a, phi_a);
+        final var i_1 = new BinaryOpInst(InstKind.IDiv, phi_i, Constant.createIntConstant(2));
+
+        if_exit.addAll(List.of(p_2, a_1, i_1));
+        if_exit.setBr(cond);
+
+        // 回填 cond 中的 phi
+        phi_p.setIncomingValueWithoutCheckingPredecessorsCO(List.of(Constant.createIntConstant(1), p_2));
+        phi_a.setIncomingValueWithoutCheckingPredecessorsCO(List.of(a_0, a_1));
+        phi_i.setIncomingValueWithoutCheckingPredecessorsCO(List.of(i_0, i_1));
+
+        // exit:
+        //      ret %p
+        exit.add(new ReturnInst(phi_p));
+
+        function.addAll(List.of(entry, cond, body, if_then, if_exit, exit));
+        function.forEach(BasicBlock::adjustPhiEnd);
+        //}
+
+        function.verifyAll();
+        return function;
+    }
+
+    private static SourceCodeSymbol newSym(String name) {
+        return new SourceCodeSymbol(name, 0, 0);
+    }
+
+    private boolean isIMul(Value value) {
+        return value instanceof BinaryOpInst
+               && ((BinaryOpInst) value).getKind() == InstKind.IMul;
+    }
+
+    private boolean isIMul(Instruction instruction) {
+        return instruction.getKind() == InstKind.IMul;
+    }
+
+    // 直接复制一份提升性能
+    private Map<Value, Integer> collectMulTreeLeaves(BinaryOpInst root) {
+        final var leaves = new HashMap<Value, Integer>();
+        final var queue = new ArrayDeque<BinaryOpInst>();
+        queue.addLast(root);
+
+        while (!queue.isEmpty()) {
+            final var head = queue.pollFirst();
+
+            // 不将叶子节点放进队列又拿出来可以有效提升效率
+            final var lhs = head.getLHS();
+            if (isIMul(lhs)) {
+                queue.addLast((BinaryOpInst) lhs);
+            } else {
+                leaves.merge(lhs, 1, Integer::sum);
+            }
+
+            final var rhs = head.getRHS();
+            if (isIMul(rhs)) {
+                queue.addLast((BinaryOpInst) rhs);
+            } else {
+                leaves.merge(rhs, 1, Integer::sum);
+            }
+        }
+
+        return leaves;
+    }
+
+    private void tryFlattenNestedMul(Instruction instruction) {
+        // ((* a b) (* a b) (* b c) ... (* a b)) ==> (* (* (call fpow a n) (call fpow b n)) c)
+        if (isIMul(instruction)) {
+            final var leaves = collectMulTreeLeaves((BinaryOpInst) instruction);
+            final var hasLotsOfRedundant = leaves.values().stream().anyMatch(i -> i >= 8);
+
+            if (!hasLotsOfRedundant) {
+                return;
+            }
+
+            final var newLeaves = new ArrayList<Value>();
+            for (final var entry : leaves.entrySet()) {
+                final var value = entry.getKey();
+                final var count = entry.getValue();
+
+                if (count == 1) {
+                    newLeaves.add(value);
+                    continue;
+                }
+
+                if (value instanceof IntConst) {
+                    final var result = fpow(((IntConst) value).getValue(), count);
+                    newLeaves.add(Constant.createIntConstant(result));
+                    continue;
+                }
+
+                if (count <= 8) {
+                    Value currValue = foldOrAddBefore(instruction, value);
+                    for (int i = 0; i < count; i++) {
+                        final var mul = new BinaryOpInst(InstKind.IMul, currValue, value);
+                        currValue = foldOrAddBefore(instruction, mul);
+                    }
+                    newLeaves.add(currValue);
+
+                } else {
+                    final var exponent = Constant.createIntConstant(count);
+                    final var callToFpow = new CallInst(fpowFunction, List.of(value, exponent));
+                    instruction.insertBeforeCO(callToFpow);
+                    newLeaves.add(callToFpow);
+                }
+            }
+
+            // 依次将叶子乘起来 (* ... (* (* (* 1 l1) l2) l3)...)
+            Value currTopAdd = Constant.createIntConstant(1);
+            for (final var newLeaf : newLeaves) {
+                final var add = new BinaryOpInst(InstKind.IMul, currTopAdd, newLeaf);
+                currTopAdd = foldOrAddBefore(instruction, add);
+            }
+
+            // 最后用加起来的结果替换掉旧的 instruction
+            instruction.replaceAllUseWith(currTopAdd);
+            clearUselessTreeNode(instruction);
+        }
+    }
+
+    private void runWithInstructionInReverseOrder(Module module, Consumer<Instruction> consumer) {
+        for (final var function : module.getNonExternalFunction()) {
+            final var instInReverse = function.stream().collect(ArrayList<Instruction>::new, List::addAll, List::addAll);
+            Collections.reverse(instInReverse);
+
+            for (final var inst : instInReverse) {
+                if (inst.getParentOpt().isPresent()) {
+                    consumer.accept(inst);
+                }
+            }
+        }
+    }
+
+    /**
+     * @return base^exp
+     */
+    static int fpow(int base, int exp) {
+        int result = 1;
+
+        while (exp != 0) {
+            if ((exp & 1) == 1) {
+                result *= base;
+            }
+            base *= base;
+            exp >>= 1;
+        }
+
+        return result;
+    }
 }
