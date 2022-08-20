@@ -73,7 +73,6 @@ import ir.inst.StoreInst;
 import ir.inst.UnaryOpInst;
 import ir.type.ArrayIRTy;
 import ir.type.PointerIRTy;
-import pass.ir.GCM;
 import utils.Log;
 import utils.Pair;
 
@@ -204,12 +203,9 @@ public class CodeGenManager {
             String funcName = func.getFunctionSourceName();
 
             var blocks = func.asElementView();
-            var gcm = new GCM();
-            gcm.runOnFunction(func);
             for (int i = 0; i < blocks.size(); i++) {
                 var block = blocks.get(i);
                 var armblock = new ArmBlock(armFunc, block.getSymbol().getName() + "_" + funcName + "_" + i);
-                armblock.setLoopDepth(gcm.loopDepth(block));
                 blockMap.put(block, armblock);
             }
 
