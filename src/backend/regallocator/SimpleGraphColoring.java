@@ -209,8 +209,8 @@ public class SimpleGraphColoring implements RegAllocator {
         for (var reg : remainNodes) {
             if (func.getAddrLoadMap().containsKey(reg)
                     // || func.getParamLoadMap().containsKey(reg)
+                    // || func.getStackLoadMap().containsKey(reg)
                     // 不优先处理
-                    || func.getStackLoadMap().containsKey(reg)
                     || func.getStackAddrMap().containsKey(reg)
                     || func.getImmMap().containsKey(reg)) {
                 if (func.getSpillNodes().contains(reg)) {
@@ -340,6 +340,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getSpillNodes().add(vr);
                         }
+                        func.getSpillNodes().add(spill);
                     }
                 }
             }
