@@ -41,6 +41,7 @@ import backend.regallocator.RegAllocator;
 import backend.regallocator.SimpleGraphColoring;
 import backend.operand.Addr;
 import backend.operand.IVirtualReg;
+import backend.operand.Imm;
 import ir.BasicBlock;
 import ir.Function;
 import ir.GlobalVar;
@@ -610,8 +611,9 @@ public class CodeGenManager {
                         var add = new ArmInstBinary(block, ArmInstKind.IAdd, vr2, src, vr);
                         add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 32 - l));
                         var bicImm = resolveIImmOperand(abs - 1, block, func);
-                        new ArmInstBinary(block, ArmInstKind.Bic, vr2, vr2, bicImm);
-                        new ArmInstBinary(block, ArmInstKind.ISub, dstReg, src, vr2);
+                        var vr3 = new IVirtualReg();
+                        new ArmInstBinary(block, ArmInstKind.Bic, vr3, vr2, bicImm);
+                        new ArmInstBinary(block, ArmInstKind.ISub, dstReg, src, vr3);
                         break;
                     }
                 }
@@ -860,7 +862,7 @@ public class CodeGenManager {
                     finalOffset = nowOffset - instOffset;
                     Log.ensure(checkOffsetRange(finalOffset, src), "chang offset is illegal");
                     stackAddrSet.add(new Pair<>(vr, stackAddr));
-                    func.getStackAddrtMap().put(vr, stackAddr);
+                    func.getStackAddrMap().put(vr, stackAddr);
                 }
             }
             new ArmInstStore(block, src, addr, new IImm(finalOffset));
@@ -954,7 +956,7 @@ public class CodeGenManager {
         // ADD inst [SP, 之前已用的栈大小]
         var alloc = new ArmInstStackAddr(block, dst, new IImm(func.getStackSize()));
         alloc.setCAlloc(true);
-        func.getStackAddrtMap().put(dst, alloc);
+        func.getStackAddrMap().put(dst, alloc);
         // 增加栈大小
         func.addStackSize(inst.getAllocSize());
     }
@@ -1118,7 +1120,8 @@ public class CodeGenManager {
                 }
                 calcIUseRegs(func, iPhyRegs);
                 calcFUseRegs(func, fPhyRegs);
-                isFix = fixStack(func);
+                isFix = recoverRegAllocate(func);
+                isFix |= fixStack(func);
 
                 if (isFix) {
                     continue;
@@ -1254,6 +1257,9 @@ public class CodeGenManager {
                 arm.append(block.getLabel() + ":\n");
                 for (var inst : block.asElementView()) {
                     arm.append(inst.print());
+                    // if (inst.getSymbol() == null) {
+                    //     inst.InitSymbol();
+                    // }
                     // arm.append(inst.getSymbol());
                 }
             }
@@ -1455,7 +1461,7 @@ public class CodeGenManager {
                                 paramLoad.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
                                 stackAddrMap.put(addrTrueOffset, vr);
                                 addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrtMap().put(vr, stackAddr);
+                                func.getStackAddrMap().put(vr, stackAddr);
                             }
                         } else {
                             var addrTrueOffset = addrStackMap.get(paramLoad.getAddr());
@@ -1498,7 +1504,7 @@ public class CodeGenManager {
                                 stackLoad.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
                                 stackAddrMap.put(addrTrueOffset, vr);
                                 addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrtMap().put(vr, stackAddr);
+                                func.getStackAddrMap().put(vr, stackAddr);
                             }
                         } else {
                             var addrTrueOffset = addrStackMap.get(stackLoad.getAddr());
@@ -1542,7 +1548,7 @@ public class CodeGenManager {
                                 stackStore.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
                                 stackAddrMap.put(addrTrueOffset, vr);
                                 addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrtMap().put(vr, stackAddr);
+                                func.getStackAddrMap().put(vr, stackAddr);
                             }
                         } else {
                             var addrTrueOffset = addrStackMap.get(stackStore.getAddr());
@@ -1552,6 +1558,144 @@ public class CodeGenManager {
                         }
                     } else {
                         stackStore.setTrueOffset(new IImm(trueOffset));
+                    }
+                }
+            }
+        }
+        return isFix;
+    }
+
+    private boolean recoverRegAllocate(ArmFunction func) {
+        boolean isFix = false;
+        Map<Operand, Operand> recoverMap = new HashMap<>();
+        for (var block : func.asElementView()) {
+            Map<Addr, Operand> addrMap = new HashMap<>();
+            Map<IImm, Operand> offsetMap = new HashMap<>();
+            Map<IImm, Operand> paramMap = new HashMap<>();
+            Map<IImm, Operand> stackLoadMap = new HashMap<>();
+            Map<Imm, Operand> immMap = new HashMap<>();
+            var haveRecoverAddrs = block.getHaveRecoverAddrs();
+            var haveRecoverOffset = block.getHaveRecoverOffset();
+            var haveRecoveLoadParam = block.getHaveRecoveLoadParam();
+            var haveRecoveImm = block.getHaveRecoveImm();
+            var haveRecoveStackLoad = block.getHaveRecoveStackLoad();
+            for (var inst : block.asElementView()) {
+                if (inst instanceof ArmInstStackAddr) {
+                    var stackAddr = (ArmInstStackAddr) inst;
+                    var offset = stackAddr.getOffset();
+                    if (!stackAddr.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    if (offsetMap.containsKey(offset)) {
+                        recoverMap.put(stackAddr.getDst(), offsetMap.get(offset));
+                        stackAddr.freeFromIList();
+                        isFix = true;
+                    } else if (!haveRecoverOffset.contains(offset)) {
+                        haveRecoverOffset.add(offset);
+                        offsetMap.put(offset, stackAddr.getDst());
+                        func.getSpillNodes().remove(stackAddr.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstLoad) {
+                    var load = (ArmInstLoad) inst;
+                    if (!load.getAddr().IsAddr()) {
+                        continue;
+                    }
+                    if (!load.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    var addr = (Addr) load.getAddr();
+                    if (addrMap.containsKey(addr)) {
+                        recoverMap.put(load.getDst(), addrMap.get(addr));
+                        load.freeFromIList();
+                        isFix = true;
+                    } else if (!haveRecoverAddrs.contains(addr)) {
+                        haveRecoverAddrs.add(addr);
+                        addrMap.put(addr, load.getDst());
+                        func.getSpillNodes().remove(load.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstParamLoad) {
+                    var load = (ArmInstParamLoad) inst;
+                    if (!load.getAddr().equals(new IPhyReg("sp"))) {
+                        continue;
+                    }
+                    if (!load.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    var offset = load.getOffset();
+                    if (paramMap.containsKey(offset)) {
+                        recoverMap.put(load.getDst(), paramMap.get(offset));
+                        load.freeFromIList();
+                        isFix = true;
+                    } else if (!haveRecoveLoadParam.contains(offset)) {
+                        haveRecoveLoadParam.add(offset);
+                        paramMap.put(offset, load.getDst());
+                        func.getSpillNodes().remove(load.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstMove) {
+                    var move = (ArmInstMove) inst;
+                    if (!move.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    if (!func.getImmMap().containsKey(move.getDst())) {
+                        continue;
+                    }
+                    var imm = (Imm) move.getSrc();
+                    if (immMap.containsKey(imm)) {
+                        recoverMap.put(move.getDst(), immMap.get(imm));
+                        move.freeFromIList();
+                        isFix = true;
+                    } else if (!haveRecoveImm.contains(imm)) {
+                        haveRecoveImm.add(imm);
+                        immMap.put(imm, move.getDst());
+                        func.getSpillNodes().remove(move.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstStackLoad) {
+                    var load = (ArmInstStackLoad) inst;
+                    if (!load.getAddr().equals(new IPhyReg("sp"))) {
+                        continue;
+                    }
+                    if (!load.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    var offset = load.getOffset();
+                    if (stackLoadMap.containsKey(offset)) {
+                        recoverMap.put(load.getDst(), stackLoadMap.get(offset));
+                        load.freeFromIList();
+                        isFix = true;
+                    } else if (!haveRecoveStackLoad.contains(offset)) {
+                        haveRecoveStackLoad.add(offset);
+                        stackLoadMap.put(offset, load.getDst());
+                        func.getSpillNodes().remove(load.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstStackStore) {
+                    var store = (ArmInstStackStore) inst;
+                    if (!store.getAddr().equals(new IPhyReg("sp"))) {
+                        continue;
+                    }
+                    if (!store.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    var offset = store.getOffset();
+                    if (!haveRecoveStackLoad.contains(offset)) {
+                        haveRecoveStackLoad.add(offset);
+                        stackLoadMap.put(offset, store.getDst());
+                        func.getSpillNodes().remove(store.getDst());
+                        func.getStackLoadMap().put(store.getDst(), new ArmInstStackLoad(store.getDst(), offset));
+                    }
+                }
+            }
+        }
+        for (var block : func.asElementView()) {
+            for (var inst : block.asElementView()) {
+                var ops = new ArrayList<>(inst.getOperands());
+                for (var op : ops) {
+                    if (recoverMap.containsKey(op)) {
+                        inst.replaceOperand(op, recoverMap.get(op));
                     }
                 }
             }
@@ -1631,6 +1775,10 @@ public class CodeGenManager {
 
     private void resolveConstDiv(Operand dst, Operand src, int imm, ArmBlock block, ArmFunction func) {
         int abs = Math.abs(imm);
+        var dst2 = dst;
+        if (imm < 0) {
+            dst2 = new IVirtualReg();
+        }
         if (abs == 1) {
             if (imm > 0) {
                 new ArmInstMove(block, dst, src);
@@ -1649,7 +1797,7 @@ public class CodeGenManager {
             }
             var add = new ArmInstBinary(block, ArmInstKind.IAdd, vr2, src, vr);
             add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 32 - l));
-            var move = new ArmInstMove(block, dst, vr2);
+            var move = new ArmInstMove(block, dst2, vr2);
             move.setShift(new ArmShift(ArmShift.ShiftType.Asr, l));
         } else {
             long up = (1L << 31) - ((1L << 31) % abs) - 1;
@@ -1670,11 +1818,11 @@ public class CodeGenManager {
             var vr2 = new IVirtualReg();
             var move = new ArmInstMove(block, vr2, vr);
             move.setShift(new ArmShift(ArmShift.ShiftType.Asr, l));
-            var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst, vr2, src);
+            var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst2, vr2, src);
             add.setShift(new ArmShift(ArmShift.ShiftType.Lsr, 31));
         }
         if (imm < 0) {
-            new ArmInstUnary(block, ArmInstKind.INeg, dst, dst);
+            new ArmInstUnary(block, ArmInstKind.INeg, dst, dst2);
         }
     }
 
@@ -1718,10 +1866,14 @@ public class CodeGenManager {
             }
         } else if (is2Power(abs - 1)) {
             l = ctz(abs - 1);
-            var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst, src, src);
+            var dst2 = dst;
+            if (imm < 0) {
+                dst2 = new IVirtualReg();
+            }
+            var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst2, src, src);
             add.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l));
             if (imm < 0) {
-                new ArmInstUnary(block, ArmInstKind.INeg, dst, dst);
+                new ArmInstUnary(block, ArmInstKind.INeg, dst, dst2);
             }
         } else if (is2Power(abs + 1)) {
             l = ctz(abs + 1);
@@ -1748,23 +1900,28 @@ public class CodeGenManager {
                 }
             }
             l = ctz(nowAbs);
+            var vr = new IVirtualReg();
             if (IsAdd) {
                 if (imm > 0) {
-                    var rsb = new ArmInstBinary(block, ArmInstKind.IRsb, dst, src, src);
+                    var rsb = new ArmInstBinary(block, ArmInstKind.IRsb, vr, src, src);
                     rsb.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l - p));
                 } else {
-                    var sub = new ArmInstBinary(block, ArmInstKind.ISub, dst, src, src);
+                    var sub = new ArmInstBinary(block, ArmInstKind.ISub, vr, src, src);
                     sub.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l - p));
                 }
-                var mov = new ArmInstMove(block, dst, dst);
+                var mov = new ArmInstMove(block, dst, vr);
                 mov.setShift(new ArmShift(ArmShift.ShiftType.Lsl, p));
             } else {
-                var add = new ArmInstBinary(block, ArmInstKind.IAdd, dst, src, src);
+                var dst2 = dst;
+                if (imm < 0) {
+                    dst2 = new IVirtualReg();
+                }
+                var add = new ArmInstBinary(block, ArmInstKind.IAdd, vr, src, src);
                 add.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l - p));
-                var mov = new ArmInstMove(block, dst, dst);
+                var mov = new ArmInstMove(block, dst2, vr);
                 mov.setShift(new ArmShift(ArmShift.ShiftType.Lsl, p));
                 if (imm < 0) {
-                    new ArmInstUnary(block, ArmInstKind.INeg, dst, dst);
+                    new ArmInstUnary(block, ArmInstKind.INeg, dst, dst2);
                 }
             }
         }

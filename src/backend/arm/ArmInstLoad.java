@@ -8,6 +8,8 @@ import utils.Log;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstLoad extends ArmInst {
+    ArmShift shift;
+
     public ArmInstLoad(ArmInstKind inst) {
         super(inst);
     }
@@ -21,6 +23,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, ArmCondType cond) {
@@ -33,6 +36,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr) {
@@ -43,6 +47,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, ArmCondType cond) {
@@ -54,6 +59,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset) {
@@ -65,6 +71,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -77,6 +84,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset) {
@@ -87,6 +95,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, int offset) {
@@ -97,6 +106,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -108,6 +118,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
+        this.shift = null;
     }
 
     public Operand getDst() {
@@ -120,6 +131,23 @@ public class ArmInstLoad extends ArmInst {
 
     public Operand getOffset() {
         return this.getOperand(2);
+    }
+
+    public void replaceAddr(Operand op) {
+        this.replaceOperand(1, op);
+    }
+
+    public void replaceOffset(Operand op) {
+        this.replaceOperand(2, op);
+        ;
+    }
+
+    public ArmShift getShift() {
+        return shift;
+    }
+
+    public void setShift(ArmShift shift) {
+        this.shift = shift;
     }
 
     @Override
@@ -141,6 +169,10 @@ public class ArmInstLoad extends ArmInst {
                     "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + addr.print() + "\n";
         } else if (offset.equals(new IImm(0))) {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print() + "]\n";
+        } else if (shift != null) {
+            Log.ensure(offset.IsReg(), "offset must be reg");
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
+                    + ",\t" + offset.print() + shift.toString() + "]\n";
         } else {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + "]\n";
