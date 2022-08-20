@@ -13,6 +13,7 @@ import backend.arm.ArmInstMove;
 import backend.arm.ArmInstStackLoad;
 import backend.arm.ArmInstStackStore;
 import backend.arm.ArmInstStore;
+import backend.arm.ArmInstTernay;
 import backend.arm.ArmInst.ArmInstKind;
 import backend.codegen.CodeGenManager;
 import backend.operand.IImm;
@@ -75,7 +76,7 @@ public class Peephole implements BackendPass {
                                 Boolean isEqualAddr = binay.getDst().equals(load.getAddr());
                                 Boolean isFloat = load.getDst().IsFloat();
                                 boolean isNoCond = binay.getCond().equals(ArmInst.ArmCondType.Any);
-                                boolean isNoShift = binay.getShift() == null;
+                                boolean isNoShift = (binay.getShift() == null || binay.getShift().isNoPrint());
                                 if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
                                     load.replaceAddr(binay.getLhs());
                                     load.replaceOffset(binay.getRhs());
@@ -99,7 +100,7 @@ public class Peephole implements BackendPass {
                                 Boolean isEqualAddr = binay.getDst().equals(store.getAddr());
                                 Boolean isFloat = store.getSrc().IsFloat();
                                 boolean isNoCond = binay.getCond().equals(ArmInst.ArmCondType.Any);
-                                boolean isNoShift = binay.getShift() == null;
+                                boolean isNoShift = (binay.getShift() == null || binay.getShift().isNoPrint());
                                 if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
                                     store.replaceAddr(binay.getLhs());
                                     store.replaceOffset(binay.getRhs());
@@ -137,7 +138,8 @@ public class Peephole implements BackendPass {
 
                     if (inst instanceof ArmInstMove) {
                         var move = (ArmInstMove) inst;
-                        if (move.getDst().equals(move.getSrc()) && move.getShift() == null) {
+                        if (move.getDst().equals(move.getSrc())
+                                && (move.getShift() == null || move.getShift().isNoPrint())) {
                             // 删除 mov a, a
                             move.freeFromIList();
                             done = false;
@@ -150,7 +152,8 @@ public class Peephole implements BackendPass {
                             boolean isEqualDst = move.getDst().equals(preMove.getSrc());
                             boolean isEqualSrc = move.getSrc().equals(preMove.getDst());
                             boolean isNoCond = preMove.getCond().equals(ArmInst.ArmCondType.Any);
-                            boolean isNoShift = move.getShift() == null && preMove.getShift() == null;
+                            boolean isNoShift = (move.getShift() == null || move.getShift().isNoPrint())
+                                    && (preMove.getShift() == null || preMove.getShift().isNoPrint());
                             if (isEqualDst && isEqualSrc && isNoCond && isNoShift) {
                                 move.freeFromIList();
                                 done = false;
@@ -159,12 +162,12 @@ public class Peephole implements BackendPass {
                     }
 
                     if (inst instanceof ArmInstBinary) {
-                        var binay = (ArmInstBinary) inst;
-                        var isAddSub = binay.getInst().equals(ArmInstKind.IAdd)
-                                || binay.getInst().equals(ArmInstKind.ISub)
-                                || binay.getInst().equals(ArmInstKind.IRsb)
-                                || binay.getInst().equals(ArmInstKind.IMul)
-                                || binay.getInst().equals(ArmInstKind.IDiv);
+                        var binary = (ArmInstBinary) inst;
+                        var isAddSub = binary.getInst().equals(ArmInstKind.IAdd)
+                                || binary.getInst().equals(ArmInstKind.ISub)
+                                || binary.getInst().equals(ArmInstKind.IRsb)
+                                || binary.getInst().equals(ArmInstKind.IMul)
+                                || binary.getInst().equals(ArmInstKind.IDiv);
                         if (preInst != null && preInst instanceof ArmInstMove && isAddSub) {
                             // mov a, b shift
                             // sub/add/rsb/mul/div d, c, a
@@ -175,39 +178,87 @@ public class Peephole implements BackendPass {
                             // add/mul d, c, b shift
                             var move = (ArmInstMove) preInst;
                             boolean isReg = move.getSrc().IsReg();
-                            boolean isEqualLhs = move.getDst().equals(binay.getLhs());
-                            boolean isEqualRhs = move.getDst().equals(binay.getRhs());
-                            boolean isNoShift = binay.getShift() == null;
+                            boolean isEqualLhs = move.getDst().equals(binary.getLhs());
+                            boolean isEqualRhs = move.getDst().equals(binary.getRhs());
+                            boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint());
                             boolean isNoCond = move.getCond().equals(ArmInst.ArmCondType.Any);
                             boolean canFix = (!move.getDst().equals(move.getSrc())
-                                    && !binay.getLhs().equals(binay.getRhs()))
+                                    && !binary.getLhs().equals(binary.getRhs()))
                                     || (move.getDst().equals(move.getSrc())
-                                            && binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))
-                                            && !binay.getLhs().equals(binay.getRhs()));
+                                            && binary.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))
+                                            && !binary.getLhs().equals(binary.getRhs()));
                             // mov a ,a shift
                             // sub/add a, b, a
                             if (isReg && isEqualLhs && isNoShift && isNoCond && canFix
-                                    && (binay.getInst().equals(ArmInstKind.IAdd)
-                                            || (binay.getInst().equals(ArmInstKind.IMul)))
-                                    && binay.getRhs().IsReg()) {
-                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(),
-                                        binay.getRhs(), move.getSrc());
-                                binay2.setShift(move.getShift());
-                                binay.insertBeforeCO(binay2);
-                                binay.freeFromIList();
-                                if (binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
+                                    && (binary.getInst().equals(ArmInstKind.IAdd)
+                                            || (binary.getInst().equals(ArmInstKind.IMul)))
+                                    && binary.getRhs().IsReg()) {
+                                var binary2 = new ArmInstBinary(binary.getInst(), binary.getDst(),
+                                        binary.getRhs(), move.getSrc());
+                                binary2.setShift(move.getShift());
+                                binary.insertBeforeCO(binary2);
+                                binary.freeFromIList();
+                                if (binary.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
                                     move.freeFromIList();
                                 }
                                 done = false;
                             } else if (isReg && isEqualRhs && isNoShift && isNoCond && canFix) {
-                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(),
-                                        binay.getLhs(), move.getSrc());
-                                binay2.setShift(move.getShift());
-                                binay.insertBeforeCO(binay2);
-                                binay.freeFromIList();
-                                if (binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
+                                var binary2 = new ArmInstBinary(binary.getInst(), binary.getDst(),
+                                        binary.getLhs(), move.getSrc());
+                                binary2.setShift(move.getShift());
+                                binary.insertBeforeCO(binary2);
+                                binary.freeFromIList();
+                                if (binary.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
                                     move.freeFromIList();
                                 }
+                                done = false;
+                            }
+                        } else if (binary.getInst().equals(ArmInstKind.IAdd) && preInst != null
+                                && preInst instanceof ArmInstBinary) {
+                            var binary2 = (ArmInstBinary) preInst;
+                            boolean isEqualLhsRhs = binary2.getDst().equals(binary.getLhs())
+                                    ^ binary2.getDst().equals(binary.getRhs()); // 这里就做了 lhs != rhs
+                            boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint())
+                                    && (binary2.getShift() == null || binary2.getShift().isNoPrint());
+                            boolean isMul = binary2.getInst().equals(ArmInstKind.IMul);
+                            boolean isNoCond = binary2.getCond().equals(ArmInst.ArmCondType.Any);
+                            boolean canFix = binary
+                                    .equals(live.getOrDefault(new Pair<>(binary2.getDst(), binary2), null));
+                            boolean noImm = binary2.getLhs().IsReg() && binary2.getRhs().IsReg()
+                                    && binary.getLhs().IsReg() && binary.getRhs().IsReg();
+                            if (isEqualLhsRhs && isNoShift && isMul && isNoCond && canFix && noImm) {
+                                Operand add = null;
+                                if (binary2.getDst().equals(binary.getLhs())) {
+                                    add = binary.getRhs();
+                                } else {
+                                    add = binary.getLhs();
+                                }
+                                var ternay = new ArmInstTernay(ArmInstKind.IMulAdd, binary.getDst(), binary2.getLhs(),
+                                        binary2.getRhs(), add, binary.getCond());
+                                binary2.insertBeforeCO(ternay);
+                                binary2.freeFromIList();
+                                binary.freeFromIList();
+                                done = false;
+                            }
+                        } else if (binary.getInst().equals(ArmInstKind.ISub) && preInst != null
+                                && preInst instanceof ArmInstBinary) {
+                            var binary2 = (ArmInstBinary) preInst;
+                            boolean isEqualRhs = binary2.getDst().equals(binary.getRhs())
+                                    && !binary.getRhs().equals(binary.getLhs());
+                            boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint())
+                                    && (binary2.getShift() == null || binary2.getShift().isNoPrint());
+                            boolean isMul = binary2.getInst().equals(ArmInstKind.IMul);
+                            boolean isNoCond = binary2.getCond().equals(ArmInst.ArmCondType.Any);
+                            boolean canFix = binary
+                                    .equals(live.getOrDefault(new Pair<>(binary2.getDst(), binary2), null));
+                            boolean noImm = binary2.getLhs().IsReg() && binary2.getRhs().IsReg()
+                                    && binary.getLhs().IsReg() && binary.getRhs().IsReg();
+                            if (isEqualRhs && isNoShift && isMul && isNoCond && canFix && noImm) {
+                                var ternay = new ArmInstTernay(ArmInstKind.IMulSub, binary.getDst(), binary2.getLhs(),
+                                        binary2.getRhs(), binary.getLhs(), binary.getCond());
+                                binary2.insertBeforeCO(ternay);
+                                binary2.freeFromIList();
+                                binary.freeFromIList();
                                 done = false;
                             }
                         }

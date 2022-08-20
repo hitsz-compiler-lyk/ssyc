@@ -22,8 +22,8 @@ public class ArmInstTernay extends ArmInst {
             put(ArmInstKind.IMulSub, "mls");
             put(ArmInstKind.ILMulAdd, "smmla");
             put(ArmInstKind.ILMulSub, "smmls");
-            put(ArmInstKind.FMulAdd, "vmla.f32");
-            put(ArmInstKind.FMulSub, "vmls.f32");
+            put(ArmInstKind.FMulAdd, "vmla.f32"); // 只有三个参数
+            put(ArmInstKind.FMulSub, "vmls.f32"); // 只有三个参数
         }
     };
 
@@ -42,6 +42,19 @@ public class ArmInstTernay extends ArmInst {
             ArmCondType cond) {
         super(inst);
         block.asElementView().add(this);
+        this.setCond(cond);
+        this.initOperands(dst, op1, op2, op3);
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstTernay(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
+        super(inst);
+        this.initOperands(dst, op1, op2, op3);
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstTernay(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3, ArmCondType cond) {
+        super(inst);
         this.setCond(cond);
         this.initOperands(dst, op1, op2, op3);
         this.setPrintCnt(1);
