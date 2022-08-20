@@ -281,7 +281,7 @@ if __name__ == '__main__':
         'clang': [clang, gcc_as, run],
         'clang_O2': [clang_O2, gcc_as, run],
 
-        'generate_stdout': [clang, gcc_as, generate_stdout]
+        'generate_stdout': [clang_O2, gcc_as, generate_stdout]
     }
 
     try:

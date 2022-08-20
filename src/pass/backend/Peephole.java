@@ -3,18 +3,23 @@ package pass.backend;
 import java.util.HashMap;
 import java.util.Map;
 
+import backend.arm.ArmBlock;
 import backend.arm.ArmInst;
 import backend.arm.ArmInstBinary;
 import backend.arm.ArmInstBranch;
 import backend.arm.ArmInstCall;
+import backend.arm.ArmInstLoad;
 import backend.arm.ArmInstMove;
 import backend.arm.ArmInstStackLoad;
 import backend.arm.ArmInstStackStore;
+import backend.arm.ArmInstStore;
 import backend.arm.ArmInst.ArmInstKind;
 import backend.codegen.CodeGenManager;
+import backend.operand.IImm;
 import backend.operand.Operand;
 import backend.operand.Reg;
 import utils.Log;
+import utils.Pair;
 
 public class Peephole implements BackendPass {
 
@@ -22,6 +27,7 @@ public class Peephole implements BackendPass {
         boolean done = true;
         for (var func : manager.getFunctions()) {
             for (var block : func.asElementView()) {
+                var live = calcBlockLiveRange(block);
                 for (var inst : block.asElementView()) {
                     var preInstOp = inst.getINode().getPrev();
                     var preInst = preInstOp.isPresent() ? preInstOp.get().getValue() : null;
@@ -56,6 +62,54 @@ public class Peephole implements BackendPass {
                         }
                     }
 
+                    if (inst instanceof ArmInstLoad) {
+                        var load = (ArmInstLoad) inst;
+                        var isOffsetZero = load.getOffset().equals(new IImm(0));
+                        if (isOffsetZero && preInst != null && preInst instanceof ArmInstBinary) {
+                            var binay = (ArmInstBinary) preInst;
+                            if (binay.getInst().equals(ArmInstKind.IAdd)) {
+                                Boolean canPre = (binay.getRhs().IsReg() || (binay.getRhs().IsIImm() &&
+                                        CodeGenManager.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
+                                                load.getDst())))
+                                        && load.equals(live.getOrDefault(new Pair<>(binay.getDst(), binay), null));
+                                Boolean isEqualAddr = binay.getDst().equals(load.getAddr());
+                                Boolean isFloat = load.getDst().IsFloat();
+                                boolean isNoCond = binay.getCond().equals(ArmInst.ArmCondType.Any);
+                                boolean isNoShift = binay.getShift() == null;
+                                if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
+                                    load.replaceAddr(binay.getLhs());
+                                    load.replaceOffset(binay.getRhs());
+                                    binay.freeFromIList();
+                                    done = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (inst instanceof ArmInstStore) {
+                        var store = (ArmInstStore) inst;
+                        var isOffsetZero = store.getOffset().equals(new IImm(0));
+                        if (isOffsetZero && preInst != null && preInst instanceof ArmInstBinary) {
+                            var binay = (ArmInstBinary) preInst;
+                            if (binay.getInst().equals(ArmInstKind.IAdd)) {
+                                Boolean canPre = (binay.getRhs().IsReg() || (binay.getRhs().IsIImm() &&
+                                        CodeGenManager.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
+                                                store.getSrc())))
+                                        && store.equals(live.getOrDefault(new Pair<>(binay.getDst(), binay), null));
+                                Boolean isEqualAddr = binay.getDst().equals(store.getAddr());
+                                Boolean isFloat = store.getSrc().IsFloat();
+                                boolean isNoCond = binay.getCond().equals(ArmInst.ArmCondType.Any);
+                                boolean isNoShift = binay.getShift() == null;
+                                if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
+                                    store.replaceAddr(binay.getLhs());
+                                    store.replaceOffset(binay.getRhs());
+                                    binay.freeFromIList();
+                                    done = false;
+                                }
+                            }
+                        }
+                    }
+
                     if (inst instanceof ArmInstStackLoad) {
                         var load = (ArmInstStackLoad) inst;
                         if (preInst != null && preInst instanceof ArmInstStackStore) {
@@ -72,7 +126,7 @@ public class Peephole implements BackendPass {
                             if (isEqualAddr && isEqualOffset && isNoCond) {
                                 if (!load.getDst().equals(store.getDst())) {
                                     var move = new ArmInstMove(load.getDst(), store.getDst());
-                                    move.setCond(move.getCond());
+                                    move.setCond(load.getCond());
                                     load.insertBeforeCO(move);
                                 }
                                 load.freeFromIList();
@@ -125,8 +179,10 @@ public class Peephole implements BackendPass {
                             boolean isEqualRhs = move.getDst().equals(binay.getRhs());
                             boolean isNoShift = binay.getShift() == null;
                             boolean isNoCond = move.getCond().equals(ArmInst.ArmCondType.Any);
-                            boolean canFix = (!move.getDst().equals(move.getSrc()))
-                                    || (move.getDst().equals(move.getSrc()) && move.getDst().equals(binay.getDst())
+                            boolean canFix = (!move.getDst().equals(move.getSrc())
+                                    && !binay.getLhs().equals(binay.getRhs()))
+                                    || (move.getDst().equals(move.getSrc())
+                                            && binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))
                                             && !binay.getLhs().equals(binay.getRhs()));
                             // mov a ,a shift
                             // sub/add a, b, a
@@ -134,22 +190,22 @@ public class Peephole implements BackendPass {
                                     && (binay.getInst().equals(ArmInstKind.IAdd)
                                             || (binay.getInst().equals(ArmInstKind.IMul)))
                                     && binay.getRhs().IsReg()) {
-                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(), binay.getRhs(),
-                                        move.getSrc());
+                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(),
+                                        binay.getRhs(), move.getSrc());
                                 binay2.setShift(move.getShift());
                                 binay.insertBeforeCO(binay2);
                                 binay.freeFromIList();
-                                if (move.getDst().equals(move.getSrc())) {
+                                if (binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
                                     move.freeFromIList();
                                 }
                                 done = false;
                             } else if (isReg && isEqualRhs && isNoShift && isNoCond && canFix) {
-                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(), binay.getLhs(),
-                                        move.getSrc());
+                                var binay2 = new ArmInstBinary(binay.getInst(), binay.getDst(),
+                                        binay.getLhs(), move.getSrc());
                                 binay2.setShift(move.getShift());
                                 binay.insertBeforeCO(binay2);
                                 binay.freeFromIList();
-                                if (move.getDst().equals(move.getSrc())) {
+                                if (binay.equals(live.getOrDefault(new Pair<>(move.getDst(), move), null))) {
                                     move.freeFromIList();
                                 }
                                 done = false;
@@ -160,6 +216,28 @@ public class Peephole implements BackendPass {
             }
         }
         return done;
+    }
+
+    private Map<Pair<Operand, ArmInst>, ArmInst> calcBlockLiveRange(ArmBlock block) {
+        Map<Pair<Operand, ArmInst>, ArmInst> ret = new HashMap<>();
+        Map<Pair<Operand, ArmInst>, ArmInst> temp = new HashMap<>();
+        Map<Operand, ArmInst> regMap = new HashMap<>();
+        for (var inst : block.asElementView()) {
+            for (var use : inst.getRegUse()) {
+                if (regMap.containsKey(use)) {
+                    temp.put(new Pair<>(use, regMap.get(use)), inst);
+                }
+            }
+            for (var def : inst.getRegDef()) {
+                ret.put(new Pair<>(def, regMap.get(def)),
+                        temp.getOrDefault(new Pair<>(def, regMap.get(def)), regMap.get(def)));
+                regMap.put(def, inst);
+            }
+            // for (var def : inst.getRegDef()) {
+            // temp.put(new Pair<>(def, inst), null);
+            // }
+        }
+        return ret;
     }
 
     private boolean clearNotUseInst(CodeGenManager manager) {
