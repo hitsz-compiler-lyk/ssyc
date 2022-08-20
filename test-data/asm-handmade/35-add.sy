@@ -1,0 +1,6 @@
+int a[6] = {1,2,3,4,5,6};
+int main(){
+    int n = getint();
+    int x = n * 2;
+    return a[x + x + n];
+}

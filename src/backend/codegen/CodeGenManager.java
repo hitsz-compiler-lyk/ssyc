@@ -1262,7 +1262,7 @@ public class CodeGenManager {
                 for (var inst : block.asElementView()) {
                     arm.append(inst.print());
                     // if (inst.getSymbol() == null) {
-                    // inst.InitSymbol();
+                    //     inst.InitSymbol();
                     // }
                     // arm.append(inst.getSymbol());
                 }
@@ -1674,6 +1674,22 @@ public class CodeGenManager {
                         haveRecoveStackLoad.add(offset);
                         stackLoadMap.put(offset, load.getDst());
                         func.getSpillNodes().remove(load.getDst());
+                    }
+                }
+                if (inst instanceof ArmInstStackStore) {
+                    var store = (ArmInstStackStore) inst;
+                    if (!store.getAddr().equals(new IPhyReg("sp"))) {
+                        continue;
+                    }
+                    if (!store.getDst().IsVirtual()) {
+                        continue;
+                    }
+                    var offset = store.getOffset();
+                    if (!haveRecoveStackLoad.contains(offset)) {
+                        haveRecoveStackLoad.add(offset);
+                        stackLoadMap.put(offset, store.getDst());
+                        func.getSpillNodes().remove(store.getDst());
+                        func.getStackLoadMap().put(store.getDst(), new ArmInstStackLoad(store.getDst(), offset));
                     }
                 }
             }

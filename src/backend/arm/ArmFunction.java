@@ -31,6 +31,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     private Map<Operand, ArmInstStackLoad> stackLoadMap;
     private Map<Operand, ArmInstMove> immMap;
     private Set<Operand> spillNodes;
+    private Set<Operand> stackStoreSet;
 
     public int getStackSize() {
         return stackSize;
@@ -157,6 +158,10 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return spillNodes;
     }
 
+    public Set<Operand> getStackStoreSet() {
+        return stackStoreSet;
+    }
+
     public ArmFunction(String name) {
         this.name = name;
         this.blocks = new IList<>(this);
@@ -175,6 +180,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.stackLoadMap = new HashMap<>();
         this.immMap = new HashMap<>();
         this.spillNodes = new HashSet<>();
+        this.stackStoreSet = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
     }
 
@@ -196,6 +202,7 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.stackLoadMap = new HashMap<>();
         this.immMap = new HashMap<>();
         this.spillNodes = new HashSet<>();
+        this.stackStoreSet = new HashSet<>();
         this.prologue = new ArmBlock(this, this.name + "_prologue");
     }
 }

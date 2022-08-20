@@ -244,11 +244,11 @@ public class SimpleGraphColoring implements RegAllocator {
         for (var spill : spillNodes) {
             if (func.getAddrLoadMap().containsKey(spill)
                     || func.getParamLoadMap().containsKey(spill)
-                    || func.getStackLoadMap().containsKey(spill)
+                    || (func.getStackLoadMap().containsKey(spill) && !func.getStackStoreSet().contains(spill))
                     || func.getImmMap().containsKey(spill)
                     || func.getStackAddrMap().containsKey(spill)) {
                 specialNode.add(spill);
-            } else {
+            } else if (!func.getStackStoreSet().contains(spill)) {
                 int offset = func.getStackSize();
                 func.addStackSize(4);
                 offsetMap.put(spill, offset);
@@ -314,7 +314,8 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getParamLoadMap().put(vr, newParamLoad);
                             func.getSpillNodes().add(vr);
-                        } else if (func.getStackLoadMap().containsKey(spill)) {
+                        } else if (func.getStackLoadMap().containsKey(spill) && !(inst instanceof ArmInstStackStore)
+                                && !inst.getRegDef().contains(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                             Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldStackLoad = func.getStackLoadMap().get(spill);
@@ -324,7 +325,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             inst.replaceOperand(spill, vr);
                             func.getStackLoadMap().put(vr, newStackLoad);
                             func.getSpillNodes().add(vr);
-                        } else {
+                        } else if (!func.getStackStoreSet().contains(spill)) {
                             Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
                             int offset = offsetMap.get(spill);
                             if (inst.getRegUse().contains(spill)) {
@@ -334,6 +335,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             }
                             if (inst.getRegDef().contains(spill)) {
                                 inst.insertAfterCO(new ArmInstStackStore(vr, new IImm(offset)));
+                                func.getStackStoreSet().add(vr);
                             }
                             inst.replaceOperand(spill, vr);
                             func.getSpillNodes().add(vr);
