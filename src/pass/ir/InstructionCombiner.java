@@ -28,7 +28,7 @@ public class InstructionCombiner implements IRPass {
         IRPass.instructionStream(module).forEach(this::addMulConstComb);
 
         runWithInstructionInReverseOrder(module, this::tryFlattenNestedAdd);
-        // runWithInstructionInReverseOrder(module, this::tryFlattenNestedMul);
+        runWithInstructionInReverseOrder(module, this::tryFlattenNestedMul);
     }
 
     private boolean isKind(Value value, InstKind kind) {
@@ -122,7 +122,7 @@ public class InstructionCombiner implements IRPass {
             final var binst = (BinaryOpInst) inst;
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
-            if (!isConst(rhs) && isConst(lhs)) {
+            if (getDepth(lhs) < getDepth(rhs)) {
                 binst.replaceLHS(rhs);
                 binst.replaceRHS(lhs);
             }
