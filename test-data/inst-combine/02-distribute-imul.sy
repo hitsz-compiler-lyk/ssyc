@@ -1,0 +1,10 @@
+int main(){
+    int a = getint();
+    int b = getint();
+    int c = getint();
+    int ab = a * b;
+    int ac = a * c;
+    int result = ab + ac;
+    putint(result);
+    return 0;
+}
