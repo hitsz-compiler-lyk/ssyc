@@ -34,6 +34,8 @@ public class IRPassManager {
         runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
         runAllClearUpPasses();
+
+        runPass(new LCM());
     }
 
     public void runAllClearUpPasses() {
