@@ -11,7 +11,6 @@ import utils.Log;
 
 import java.io.*;
 
-
 public class Main {
     public static boolean needOptimize = true;
 
@@ -108,6 +107,7 @@ public class Main {
             }
 
             case "asm" -> {
+                Log.inOnlineJudge();
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();

@@ -31,6 +31,10 @@ public class ArmShift {
         this.op = op;
     }
 
+    public boolean isNoPrint() {
+        return type == ShiftType.None || (imm == 0 && op == null && type != ShiftType.Rrx);
+    }
+
     @Override
     public String toString() {
         if (type == ShiftType.None || (imm == 0 && op == null && type != ShiftType.Rrx)) {
