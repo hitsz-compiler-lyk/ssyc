@@ -48,7 +48,6 @@ public class BranchToCond implements BackendPass {
                                 }
                             }
                             if (canFix) {
-                                System.out.println("AAAA");
                                 for (var inst2 : nxtBlock.asElementView()) {
                                     inst2.setCond(OppCond);
                                 }
@@ -59,7 +58,5 @@ public class BranchToCond implements BackendPass {
                 }
             }
         }
-
     }
-
 }
