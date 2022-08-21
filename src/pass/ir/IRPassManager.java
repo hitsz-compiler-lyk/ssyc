@@ -31,7 +31,6 @@ public class IRPassManager {
         runPass(new LocalArrayHoist());
         runPass(new HoistGlobalArrayLoad());
         runPass(new SimpleInvariantHoist());
-        runAllClearUpPasses();
         runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
         runAllClearUpPasses();

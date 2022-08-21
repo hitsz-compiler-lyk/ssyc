@@ -122,7 +122,7 @@ public class InstructionCombiner implements IRPass {
             final var binst = (BinaryOpInst) inst;
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
-            if (getDepth(lhs) < getDepth(rhs)) {
+            if (!isConst(rhs) && isConst(lhs)) {
                 binst.replaceLHS(rhs);
                 binst.replaceRHS(lhs);
             }
