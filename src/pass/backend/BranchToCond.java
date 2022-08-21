@@ -33,11 +33,8 @@ public class BranchToCond implements BackendPass {
                             boolean canFix = true;
                             var OppCond = branch.getCond().getOppCondType();
                             for (var inst2 : nxtBlock.asElementView()) {
-                                if ((inst2 instanceof ArmInstReturn) && nxtBlock.asElementView().size() > 2) {
-                                    canFix = false;
-                                    break;
-                                }
-                                if ((inst2 instanceof ArmInstBranch) || (inst2 instanceof ArmInstCmp)) {
+                                if ((inst2 instanceof ArmInstBranch) || (inst2 instanceof ArmInstCmp)
+                                        || (inst2 instanceof ArmInstReturn)) {
                                     canFix = false;
                                     break;
                                 }
