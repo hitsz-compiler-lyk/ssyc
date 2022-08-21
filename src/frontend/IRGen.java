@@ -403,9 +403,40 @@ public class IRGen extends SysYBaseVisitor<Object> {
         } else if (type.isFloat() && expType.isInt()) {
             return builder.insertI2F(exp);
 
+        } else if (type.isPtr() && expType.isPtr() && !type.equals(expType)) {
+            return genPtrCastTo((PointerIRTy) type, exp);
+
         } else {
             throw new SemanticException(ctx, "Cannot preform cast from %s to %s".formatted(expType, type));
         }
+    }
+
+    private Value genPtrCastTo(PointerIRTy targetType, Value ptr) {
+        final var baseType = targetType.getBaseType();
+        Log.ensure((baseType.isInt() || baseType.isFloat()) && ptr.getType().isPtr());
+
+        final var ptrDepth = getPtrDepth(ptr.getType());
+        final var indices = Collections.nCopies(ptrDepth, Constant.INT_0);
+        return builder.insertGEP(ptr, indices);
+    }
+
+    private int getPtrDepth(IRType type) {
+        int depth = 0;
+
+        IRType curr = type;
+        while (!(curr.isInt() || curr.isFloat())) {
+            depth += 1;
+
+            if (curr.isPtr()) {
+                curr = ((PointerIRTy) curr).getBaseType();
+            } else if (curr.isArray()) {
+                curr = ((ArrayIRTy) curr).getElementType();
+            } else {
+                Log.ensure(false);
+            }
+        }
+
+        return depth;
     }
 
     /**
@@ -748,7 +779,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
     private Value getRightValue(Value value, List<Value> indices) {
         if (value instanceof GlobalVar) {
-            value = builder.insertLoad(value);
+            final var gv = (GlobalVar) value;
+            value = builder.insertLoad(gv);
+            value.setSymbol(gv.getSymbol());
         }
 
         if (indices.isEmpty()) {
@@ -976,7 +1009,9 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         } else {
             if (value instanceof GlobalVar) {
-                value = builder.insertLoad(value);
+                final var gv = (GlobalVar) value;
+                value = builder.insertLoad(gv);
+                value.setSymbol(gv.getSymbol());
             }
 
             return Optional.of(builder.insertGEP(value, indices));

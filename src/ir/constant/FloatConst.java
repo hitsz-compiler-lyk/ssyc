@@ -26,7 +26,18 @@ public class FloatConst extends Constant {
         final var bits = Double.doubleToLongBits(lifted);
         final var hex = Long.toHexString(bits).toUpperCase();
         return "0x" + hex;
-    }   
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        return obj instanceof FloatConst
+               && ((FloatConst) obj).value == value;
+    }
+
+    @Override
+    public int hashCode() {
+        return Float.floatToIntBits(value);
+    }
 
     private final float value;
 }

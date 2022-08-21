@@ -8,7 +8,6 @@ import ir.Value;
 import ir.inst.BrCondInst;
 import ir.inst.BrInst;
 import ir.inst.PhiInst;
-import pass.ir.ConstructDominatorInfo;
 import pass.ir.IRPass;
 import utils.CollectionTools;
 import utils.Log;

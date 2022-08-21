@@ -17,10 +17,11 @@ import utils.Log;
 public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public enum ArmInstKind {
-        IAdd, ISub, IRsb, IMul, IDiv,
+        IAdd, ISub, IRsb, IMul, IDiv, ILMul,
         FAdd, FSub, FMul, FDiv,
+        Bic,
 
-        IMulAdd, IMulSub,
+        IMulAdd, IMulSub, ILMulAdd, ILMulSub,
         FMulAdd, FMulSub,
 
         INeg, FNeg,
@@ -49,13 +50,15 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         {
             // ArmInstBinary
             for (var kind : Arrays.asList(ArmInstKind.IAdd, ArmInstKind.ISub, ArmInstKind.IRsb, ArmInstKind.IMul,
-                    ArmInstKind.IDiv, ArmInstKind.FAdd, ArmInstKind.FSub, ArmInstKind.FMul, ArmInstKind.FDiv)) {
+                    ArmInstKind.ILMul,
+                    ArmInstKind.IDiv, ArmInstKind.FAdd, ArmInstKind.FSub, ArmInstKind.FMul, ArmInstKind.FDiv,
+                    ArmInstKind.Bic)) {
                 put(kind, 1);
             }
 
             // ArmInstTernay
-            for (var kind : Arrays.asList(ArmInstKind.IMulAdd, ArmInstKind.IMulSub, ArmInstKind.FMulAdd,
-                    ArmInstKind.FMulSub)) {
+            for (var kind : Arrays.asList(ArmInstKind.IMulAdd, ArmInstKind.IMulSub, ArmInstKind.ILMulAdd,
+                    ArmInstKind.ILMulSub, ArmInstKind.FMulAdd, ArmInstKind.FMulSub)) {
                 put(kind, 1);
             }
 
@@ -118,10 +121,10 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         public ArmCondType getOppCondType() {
             return switch (this) {
-                case Le -> Ge;
-                case Ge -> Le;
-                case Gt -> Lt;
-                case Lt -> Gt;
+                case Le -> Gt;
+                case Ge -> Lt;
+                case Gt -> Le;
+                case Lt -> Ge;
                 case Eq -> Ne;
                 case Ne -> Eq;
                 default -> this;

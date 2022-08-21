@@ -14,7 +14,10 @@ import pass.ir.loop.JustLoopBlockInfo;
 import utils.INodeOwner;
 import utils.Log;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
@@ -136,7 +139,7 @@ public class GCM implements IRPass {
             .map(INodeOwner::getParent).anyMatch(block -> block == targetBlock);
     }
 
-    private int loopDepth(BasicBlock block) {
+    public int loopDepth(BasicBlock block) {
         return block.getAnalysisInfo(JustLoopBlockInfo.class).getLoopDepth();
     }
 

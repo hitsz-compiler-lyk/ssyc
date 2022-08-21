@@ -7,7 +7,7 @@ import java.util.function.Predicate;
 public final class CollectionTools {
     @SafeVarargs
     public static <T> Set<T> intersect(Set<T> first, Set<T>... rest) {
-        return intersect(concat(first, Arrays.asList(rest)), null);
+        return intersect(concatHead(first, Arrays.asList(rest)), null);
     }
 
     public static <T> Set<T> intersect(Collection<Set<T>> sets, Set<T> atEmpty) {
@@ -39,8 +39,12 @@ public final class CollectionTools {
         return result;
     }
 
-    public static <T> List<T> concat(T head, List<T> rest) {
-        return concat(List.of(head), rest);
+    public static <T> List<T> concatHead(T car, List<T> cdr) {
+        return concat(List.of(car), cdr);
+    }
+
+    public static <T> List<T> concatTail(List<T> head, T tail) {
+        return concat(head, List.of(tail));
     }
 
     @SafeVarargs
@@ -141,6 +145,33 @@ public final class CollectionTools {
         final var first = Collections.unmodifiableList(list.subList(0, i));
         final var second = Collections.unmodifiableList(list.subList(i, list.size()));
         return new TwoList<>(first, second);
+    }
+
+    public static <K, V> Map<Integer, V> createIdentifierMap(Map<K, V> map) {
+        final var identMap = new HashMap<Integer, V>();
+
+        for (final var entry : map.entrySet()) {
+            final var ident = System.identityHashCode(entry.getKey());
+            identMap.put(ident, entry.getValue());
+        }
+
+        return identMap;
+    }
+
+    public static <T> List<T> findRedundant(List<T> origin) {
+        final var result = new ArrayList<T>();
+        final var elms = new HashSet<>(origin);
+
+        for (final var elm : origin) {
+            if (elms.contains(elm)) {
+                elms.remove(elm);
+                continue;
+            }
+
+            result.add(elm);
+        }
+
+        return result;
     }
 
     private CollectionTools() {}

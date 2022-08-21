@@ -2,8 +2,13 @@ package pass.ir;
 
 import ir.GlobalModificationStatus;
 import ir.Module;
+import pass.ir.loop.FullyUnroll;
+import pass.ir.loop.InductionVariableReduce;
 import pass.ir.loop.LoopUnroll;
+import pass.ir.loop.SimpleInvariantHoist;
+import pass.ir.memory.LocalArrayHoist;
 import pass.ir.memory.RemoveUnnecessaryArray;
+import pass.ir.memory.ReplaceConstantArray;
 import pass.ir.memory.ReplaceUnnecessaryLoad;
 import utils.Log;
 
@@ -14,21 +19,33 @@ public class IRPassManager {
     }
 
     public void runAllPasses() {
+        runPass(new RemoveCurrDef());
         runAllClearUpPasses();
         runGlobalVariableToValuePass();
+        runPass(new ReplaceConstantArray());
+        runMemoryOptimizePass();
+        runPass(new FullyUnroll());
+        runPass(new ReplaceConstantArray());
+        runDefaultBlockClearUpPasses();
+        runMemoryOptimizePass();
+        runPass(new LocalArrayHoist());
+        runPass(new HoistGlobalArrayLoad());
+        runPass(new SimpleInvariantHoist());
+        runPass(new InductionVariableReduce());
         runPass(new LoopUnroll());
         runAllClearUpPasses();
+
+        runPass(new LCM());
     }
 
     public void runAllClearUpPasses() {
         GlobalModificationStatus.doUntilNoChange(() -> {
             runDefaultBlockClearUpPasses();
             runPass(new FunctionInline());
+            runDefaultBlockClearUpPasses();
             runPass(new ClearUselessFunction());
             runDefaultBlockClearUpPasses();
             runPass(new SimpleGVN());
-            runDefaultBlockClearUpPasses();
-            runMemoryOptimizePass();
             runDefaultBlockClearUpPasses();
         });
     }
@@ -54,7 +71,7 @@ public class IRPassManager {
 
     public void runDefaultBlockClearUpPasses() {
         GlobalModificationStatus.doUntilNoChange(() -> {
-            // runDefaultInstructionClearUpPasses();
+            runDefaultInstructionClearUpPasses();
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
             runPass(new FuseBasicBlock());
@@ -64,15 +81,18 @@ public class IRPassManager {
             runPass(new ClearUnreachableBlock());
             runDefaultInstructionClearUpPasses();
         });
+
+        runPass(new BlockReorder());
     }
 
     public void runDefaultInstructionClearUpPasses() {
         GlobalModificationStatus.doUntilNoChange(() -> {
-            runPass(new ConstantFold());
-            runPass(new RemoveTrivialPhi());
             runPass(new ClearUnreachableBlock());
             runPass(new InstructionCombiner());
+            runPass(new ConstantFold());
+            runPass(new RemoveTrivialPhi());
             runPass(new ClearUselessInstruction());
+            runPass(new ClearUnreachableBlock());
             runPass(new GCM());
         });
     }

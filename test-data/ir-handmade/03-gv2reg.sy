@@ -1,0 +1,24 @@
+int n;
+int i = 10;
+int sum = 0;
+int arr[100];
+
+int main() {
+    n = 10000;
+
+    int runCount = getint();
+
+    starttime();
+    while (runCount > 0) {
+        runCount = runCount - 1;
+        while (i < n) {
+            sum = sum + i;
+            i = i + 1;
+        }
+    }
+    stoptime();
+
+    putint(sum);
+
+    return 0;
+}

@@ -25,5 +25,16 @@ public class IntConst extends Constant {
         return Integer.toString(value);
     }
 
+    @Override
+    public boolean equals(final Object obj) {
+        return obj instanceof IntConst
+            && ((IntConst) obj).value == value;
+    }
+
+    @Override
+    public int hashCode() {
+        return value;
+    }
+
     private final int value;
 }

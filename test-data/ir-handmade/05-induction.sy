@@ -1,0 +1,44 @@
+int a[100];
+int b[10][10];
+
+int main() {
+    int n = 10;
+
+    int runCount = getint();
+
+    starttime();
+    while (runCount >= 0) {
+        runCount = runCount - 1;
+
+        int i = 0;
+        while (i < n) {
+            int j = 0;
+            while (j < n)   {
+                // if (i == j) {
+                //     // 这个不会被归纳变量消除消掉
+                //     // 因为这个使用并没有支配 latch
+                //     // 换句话说, 并非每次循环都需要这个值
+                //     a[j * n + i] = 1;
+                // }
+
+                // 这个理论上应该生成两个归纳变量
+                b[i][j] = i + j;
+
+                j = j + 1;
+            }
+
+            i = i + 1;
+        }
+    }
+    stoptime();
+
+    int k = 0;
+    while (k < n) {
+        putarray(n, b[k]);
+        k = k + 1;
+    }
+    // putch(10);
+    // putint(a[22]);
+
+    return 0;
+}
