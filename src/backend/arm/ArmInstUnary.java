@@ -42,7 +42,7 @@ public class ArmInstUnary extends ArmInst {
         if (getInst() == ArmInstKind.INeg) {
             return "\t" + "neg" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
         } else if (getInst() == ArmInstKind.FNeg) {
-            return "\t" + "vneg.f32" + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + "\n";
+            return "\t" + "vneg" + getCond().toString() + ".f32" + "\t" + dst.print() + ",\t" + src.print() + "\n";
         } else {
             Log.ensure(false);
             return "";

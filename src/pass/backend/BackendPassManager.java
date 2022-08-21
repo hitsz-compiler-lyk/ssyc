@@ -10,6 +10,7 @@ public class BackendPassManager {
 
     public void runAllPasses() {
         runPass(new Peephole());
+        runPass(new BranchToCond());
     }
 
     private void runPass(BackendPass pass) {

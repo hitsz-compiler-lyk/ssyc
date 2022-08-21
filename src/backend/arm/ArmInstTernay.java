@@ -22,8 +22,8 @@ public class ArmInstTernay extends ArmInst {
             put(ArmInstKind.IMulSub, "mls");
             put(ArmInstKind.ILMulAdd, "smmla");
             put(ArmInstKind.ILMulSub, "smmls");
-            put(ArmInstKind.FMulAdd, "vmla.f32"); // 只有三个参数
-            put(ArmInstKind.FMulSub, "vmls.f32"); // 只有三个参数
+            // put(ArmInstKind.FMulAdd, "vmla.f32"); // 只有三个参数
+            // put(ArmInstKind.FMulSub, "vmls.f32"); // 只有三个参数
         }
     };
 

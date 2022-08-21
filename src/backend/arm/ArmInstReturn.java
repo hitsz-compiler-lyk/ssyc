@@ -24,14 +24,14 @@ public class ArmInstReturn extends ArmInst {
         String ret = "";
         if (stackSize > 0) {
             if (CodeGenManager.checkEncodeImm(stackSize)) {
-                ret += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
+                ret += "\tadd" + getCond().toString() + "\tsp,\tsp,\t#" + stackSize + "\n";
             } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                ret += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
+                ret += "\tsub" + getCond().toString() + "\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
                 var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
                 move.setCond(getCond());
                 ret += move.print();
-                ret += "\tadd\tsp,\tsp,\tr4\n";
+                ret += "\tadd" + getCond().toString() + "\tsp,\tsp,\tr4\n";
             }
         }
 
@@ -74,21 +74,23 @@ public class ArmInstReturn extends ArmInst {
         }
 
         if (fuse2.length() != 0) {
-            ret += "\tvpop\t{" + fuse2.toString() + "}\n";
+            ret += "\tvpop" + getCond().toString() + "\t{" + fuse2.toString() + "}\n";
         }
 
         if (fuse1.length() != 0) {
-            ret += "\tvpop\t{" + fuse1.toString() + "}\n";
+            ret += "\tvpop" + getCond().toString() + "\t{" + fuse1.toString() + "}\n";
         }
 
         if (!func.getiUsedRegs().isEmpty()) {
-            ret += "\tpop\t{" + iuse.toString() + "}\n";
+            ret += "\tpop" + getCond().toString() + "\t{" + iuse.toString() + "}\n";
         }
 
         if (!useLR) {
-            ret += "\t" + "bx" + "\t" + "lr" + "\n";
+            ret += "\t" + "bx" + getCond().toString() + "\t" + "lr" + "\n";
         }
-        ret += ".ltorg\n";
+        if (getCond().equals(ArmInst.ArmCondType.Any)) {
+            ret += ".ltorg\n";
+        }
         return ret;
     }
 

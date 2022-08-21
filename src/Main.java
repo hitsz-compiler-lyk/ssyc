@@ -107,7 +107,6 @@ public class Main {
             }
 
             case "asm" -> {
-                Log.inOnlineJudge();
                 final var irGen = new IRGen();
                 final var module = irGen.visitCompUnit(ruleContext);
                 module.verifyAll();

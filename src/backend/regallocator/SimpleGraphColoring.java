@@ -207,11 +207,11 @@ public class SimpleGraphColoring implements RegAllocator {
     private Reg chooseSpillNode(ArmFunction func) {
         Reg spillNode = null;
         for (var reg : remainNodes) {
-            if (func.getAddrLoadMap().containsKey(reg)
+            if (func.getStackAddrMap().containsKey(reg)
                     // || func.getParamLoadMap().containsKey(reg)
                     // || func.getStackLoadMap().containsKey(reg)
+                    // || func.getAddrLoadMap().containsKey(reg)
                     // 不优先处理
-                    || func.getStackAddrMap().containsKey(reg)
                     || func.getImmMap().containsKey(reg)) {
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
