@@ -28,7 +28,7 @@ public class InstructionCombiner implements IRPass {
         IRPass.instructionStream(module).forEach(this::addMulConstComb);
 
         runWithInstructionInReverseOrder(module, this::tryFlattenNestedAdd);
-        runWithInstructionInReverseOrder(module, this::tryFlattenNestedMul);
+        // runWithInstructionInReverseOrder(module, this::tryFlattenNestedMul);
     }
 
     private boolean isKind(Value value, InstKind kind) {
