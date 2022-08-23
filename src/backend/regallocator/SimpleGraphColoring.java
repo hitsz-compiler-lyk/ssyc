@@ -207,11 +207,11 @@ public class SimpleGraphColoring implements RegAllocator {
     private Reg chooseSpillNode(ArmFunction func) {
         Reg spillNode = null;
         for (var reg : remainNodes) {
-            if (func.getStackAddrMap().containsKey(reg)
-                    || func.getAddrLoadMap().containsKey(reg)
+            if (func.getAddrLoadMap().containsKey(reg)
                     // || func.getParamLoadMap().containsKey(reg)
                     // || func.getStackLoadMap().containsKey(reg)
                     // 不优先处理
+                    || func.getStackAddrMap().containsKey(reg)
                     || func.getImmMap().containsKey(reg)) {
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
@@ -295,8 +295,6 @@ public class SimpleGraphColoring implements RegAllocator {
                             var newStackAddr = new ArmInstStackAddr(vr, oldStackAddr.getOffset());
                             newStackAddr.setFix(oldStackAddr.isFix());
                             newStackAddr.setCAlloc(oldStackAddr.isCAlloc());
-                            newStackAddr.setUpper(oldStackAddr.getUpper());
-                            newStackAddr.setNether(oldStackAddr.getNether());
                             newStackAddr.setTrueOffset(oldStackAddr.getTrueOffset());
                             inst.insertBeforeCO(newStackAddr);
                             inst.replaceOperand(spill, vr);

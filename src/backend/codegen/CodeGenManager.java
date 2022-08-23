@@ -1258,7 +1258,7 @@ public class CodeGenManager {
                 for (var inst : block.asElementView()) {
                     arm.append(inst.print());
                     // if (inst.getSymbol() == null) {
-                    //     inst.InitSymbol();
+                    // inst.InitSymbol();
                     // }
                     // arm.append(inst.getSymbol());
                 }
@@ -1415,18 +1415,9 @@ public class CodeGenManager {
                         continue;
                     } else {
                         int oldTrueOffset = stackSize - stackAddr.getOffset().getImm();
-                        int nowTrueOffset = (oldTrueOffset - 3072) / 1024 * 1024;
-                        while (true) {
-                            int modify = nowTrueOffset - oldTrueOffset;
-                            if (stackAddr.isLegalModify(modify)) {
-                                stackAddr.replaceOffset(new IImm(stackAddr.getOffset().getImm() - modify)); // -modify才会使得最总的true
-                                                                                                            // offset增加
-                                stackAddr.setTrueOffset(new IImm(nowTrueOffset));
-                                stackAddr.modifyRange(modify);
-                                break;
-                            }
-                            nowTrueOffset += 1024;
-                        }
+                        int nowTrueOffset = (oldTrueOffset + 1023) / 1024 * 1024;
+                        stackAddr.replaceOffset(new IImm(stackSize - nowTrueOffset));
+                        stackAddr.setTrueOffset(new IImm(nowTrueOffset));
                         stackAddrMap.put(nowTrueOffset, stackAddr.getDst());
                         addrStackMap.put(stackAddr.getDst(), nowTrueOffset);
                     }

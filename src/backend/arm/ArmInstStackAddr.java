@@ -10,7 +10,6 @@ public class ArmInstStackAddr extends ArmInst {
     IImm trueOffset;
     boolean isFix;
     boolean isCAlloc;
-    int nether, upper;
 
     public ArmInstStackAddr(ArmInstKind inst) {
         super(inst);
@@ -27,8 +26,6 @@ public class ArmInstStackAddr extends ArmInst {
         }
         this.trueOffset = null;
         this.isFix = false;
-        this.nether = 0;
-        this.upper = 2048;
     }
 
     public ArmInstStackAddr(Operand dst, IImm offset) {
@@ -41,8 +38,6 @@ public class ArmInstStackAddr extends ArmInst {
         }
         this.trueOffset = null;
         this.isFix = false;
-        this.nether = 0;
-        this.upper = 2040;
     }
 
     public Operand getDst() {
@@ -70,22 +65,6 @@ public class ArmInstStackAddr extends ArmInst {
 
     public void setCAlloc(boolean isCAlloc) {
         this.isCAlloc = isCAlloc;
-    }
-
-    public int getUpper() {
-        return upper;
-    }
-
-    public int getNether() {
-        return nether;
-    }
-
-    public void setUpper(int upper) {
-        this.upper = upper;
-    }
-
-    public void setNether(int nether) {
-        this.nether = nether;
     }
 
     public void setTrueOffset(IImm trueOffset) {
@@ -118,16 +97,6 @@ public class ArmInstStackAddr extends ArmInst {
 
     public IImm getTrueOffset() {
         return trueOffset;
-    }
-
-    public boolean isLegalModify(int modify) {
-        return nether <= modify && modify <= upper;
-    }
-
-    public void modifyRange(int modify) {
-        Log.ensure(isLegalModify(modify), "illegal modify");
-        this.nether -= modify;
-        this.upper -= modify;
     }
 
     public void replaceOffset(Operand addr) {
