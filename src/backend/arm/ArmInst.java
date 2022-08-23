@@ -289,7 +289,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public boolean haveLtorg() {
         return (inst.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any))
-                || (inst.equals(ArmInstKind.Return))
+                || (inst.equals(ArmInstKind.Return) && getCond().equals(ArmCondType.Any))
                 || (inst.equals(ArmInstKind.Ltorg));
     }
 

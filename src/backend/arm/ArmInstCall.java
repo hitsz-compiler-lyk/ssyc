@@ -99,8 +99,8 @@ public class ArmInstCall extends ArmInst {
         // }
         // return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
         if (!StringUtils.isEmpty(funcName)) {
-            return "\t" + "bl" + "\t" + funcName + "\n";
+            return "\t" + "bl" + getCond().toString() + "\t" + funcName + "\n";
         }
-        return "\t" + "bl" + "\t" + func.getName() + "\n";
+        return "\t" + "bl" + getCond().toString() + "\t" + func.getName() + "\n";
     }
 }

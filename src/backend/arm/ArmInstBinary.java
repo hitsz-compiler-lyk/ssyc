@@ -18,10 +18,10 @@ public class ArmInstBinary extends ArmInst {
             put(ArmInstKind.IMul, "mul");
             put(ArmInstKind.IDiv, "sdiv");
             put(ArmInstKind.ILMul, "smmul"); // smmul Rd Rm Rs : Rd = (Rm * Rs)[63:32]
-            put(ArmInstKind.FAdd, "vadd.f32");
-            put(ArmInstKind.FSub, "vsub.f32");
-            put(ArmInstKind.FMul, "vmul.f32");
-            put(ArmInstKind.FDiv, "vdiv.f32");
+            put(ArmInstKind.FAdd, "vadd");
+            put(ArmInstKind.FSub, "vsub");
+            put(ArmInstKind.FMul, "vmul");
+            put(ArmInstKind.FDiv, "vdiv");
             put(ArmInstKind.Bic, "bic");
         }
     };
@@ -94,12 +94,13 @@ public class ArmInstBinary extends ArmInst {
         var dst = getDst();
         var lhs = getLhs();
         var rhs = getRhs();
+        String fprint = dst.IsFloat() ? ".f32" : "";
         Log.ensure(op != null);
         if (shift != null) {
-            return "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
+            return "\t" + op + getCond().toString() + fprint + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
                     + rhs.print() + shift.toString() + "\n";
         } else {
-            return "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
+            return "\t" + op + getCond().toString() + fprint + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"
                     + rhs.print() + "\n";
         }
     }

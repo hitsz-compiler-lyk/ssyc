@@ -295,8 +295,6 @@ public class SimpleGraphColoring implements RegAllocator {
                             var newStackAddr = new ArmInstStackAddr(vr, oldStackAddr.getOffset());
                             newStackAddr.setFix(oldStackAddr.isFix());
                             newStackAddr.setCAlloc(oldStackAddr.isCAlloc());
-                            newStackAddr.setUpper(oldStackAddr.getUpper());
-                            newStackAddr.setNether(oldStackAddr.getNether());
                             newStackAddr.setTrueOffset(oldStackAddr.getTrueOffset());
                             inst.insertBeforeCO(newStackAddr);
                             inst.replaceOperand(spill, vr);
