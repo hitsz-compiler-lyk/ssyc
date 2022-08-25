@@ -5,6 +5,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import backend.operand.Addr;
+import backend.operand.IImm;
+import backend.operand.Imm;
 import backend.operand.Reg;
 import utils.IList;
 import utils.IListOwner;
@@ -74,6 +77,38 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     private BlockLiveInfo blockLiveInfo;
 
+    private Set<Addr> haveRecoverAddrs;
+
+    private Set<IImm> haveRecoverOffset;
+
+    private Set<IImm> haveRecoveLoadParam;
+
+    private Set<IImm> haveRecoveStackLoad;
+
+    private Set<Imm> haveRecoveImm;
+
+    private int loopDepth = 0;
+
+    public Set<Addr> getHaveRecoverAddrs() {
+        return haveRecoverAddrs;
+    }
+
+    public Set<IImm> getHaveRecoverOffset() {
+        return haveRecoverOffset;
+    }
+
+    public Set<IImm> getHaveRecoveLoadParam() {
+        return haveRecoveLoadParam;
+    }
+
+    public Set<IImm> getHaveRecoveStackLoad() {
+        return haveRecoveStackLoad;
+    }
+
+    public Set<Imm> getHaveRecoveImm() {
+        return haveRecoveImm;
+    }
+
     @Override
     public INode<ArmBlock, ArmFunction> getINode() {
         return inode;
@@ -127,18 +162,38 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.pred.add(pred);
     }
 
+    public void setLoopDepth(int loopDepth) {
+        this.loopDepth = loopDepth;
+    }
+
+    public int getLoopDepth() {
+        return loopDepth;
+    }
+
     public ArmBlock(ArmFunction func, String label) {
         this.label = label;
         this.pred = new ArrayList<ArmBlock>();
         this.insts = new IList<ArmInst, ArmBlock>(this);
         this.inode = new INode<ArmBlock, ArmFunction>(this);
         this.blockLiveInfo = new BlockLiveInfo();
+        this.haveRecoverAddrs = new HashSet<>();
+        this.haveRecoverOffset = new HashSet<>();
+        this.haveRecoveLoadParam = new HashSet<>();
+        this.haveRecoveStackLoad = new HashSet<>();
+        this.haveRecoveImm = new HashSet<>();
+        this.loopDepth = 0;
         func.asElementView().add(this);
     }
 
     public ArmBlock(String label) {
         this.label = label;
         this.pred = new ArrayList<>();
+        this.haveRecoverAddrs = new HashSet<>();
+        this.haveRecoverOffset = new HashSet<>();
+        this.haveRecoveLoadParam = new HashSet<>();
+        this.haveRecoveStackLoad = new HashSet<>();
+        this.haveRecoveImm = new HashSet<>();
+        this.loopDepth = 0;
         this.insts = new IList<>(this);
     }
 

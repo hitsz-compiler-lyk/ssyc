@@ -1,0 +1,26 @@
+const int N = 100;
+int a[N][N];
+
+int mm(int n) {
+    int i = 0;
+    int sum = 0;
+    while (i < n) {
+        int j = 0;
+        while (j < n) {
+            a[i][j] = 2;
+            sum = sum + 1;
+            j = j + 1;
+        }
+        // putint(sum);
+        i = i + 1;
+    }
+
+    return sum;
+}
+
+int main() {
+    putint(mm(10));
+    putint(mm(20));
+
+    return 0;
+}

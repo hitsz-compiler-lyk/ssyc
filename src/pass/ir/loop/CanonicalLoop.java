@@ -3,6 +3,7 @@ package pass.ir.loop;
 import ir.BasicBlock;
 import ir.inst.BrCondInst;
 import ir.inst.BrInst;
+import utils.INodeOwner;
 import utils.Log;
 
 import java.util.*;
@@ -33,6 +34,10 @@ public class CanonicalLoop {
         }
 
         return exitTo;
+    }
+
+    public void forceUpdateExitTo() {
+        this.exitTo = null;
     }
 
     public Set<BasicBlock> getMultiExit() {
@@ -92,6 +97,10 @@ public class CanonicalLoop {
         subLoops.add(subLoop);
     }
 
+    public void removeSubLoop(CanonicalLoop subLoop) {
+        subLoops.remove(subLoop);
+    }
+
     public List<CanonicalLoop> getAllLoopInPostOrder() {
         final var result = new ArrayList<CanonicalLoop>();
         subLoops.stream().map(CanonicalLoop::getAllLoopInPostOrder).forEach(result::addAll);
@@ -148,6 +157,25 @@ public class CanonicalLoop {
         this.body.add(bodyBlock);
     }
 
+    // ============================ 处理访问中的修改 =================================//
+    public static class CanonicalLoopUpdater {
+        public CanonicalLoopUpdater(final Set<BasicBlock> blocksToAdd, final Set<BasicBlock> blocksToRemove) {
+            this.blocksToAdd = blocksToAdd;
+            this.blocksToRemove = blocksToRemove;
+        }
+
+        public void update(CanonicalLoop curr) {
+            curr.body.removeAll(blocksToRemove);
+            curr.body.addAll(blocksToAdd);
+            curr.forceUpdateExitTo();
+            curr.verify();
+
+            curr.getParent().ifPresent(this::update);
+        }
+
+        private final Set<BasicBlock> blocksToAdd;
+        private final Set<BasicBlock> blocksToRemove;
+    }
 
     // ============================ 验证性方法与实现 =================================//
     private boolean isRotated;
@@ -241,6 +269,11 @@ public class CanonicalLoop {
                     "Exit in rotated loop must br to final exit");
             }
         }
+
+        // 确保循环中没有被开除出函数的基本块
+        ensure(header.getParentOpt().isPresent(), "Header of a loop should be in a function");
+        ensure(body.stream().map(INodeOwner::getParentOpt).allMatch(Optional::isPresent), "Body of a loop should all be in a function");
+        ensure(exitTo == null || exitTo.getParentOpt().isPresent(), "Exit of a loop should be in a function");
     }
 
     private void ensure(boolean cond, String message) {
@@ -261,3 +294,4 @@ class LoopVerifyException extends RuntimeException {
         super(message);
     }
 }
+

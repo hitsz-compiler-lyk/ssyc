@@ -1,0 +1,26 @@
+int main() {
+    int N = 1000;
+    int runCount = getint();
+
+    int sum, i;
+
+    starttime();
+    while (runCount > 0) {
+
+        sum = 0;
+        i = 0;
+
+        while (i < 1000) {
+            sum = sum + i;
+            i = i + 1;
+        }
+
+        runCount = runCount - 1;
+    }
+    stoptime();
+
+    putint(sum);
+    putint(i);
+
+    return 0;
+}

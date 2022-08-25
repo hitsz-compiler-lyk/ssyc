@@ -22,6 +22,8 @@ public interface IRPass {
         return new HashSet<>(set);
     }
 
+    static <K, V> Map<K, V> copyForChange(Map<K, V> map) { return new HashMap<>(map); }
+
     static Stream<Instruction> instructionStream(Module module) {
         return module.getNonExternalFunction().stream()
             .flatMap(List<BasicBlock>::stream)

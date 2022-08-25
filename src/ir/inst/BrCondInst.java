@@ -46,7 +46,7 @@ public class BrCondInst extends Instruction {
         final var trueBB = getTrueBB();
         final var falseBB = getFalseBB();
 
-        ensure(block != trueBB && block != falseBB, "Cannot jump back to itself (maybe?)");
+        ensure(block != trueBB || block != falseBB, "Cannot jump back to itself in all condition");
         ensure(trueBB != falseBB, "TrueBB shouldn't be as same as falseBB");
 
         ensureNot(getCond() instanceof Constant, "Cond shouldn't be constant");

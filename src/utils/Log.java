@@ -4,11 +4,14 @@ import java.io.PrintStream;
 
 public class Log {
     public static void info(String message) {
-        out.println(makeFormattedOutput("info", message, colorYellow));
+        if (!Log.notOutput)
+        {
+            out.println(makeFormattedOutput("info", message, colorYellow));
+        }
     }
 
     public static void debug(String message) {
-        if (!Log.closeDebug) {
+        if (!Log.notOutput) {
             out.println(makeFormattedOutput("debug", message, colorWhite));
         }
     }
@@ -28,7 +31,7 @@ public class Log {
 
     public static void inOnlineJudge() {
         Log.needColor = false;
-        Log.closeDebug = true;
+        Log.notOutput = true;
     }
 
     private static String makeFormattedOutput(String level, String message, String color) {
@@ -37,7 +40,7 @@ public class Log {
     }
 
     private static boolean needColor = true;
-    private static boolean closeDebug = false;
+    private static boolean notOutput = false;
 
     private static final String colorRed    = needColor ? "\033[31;1m" : "";
     private static final String colorYellow = needColor ? "\033[33;1m" : "";

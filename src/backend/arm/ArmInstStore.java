@@ -9,10 +9,7 @@ import utils.Log;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstStore extends ArmInst {
-    boolean isFixOffset = false;
-    boolean isStack = true;
-    Operand trueOffset;
-    ArmInstMove offsetMove;
+    ArmShift shift;
 
     public ArmInstStore(ArmInstKind inst) {
         super(inst);
@@ -23,7 +20,7 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, ArmCondType cond) {
@@ -32,7 +29,7 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset) {
@@ -40,7 +37,7 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr, Operand offset, ArmCondType cond) {
@@ -49,14 +46,14 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, ArmCondType cond) {
@@ -64,21 +61,21 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, int offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(offset));
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, Operand offset, ArmCondType cond) {
@@ -86,7 +83,7 @@ public class ArmInstStore extends ArmInst {
         this.setCond(cond);
         this.initOperands(src, addr, offset);
         this.setPrintCnt(1);
-        this.isStack = true;
+        this.shift = null;
     }
 
     public Operand getSrc() {
@@ -101,54 +98,29 @@ public class ArmInstStore extends ArmInst {
         return this.getOperand(2);
     }
 
-    public boolean isFixOffset() {
-        return isFixOffset;
+    public void replaceAddr(Operand op) {
+        this.replaceOperand(1, op);
     }
 
-    public void setFixOffset(boolean isFixOffset) {
-        this.isFixOffset = isFixOffset;
+    public void replaceOffset(Operand op) {
+        this.replaceOperand(2, op);
+        ;
     }
 
-    public void setTrueOffset(Operand trueOffset) {
-        this.trueOffset = trueOffset;
+    public ArmShift getShift() {
+        return shift;
     }
 
-    public Operand getTrueOffset() {
-        return trueOffset;
+    public void setShift(ArmShift shift) {
+        this.shift = shift;
     }
 
-    public void delTrueOffset() {
-        this.trueOffset = null;
-    }
-
-    public void replaceOffset(Operand offset) {
-        this.replaceOperand(2, offset);
-    }
-
-    public void setOffsetMove(ArmInstMove offsetMove) {
-        this.offsetMove = offsetMove;
-    }
-
-    public ArmInstMove getOffsetMove() {
-        return offsetMove;
-    }
-
-    public void setStack(boolean isStack) {
-        this.isStack = isStack;
-    }
-
-    public boolean isStack() {
-        return isStack;
-    }
 
     @Override
     public String print() {
         var src = getSrc();
         var addr = getAddr();
         var offset = getOffset();
-        if (trueOffset != null) {
-            offset = trueOffset;
-        }
         Log.ensure(!addr.IsAddr(), "str a actual addr");
 
         var isVector = "";
@@ -157,6 +129,10 @@ public class ArmInstStore extends ArmInst {
         }
         if (offset.equals(new IImm(0))) {
             return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print() + "]\n";
+        } else if (shift != null) {
+            Log.ensure(offset.IsReg(), "offset must be reg");
+            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print()
+                    + ",\t" + offset.print() + shift.toString() + "]\n";
         } else {
             return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + "]\n";

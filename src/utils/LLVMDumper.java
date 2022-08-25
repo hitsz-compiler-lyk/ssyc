@@ -2,8 +2,8 @@ package utils;
 
 import frontend.SourceCodeSymbol;
 import frontend.info.CurrDefInfo;
-import ir.*;
 import ir.Module;
+import ir.*;
 import ir.constant.ArrayConst;
 import ir.constant.ArrayConst.ZeroArrayConst;
 import ir.constant.Constant;
@@ -17,7 +17,9 @@ import ir.type.PointerIRTy;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class LLVMDumper {
@@ -193,7 +195,7 @@ public class LLVMDumper {
                 if (type.isInt()) {
                     pir("add i32 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else if (type.isFloat()) {
-                    pir("fadd float 0, 0 ; non-incoming phi for <symbol>", phi.getWaitFor());
+                    pir("fadd float 0.000000e+00, 0.000000e+00 ; non-incoming phi for <symbol>", phi.getWaitFor());
                 } else {
                     throw new RuntimeException("Unknown type of empty phi: " + type);
                 }

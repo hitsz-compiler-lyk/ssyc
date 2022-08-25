@@ -1,14 +1,14 @@
 package ir;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
 import frontend.SourceCodeSymbol;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import utils.ReflectiveTools;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 public abstract class Value {
     protected Value(IRType type) {
@@ -40,24 +40,10 @@ public abstract class Value {
         final var oldUserList = new ArrayList<>(userList);
         oldUserList.forEach(u -> u.replaceOperandCO(this, newValue));
         ensure(userList.isEmpty(), "User list should be empty after RAUW");
-        GlobalModifitationStatus.current().markAsChanged();
+        GlobalModificationStatus.current().markAsChanged();
     }
 
-    // public void replaceAllUseWithInBBlock(Value newValue, BasicBlock bblock) {
-    //     final var usersInBlock = userList.stream()
-    //         .filter(Instruction.class::isInstance)
-    //         .filter(i -> i.as(Instruction.class).getParent().isPresent())
-    //         .collect(Collectors.toUnmodifiableList());
-    //
-    //     for (final var user : usersInBlock) {
-    //         user.replaceOperandCO(this, newValue);
-    //         newValue.addUser(user);
-    //     }
-    //
-    //     userList.removeAll(usersInBlock);
-    // }
-
-    public boolean isUseless() {
+    public boolean haveNoUser() {
         return userList.isEmpty();
     }
 

@@ -8,11 +8,7 @@ import utils.Log;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstLoad extends ArmInst {
-    boolean isFixOffset = false;
-    boolean isStack = true;
-    boolean isParamsLoad = false;
-    Operand trueOffset;
-    ArmInstMove offsetMove;
+    ArmShift shift;
 
     public ArmInstLoad(ArmInstKind inst) {
         super(inst);
@@ -27,8 +23,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, ArmCondType cond) {
@@ -41,8 +36,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr) {
@@ -53,8 +47,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, ArmCondType cond) {
@@ -66,8 +59,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset) {
@@ -79,8 +71,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -93,8 +84,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset) {
@@ -105,8 +95,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, int offset) {
@@ -117,8 +106,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset, ArmCondType cond) {
@@ -130,8 +118,7 @@ public class ArmInstLoad extends ArmInst {
         } else {
             this.setPrintCnt(1);
         }
-        this.isStack = true;
-        this.isParamsLoad = false;
+        this.shift = null;
     }
 
     public Operand getDst() {
@@ -146,52 +133,21 @@ public class ArmInstLoad extends ArmInst {
         return this.getOperand(2);
     }
 
-    public boolean isFixOffset() {
-        return isFixOffset;
+    public void replaceAddr(Operand op) {
+        this.replaceOperand(1, op);
     }
 
-    public void setFixOffset(boolean isFixOffset) {
-        this.isFixOffset = isFixOffset;
+    public void replaceOffset(Operand op) {
+        this.replaceOperand(2, op);
+        ;
     }
 
-    public void setTrueOffset(Operand trueOffset) {
-        this.trueOffset = trueOffset;
+    public ArmShift getShift() {
+        return shift;
     }
 
-    public Operand getTrueOffset() {
-        return trueOffset;
-    }
-
-    public void delTrueOffset() {
-        this.trueOffset = null;
-    }
-
-    public void replaceOffset(Operand offset) {
-        this.replaceOperand(2, offset);
-    }
-
-    public void setOffsetMove(ArmInstMove offsetMove) {
-        this.offsetMove = offsetMove;
-    }
-
-    public ArmInstMove getOffsetMove() {
-        return offsetMove;
-    }
-
-    public void setStack(boolean isStack) {
-        this.isStack = isStack;
-    }
-
-    public boolean isStack() {
-        return isStack;
-    }
-
-    public void setParamsLoad(boolean isParamsLoad) {
-        this.isParamsLoad = isParamsLoad;
-    }
-
-    public boolean isParamsLoad() {
-        return isParamsLoad;
+    public void setShift(ArmShift shift) {
+        this.shift = shift;
     }
 
     @Override
@@ -199,9 +155,6 @@ public class ArmInstLoad extends ArmInst {
         var dst = getDst();
         var addr = getAddr();
         var offset = getOffset();
-        if (trueOffset != null) {
-            offset = trueOffset;
-        }
 
         var isVector = "";
         if (dst.IsFloat()) {
@@ -216,6 +169,10 @@ public class ArmInstLoad extends ArmInst {
                     "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + addr.print() + "\n";
         } else if (offset.equals(new IImm(0))) {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print() + "]\n";
+        } else if (shift != null) {
+            Log.ensure(offset.IsReg(), "offset must be reg");
+            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
+                    + ",\t" + offset.print() + shift.toString() + "]\n";
         } else {
             return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + "]\n";

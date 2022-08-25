@@ -1,13 +1,12 @@
 package pass.ir.dataflow;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import ir.BasicBlock;
 import ir.Function;
 import ir.Module;
 import pass.ir.IRPass;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implements IRPass {
     protected abstract T transfer(BasicBlock block, T in);
@@ -40,12 +39,12 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
     }
 
     public void insertInfo(Function function) {
-        final var entry = function.getEntryBBlock();
-        final var nonEntries = nonEntries(function);
-
-        entry.addAnalysisInfo(createEntryInfo(entry));
-        for (final var block : nonEntries) {
-            block.addAnalysisInfo(createEmptyInfo(block));
+        for (final var block : function) {
+            if (block.getPredecessorSize() == 0) {
+                block.addAnalysisInfo(createEntryInfo(block));
+            } else {
+                block.addAnalysisInfo(createEmptyInfo(block));
+            }
         }
     }
 
@@ -88,11 +87,5 @@ public abstract class ForwardDataFlowPass<T, I extends DataFlowInfo<T>> implemen
 
     private I getInfo(BasicBlock block) {
         return block.getAnalysisInfo(getInfoClass());
-    }
-
-    private List<BasicBlock> nonEntries(Function function) {
-        final var list = new LinkedList<>(function);
-        list.remove(0);
-        return list;
     }
 }

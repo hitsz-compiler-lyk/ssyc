@@ -6,12 +6,15 @@ import ir.inst.*;
 import pass.ir.ConstructDominatorInfo.DominatorInfo;
 import utils.ChainMap;
 
-import java.util.*;
+import java.util.Set;
 
 /** 依赖 ConstructDominatorInfo */
 public class SimpleGVN implements IRPass {
     @Override
     public void runPass(final Module module) {
+        final var collector = new ConstructDominatorInfo();
+        collector.runPass(module);
+
         for (final var func : module.getNonExternalFunction()) {
             uniqueNormalExp(func.getEntryBBlock(), new ChainMap<>());
         }
@@ -21,7 +24,7 @@ public class SimpleGVN implements IRPass {
         final var available = new ChainMap<>(idomAvailable);
 
         for (final var inst : block) {
-            if (canNotBeUniqued(inst)) {
+            if (canNotBeUnique(inst)) {
                 continue;
             }
 
@@ -38,7 +41,7 @@ public class SimpleGVN implements IRPass {
         }
     }
 
-    boolean canNotBeUniqued(Instruction inst) {
+    boolean canNotBeUnique(Instruction inst) {
         if (inst.getType().isVoid()) {
             return true;
         }

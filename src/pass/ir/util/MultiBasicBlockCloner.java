@@ -40,10 +40,10 @@ public class MultiBasicBlockCloner implements ValueVisitor<Value> {
             final var newPreds = block.getPredecessors().stream()
                 .map(this::getOrCreate).collect(Collectors.toList());
 
-            // 在目标块没有 phi 的情况下, 可以不复位其前继
+            // 在目标块完全没有前继的情况下, 可以不要求其前继数量等于旧块的前继数量
             // 这意味着在该 cloner 只复制原来函数中的一小块块时, 可以直接忽略开头的那些边界块的前继
             if (newPreds.size() != newBlock.getPredecessorSize()) {
-                if (newBlock.phis().size() == 0) {
+                if (newBlock.getPredecessorSize() == 0) {
                     Log.info("Ignoring the pred of %s (old as %s)".formatted(newBlock, oldBlocks));
                 } else {
                     Log.ensure(false);
@@ -83,6 +83,13 @@ public class MultiBasicBlockCloner implements ValueVisitor<Value> {
 
     @Override
     public Value visitInstruction(final Instruction oldInst) {
+        // 如果 phi 有到自己的引用, 那么当 phi 尝试 getOrCreate 参数时, 会把自己传进来
+        // 而此时这个指令还没有 parent, 所以需要特判一下, 直接把自己返回
+        if (oldInst.getParentOpt().isEmpty()) {
+            Log.ensure(oldInst instanceof PhiInst);
+            return oldInst;
+        }
+
         // 外界的 Instruction 就不要复制了
         if (shouldNotBeCloned(oldInst)) {
             return oldInst;

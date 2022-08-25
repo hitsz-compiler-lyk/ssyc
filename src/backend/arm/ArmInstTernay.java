@@ -8,6 +8,8 @@ import utils.Log;
 
 // mla dst op1 op2 op3: dst = op3 + op1 * op2
 // mls dst op1 op2 op3: dst = op3 - op1 * op2
+// smmla dst op1 op2 op3: dst = op3 + op1 * op2[63:32]
+// smmls dst op1 op2 op3: dst = op3 - op1 * op2[63:32]
 // 0: dst RegDef
 // 1: op1 RegUse
 // 2: op2 RegUse
@@ -18,8 +20,10 @@ public class ArmInstTernay extends ArmInst {
         {
             put(ArmInstKind.IMulAdd, "mla");
             put(ArmInstKind.IMulSub, "mls");
-            put(ArmInstKind.FMulAdd, "vmla.f32");
-            put(ArmInstKind.FMulSub, "vmls.f32");
+            put(ArmInstKind.ILMulAdd, "smmla");
+            put(ArmInstKind.ILMulSub, "smmls");
+            // put(ArmInstKind.FMulAdd, "vmla.f32"); // 只有三个参数
+            // put(ArmInstKind.FMulSub, "vmls.f32"); // 只有三个参数
         }
     };
 
@@ -38,6 +42,19 @@ public class ArmInstTernay extends ArmInst {
             ArmCondType cond) {
         super(inst);
         block.asElementView().add(this);
+        this.setCond(cond);
+        this.initOperands(dst, op1, op2, op3);
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstTernay(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
+        super(inst);
+        this.initOperands(dst, op1, op2, op3);
+        this.setPrintCnt(1);
+    }
+
+    public ArmInstTernay(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3, ArmCondType cond) {
+        super(inst);
         this.setCond(cond);
         this.initOperands(dst, op1, op2, op3);
         this.setPrintCnt(1);

@@ -79,6 +79,10 @@ public class BasicBlock extends User
         add(inst);
     }
 
+    public void addInstAfterPhi(Instruction inst) {
+        phiEnd.add(inst);
+    }
+
     public void setBr(BasicBlock nextBB) {
         Log.ensure(!isTerminated(), "Can NOT add Br to terminated block");
         add(new BrInst(this, nextBB));

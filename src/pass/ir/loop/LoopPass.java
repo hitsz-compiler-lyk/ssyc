@@ -12,7 +12,7 @@ public interface LoopPass extends IRPass {
     @Override
     default void runPass(Module module) {
         for (final var function : module.getNonExternalFunction()) {
-            final var collector = new CollectLoopsAndMakeItCanonical();
+            final var collector = new CollectAndTransformCanonicalLoops();
             final var loops = CanonicalLoop.getAllLoopInPostOrder(collector.collect(function)).stream()
                 // TODO: 干脆在生成的时候直接 drop 掉没有 unique exit 的循环好了
                 // 这种循环没人权也没优化的

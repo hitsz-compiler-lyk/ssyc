@@ -1,0 +1,21 @@
+int main() {
+    int a = getint();
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    a = a + 1;
+    putint(a);
+    return 0;
+}
+
