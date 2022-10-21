@@ -1,0 +1,16 @@
+
+int main() {
+    int a = getint();
+    int b = getint();
+
+    int sum = 0;
+    int i = 100;
+    while (i >= 0) {
+        i = i - 1;
+        sum = a + b;
+    }
+
+    putint(sum);
+
+    return 0;
+}
