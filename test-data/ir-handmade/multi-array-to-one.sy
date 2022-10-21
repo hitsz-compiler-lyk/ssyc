@@ -1,0 +1,24 @@
+int a[3][3][3];
+
+int func(int a[], int n) {
+    int sum = 0;
+    int i = n - 1;
+    while (i >= 0) {
+        putint(i);
+        putch(32); // space
+        putint(a[i]);
+        // sum = sum + a[i];
+        i = i - 1;
+    }
+
+    return sum;
+}
+
+int main() {
+    a[0][1][2] = 1;
+    a[0][2][1] = 3;
+    putint(func(a, 27));
+    // putarray(27, a);
+
+    return 0;
+}

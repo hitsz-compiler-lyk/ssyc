@@ -1,0 +1,54 @@
+int fib(int x) {
+    if (x == 1) {
+        return 1;
+    } else if (x == 2) {
+        return 1;
+    } else {
+        return fib(x - 1) + fib(x - 2);
+    }
+}
+
+int mem[1000];
+int vis[1000];
+int fib_mem(int x) {
+    if (x < 1000) {
+        int mem_res = mem[x];
+        if (mem_res != 0) {
+            return mem_res;
+        }
+    }
+
+    if (x == 1) {
+        int res = 1;
+        mem[x] = res;
+        return res;
+    } else if (x == 2) {
+        int res = 1;
+        mem[x] = res;
+        return res;
+    } else {
+        int a = x - 1;
+        int b = x - 2;
+
+        int call_1 = mem[a];
+        if (call_1 == 0) {
+            call_1 = fib(a);
+        }
+
+        int call_2 = mem[b];
+        if (call_2 == 0) {
+            call_2 = fib(b);
+        }
+
+        int res = call_1 + call_2;
+        mem[x] = res;
+        return res;
+    }
+}
+
+int main() {
+    starttime();
+    putint(fib(40));
+    stoptime();
+    return 0;
+}

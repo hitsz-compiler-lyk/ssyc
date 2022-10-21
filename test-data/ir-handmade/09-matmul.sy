@@ -1,0 +1,63 @@
+const int N = 100;
+
+int A[N][N];
+int B[N][N];
+int C[N][N];
+
+void matmul(int n, int C[][N], int A[][N], int B[][N]) {
+    int i, j, k;
+
+    // i = 0; while (i < n) {
+    //     j = 0; while (j < n) {
+    //         k = 0; while (k < n) {
+    //             C[i][j] = C[i][j] + A[i][k] * B[k][j];
+    //             k = k + 1;
+    //         }
+    //         j = j + 1;
+    //     }
+    //     i = i + 1;
+    // }
+
+    // i = 0; while (i < n) {
+    //     k = 0; while (k < n) {
+    //         j = 0; while (j < n) {
+    //             C[i][j] = C[i][j] + A[i][k] * B[k][j];
+    //             j = j + 1;
+    //         }
+    //         k = k + 1;
+    //     }
+    //     i = i + 1;
+    // }
+
+    k = 0; while (k < n) {
+        i = 0; while (i < n) {
+            j = 0; while (j < n) {
+                C[i][j] = C[i][j] + A[i][k] * B[k][j];
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        k = k + 1;
+    }
+}
+
+int main() {
+    int i;
+
+    int loopCount = getint();
+    int n = getint();
+
+    getarray(A);
+    getarray(B);
+
+    starttime();
+    while (loopCount > 0) {
+        loopCount = loopCount - 1;
+        matmul(n, C, A, B);
+    }
+    stoptime();
+
+    putarray(n*n, C);
+
+    return 0;
+}

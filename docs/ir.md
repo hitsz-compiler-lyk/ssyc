@@ -4,6 +4,8 @@
 
 IR 采用类 LLVM IR 的 "带无限寄存器的寄存器式 IR", 要求满足 SSA form, 并且支持 Alloc, Load, Store 与 `mem2reg`. 其内存形式 (in-memory form) 为一很大的, 通过 Java 对象的引用间接实现的 DAG.
 
+本 IR 同时也类似 Graal IR (Sea of nodes) 的形式, 但其节点并没有 "浮动", 而是时刻按照执行顺序被固定在 ilist 中, 或许你可以叫它 "River of nodes".
+
 LLVM IR 中的 `Argument` 实际上存的是函数的形参信息, 所以更名为 `Parameter`. 之所以其是一个 `Value`, 是因为这样函数内的指令便可以使用某个 `Parameter` 实例来指代函数中的某个形参了.
 
 ## 继承体系与类别总览
@@ -22,13 +24,14 @@ Value
             > BranchInst
             > CallInst
             > ReturnInst
-            > AllocInst
+            > CAllocInst
             > LoadInst
             > StoreInst
             > GEPInst
             > PhiInst
             > FloatToIntInst
             > IntToFloatInst
+            > BoolToIntInst
             > MemInitInst
     > BasicBlock
     > Parameter
@@ -38,7 +41,7 @@ Value
         > BoolConst
         > ArrayConst
             > ZeroArrayConst
-    > Function (maybe builtin)
+    > Function (maybe external)
 
 IRType (IRTyKind)
     > SimpleIRTy
@@ -332,43 +335,21 @@ public class INode<E, P> {
 
 称类 `A` 为类 `B` 的所有者 (owner), 若 A 中包含一个 `B` 的实例. 称类 `P` 为类 `B` 的父对象 (parent), 若 P 中包含一个 `IList<B>` (即多个 `B` 对象). 更一般地, 所有者一般只是指有作为类成员的关系, 而父对象一般不但有实现上的包含, 还有概念上的包含.
 
-## 笔记: Alloc, Load, Store, GEP
+## CAlloc
 
-**需要更新: 现在已采用 CAlloc**
-
-Alloc 是用来获得一块特定大小的内存的 (通过提供特定的类型, 分配该类型大小的一块内存, 其返回类型永远是一个指向该特定类型的指针).
-
-Load 解引用某个指针获得其值 (可视为去掉 `*`), Store 将某个值存放到指针所指的区域 (可视为加上 `*`).
-
-GEP (get element pointer) 可以去掉嵌套的指针与数组类型, 将高维的指针偏移为某个基本类型的低维指针. 返回值就是该指针.
-
-所以, 一般而言, 对数组的访问的 ir 一般是长这样的:
+因为 SysY 中无时无刻的指针退化问题, 以及本项目并不需要支持不支持数组退化特性的语言的原因, 对内存分配, 本项目抛弃了 LLVM 中的 `alloca` 指令而代之以 `CAlloc` (取 "C 的 Alloc" 之意). 该指令与 `alloca` 指令显著不同的一点是, 其类型直接为对应数组的退化类型:
 
 ```
-%arr = alloc [4 x [5 x i32]]      # %0 的类型是 [4 x [5 x i32]]*
+%a = alloca [4 x [3 x i32]]     ; %a: *[4 x [3 x i32]]
 
-# 第一个 0 表示 "将 %arr 偏移 0 个基类型([4 x [5 x i32]]), 获得了一个 [4 x [5 x i32]]*"
-# 第二个 1 表示 "将上一步得到的指针偏移 1 个基类型([5 x i32]), 获得了一个 [5 x i32]*"
-# 第三个 3 表示 "将上一步得到的指针偏移 3 个基类型(i32), 获得了一个 i32*"
-%target = gep %arr, (0, 1, 3)
-
-store %target 233   # 将 233 存进去
+%b = calloc [4 x [3 x i32]]     ; %b: *[3 x i32]
 ```
 
-```c
-int a[4][5];
-a[1][3] = 233;
-```
-
-翻译为汇编的时候, 行优先情况下按字节的偏移量可以这样计算:
-
-```
-offset = 0 * sizeof([4 x [5 x i32]]) + 1 * sizeof([5 x i32]) + 3 * sizeof(i32)
-       = 0 * 80 + 1 * 20 + 3 * 4
-       = 32
-```
+使用此种设计能有效简化源语言中的数组访问, 数组部分访问 (比如二维数组只提供一个维度然后当指针传给其它函数), 以及违背类型规则的数组使用 (比如把二维数组当作一维数组传给其它函数).
 
 ## IR 合法性验证
+
+**需要更新以反映代码中最新的约定**
 
 在 Value 类中加入一个 `public void verify()` 方法. 如果有违反会抛出 (新的) `IRVerifyException` 异常.
 
