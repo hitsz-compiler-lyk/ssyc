@@ -102,7 +102,6 @@ Test test-data/asm-handmade/5-while.sy        return 1
 
 对于代码本身的高层次说明详见 [docs](docs/) 文件夹内的文档. 对于代码细节的说明详见代码注释.
 
-- 时间规划: <docs/deadline.md>
 - 代码风格: <docs/style.md>
 - IR 设计: <docs/ir.md>
 -
