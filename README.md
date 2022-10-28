@@ -6,7 +6,7 @@
 
 本项目没有使用任何标准的 Java 依赖管理/构建 工具, 而是使用 Bash 脚本完成构建. Bash 脚本具有简单、透明的优势, 适合本项目这种依赖少而简单, 无复杂构建需求的项目. 并且使用 Bash 脚本便于集成各式各样的工作流, 而不会被构建工具限制.
 
-本项目之功能性测试使用 Docker 容器进行. 整个源码目录被挂载进容器之后在容器内被编译为 class 文件并执行, 依次读取测试数据文件夹 (当前为 `test-data/asm-handmade`) 内的 `*.sy` 文件并输出汇编文件 `*.s`, 随后在容器内被交叉编译器汇编为 ARM 可执行文件, 随后使用 qemu 执行并输出 `main` 返回值. 随着开发的进行将逐步修改测试行为为判断输出是否正确.
+本项目之功能性测试使用 Docker 容器进行. 整个源码目录被挂载进容器之后在容器内被编译为 class 文件并执行, 依次读取测试数据文件夹 (当前为 `test-data/asm-handmade`) 内的 `*.sy` 文件并输出汇编文件 `*.s`, 随后在容器内被交叉编译器汇编为 ARM 可执行文件, 随后使用 qemu 执行并输出 `main` 返回值. 用测试脚本判断输出是否正确.
 
 ## 开发环境使用
 
@@ -56,18 +56,15 @@
 
 - `clang`: 使用 clang 编译并运行测试样例
 - `clang_O2`: 使用 clang -O2 编译并运行测试样例
-- (未完成) `ssyc_llvm`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例
-- (未完成) `ssyc_asm`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例
-
-一个输出的例子如下:
-
-```bash
-
-```
+- `ssyc_llvm`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例
+- `ssyc_asm`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例
+- `ssyc_llvm_long`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
+- `ssyc_asm_long`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
+- `generate_stdout`: 使用 clang -O2 编译并运行用例, 保存运行结果, 相当于构造标准答案
 
 ## 程序本体参数说明
 
-本程序接收三个参数: `<target> <input_file> <output_file>`. 其中 `target` 参数为输出类型, 可取 `ast`, `ir`, `asm` 三者之一. `input_file` 与 `output_file` 分别为输出与输出文件名, 可以使用 `-` 来令程序使用标准输入/输出.
+本程序接收三个参数: `<target> <input_file> <output_file>`. 其中 `target` 参数为输出类型, 可取 `ast`, `llvm`, `asm` 三者之一. `input_file` 与 `output_file` 分别为输出与输出文件名, 可以使用 `-` 来令程序使用标准输入/输出.
 
 例子:
 
@@ -79,7 +76,7 @@
 ./m run ast xxx.sy -
 
 # 读取 xxx.sy 文件作为输入, 将生成的中间表示输出到 yyy.ir 文件
-./m run xxx.sy yyy.ir
+./m run llvm xxx.sy yyy.ir
 ```
 
 ## 测试结果说明
@@ -87,16 +84,21 @@
 当前程序的测试主要以目测编译后程序的返回值为主. 一个输出的例子为:
 
 ```
-$ ./m test
-Test test-data/asm-handmade/0-number.sy       return 1
-Test test-data/asm-handmade/1-add-sub.sy      return 1
-Test test-data/asm-handmade/2-mul-div-mod.sy  return 1
-Test test-data/asm-handmade/3-variable.sy     return 1
-Test test-data/asm-handmade/4-if.sy           return 1
-Test test-data/asm-handmade/5-while.sy        return 1
+$ ./m test inst-combine ssyc_asm
+[12:03:08] Finish: ANTLR Generation
+[12:03:12] Finish: Java compile
+================= begin: ssyc =================
+           Finish (0/4) 00-multi-add.sy
+[12:03:13] Finish (1/4) 01-repeat-add.sy
+           Finish (2/4) 02-distribute-imul.sy
+           Finish (3/4) 03-addmulconst-test.sy
+================= begin: gcc-as =================
+================= begin: run =================
+[12:03:14] Pass 00-multi-add                             : ['TOTAL: 0H-0M-0S-0us\n']
+           Pass 01-repeat-add                            : ['TOTAL: 0H-0M-0S-0us\n']
+           Pass 02-distribute-imul                       : ['TOTAL: 0H-0M-0S-0us\n']
+           Pass 03-addmulconst-test                      : ['TOTAL: 0H-0M-0S-0us\n']
 ```
-
-此即为所有代码均编译错误, 因为在 `asm-handmade` 文件夹内的程序均期望返回 0. 自动判断与比对输出将在日后支持.
 
 ## 更多文档
 
@@ -104,4 +106,5 @@ Test test-data/asm-handmade/5-while.sy        return 1
 
 - 代码风格: <docs/style.md>
 - IR 设计: <docs/ir.md>
--
+- IR 优化设计: <docs/ir-optimze.md>
+- 后端设计: <docs/backend.md>
