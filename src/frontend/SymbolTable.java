@@ -1,7 +1,7 @@
 package frontend;
 
-import org.antlr.v4.runtime.tree.TerminalNode;
 import ir.type.IRType;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import utils.ChainMap;
 
 import java.util.Optional;

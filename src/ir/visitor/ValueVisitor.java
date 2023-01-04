@@ -1,8 +1,8 @@
 package ir.visitor;
 
 import ir.*;
-import ir.inst.Instruction;
 import ir.constant.Constant;
+import ir.inst.Instruction;
 
 public interface ValueVisitor<T> {
     default T visit(Value value) {

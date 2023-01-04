@@ -1,9 +1,9 @@
 package backend.operand;
 
+import utils.Log;
+
 import java.util.HashMap;
 import java.util.Map;
-
-import utils.Log;
 
 public class FPhyReg extends Reg {
     private String name;

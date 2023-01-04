@@ -1,10 +1,10 @@
 package ir.constant;
 
-import java.util.List;
-
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import utils.Log;
+
+import java.util.List;
 
 /**
  * <p>数组常量, 一般用于表示数组的初始化器

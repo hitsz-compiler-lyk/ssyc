@@ -1,10 +1,5 @@
 package backend.arm;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import backend.operand.Addr;
 import backend.operand.IImm;
 import backend.operand.Imm;
@@ -13,6 +8,11 @@ import utils.IList;
 import utils.IListOwner;
 import utils.INode;
 import utils.INodeOwner;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBlock, ArmFunction> {
     public static class BlockLiveInfo {

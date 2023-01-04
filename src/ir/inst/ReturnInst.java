@@ -1,10 +1,10 @@
 package ir.inst;
 
-import java.util.Optional;
-
 import ir.IRVerifyException;
 import ir.Value;
 import ir.type.IRType;
+
+import java.util.Optional;
 
 public class ReturnInst extends Instruction {
     public ReturnInst() {

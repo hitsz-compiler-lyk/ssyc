@@ -1,7 +1,5 @@
 package ir.inst;
 
-import java.util.List;
-
 import ir.IRVerifyException;
 import ir.Value;
 import ir.constant.IntConst;
@@ -10,6 +8,8 @@ import ir.type.IRType;
 import ir.type.IRTypeException;
 import ir.type.PointerIRTy;
 import utils.Log;
+
+import java.util.List;
 
 public class GEPInst extends Instruction {
     // indices: index 的复数形式

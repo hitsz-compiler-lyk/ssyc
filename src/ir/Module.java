@@ -1,9 +1,10 @@
 package ir;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import ir.constant.ArrayConst;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Module {
     public Set<Function> getFunctions() {

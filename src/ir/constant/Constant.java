@@ -1,12 +1,12 @@
 package ir.constant;
 
-import java.util.List;
-
 import ir.Value;
 import ir.constant.ArrayConst.ZeroArrayConst;
 import ir.type.ArrayIRTy;
 import ir.type.IRType;
 import utils.Log;
+
+import java.util.List;
 
 public class Constant extends Value {
     protected Constant(IRType type) {

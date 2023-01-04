@@ -1,10 +1,10 @@
 package backend.arm;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import backend.operand.Operand;
 import utils.Log;
+
+import java.util.HashMap;
+import java.util.Map;
 
 // mla dst op1 op2 op3: dst = op3 + op1 * op2
 // mls dst op1 op2 op3: dst = op3 - op1 * op2

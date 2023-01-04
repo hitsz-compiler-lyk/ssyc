@@ -1,11 +1,11 @@
 package ir.inst;
 
-import java.util.Optional;
-
 import ir.GlobalVar;
 import ir.IRVerifyException;
 import ir.Value;
 import ir.type.PointerIRTy;
+
+import java.util.Optional;
 
 public class LoadInst extends Instruction {
     public LoadInst(Value ptr) {

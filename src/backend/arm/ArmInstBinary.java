@@ -1,10 +1,10 @@
 package backend.arm;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import backend.operand.Operand;
 import utils.Log;
+
+import java.util.HashMap;
+import java.util.Map;
 
 // 0: dst RegDef
 // 1: lhs RegUse

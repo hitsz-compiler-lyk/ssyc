@@ -1,9 +1,9 @@
 package backend.regallocator;
 
-import java.util.HashSet;
-
 import backend.arm.ArmFunction;
 import backend.operand.Reg;
+
+import java.util.HashSet;
 
 public class LivenessAnalysis {
     public static void funcLivenessAnalysis(ArmFunction func) {
