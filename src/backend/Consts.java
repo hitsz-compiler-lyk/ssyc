@@ -1,11 +1,11 @@
 package backend;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import backend.operand.FPhyReg;
 import backend.operand.IPhyReg;
 import backend.operand.Reg;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Consts {
     public static final String SimpleGraphColoring = "SimpleGraphColoring";

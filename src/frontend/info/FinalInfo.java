@@ -1,11 +1,5 @@
 package frontend.info;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-
 import frontend.SourceCodeSymbol;
 import ir.GlobalVar;
 import ir.Parameter;
@@ -13,6 +7,12 @@ import ir.Value;
 import ir.analysis.AnalysisInfo;
 import ir.constant.Constant;
 import ir.inst.CAllocInst;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 
 // 这里的 "常量" 并非指 IR 中的 "Constant";
 // IR 中的 Constant 是指在编译期能立即得到值的东西 (本身绝大部分 IR 就已经都是不可变的了)

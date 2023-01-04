@@ -1,19 +1,6 @@
 package pass.backend;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import backend.arm.ArmBlock;
-import backend.arm.ArmInst;
-import backend.arm.ArmInstBinary;
-import backend.arm.ArmInstBranch;
-import backend.arm.ArmInstCall;
-import backend.arm.ArmInstLoad;
-import backend.arm.ArmInstMove;
-import backend.arm.ArmInstStackLoad;
-import backend.arm.ArmInstStackStore;
-import backend.arm.ArmInstStore;
-import backend.arm.ArmInstTernay;
+import backend.arm.*;
 import backend.arm.ArmInst.ArmInstKind;
 import backend.codegen.CodeGenManager;
 import backend.operand.IImm;
@@ -21,6 +8,9 @@ import backend.operand.Operand;
 import backend.operand.Reg;
 import utils.Log;
 import utils.Pair;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class Peephole implements BackendPass {
 

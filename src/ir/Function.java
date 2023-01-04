@@ -1,14 +1,16 @@
 package ir;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import frontend.SourceCodeSymbol;
 import ir.analysis.AnalysisInfo;
 import ir.analysis.AnalysisInfoOwner;
 import ir.type.FunctionIRTy;
 import ir.type.IRType;
 import utils.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class Function extends Value
     implements IListOwner<BasicBlock, Function>, AnalysisInfoOwner

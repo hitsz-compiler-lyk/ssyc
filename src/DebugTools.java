@@ -1,7 +1,6 @@
+import frontend.SysYParser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
-
-import frontend.SysYParser;
 
 public class DebugTools {
     public static String findFirstToken(ParserRuleContext rc) {

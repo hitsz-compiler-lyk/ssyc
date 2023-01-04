@@ -1,18 +1,12 @@
 package backend.arm;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import backend.operand.Operand;
 import backend.operand.Reg;
 import utils.INode;
 import utils.INodeOwner;
 import utils.Log;
+
+import java.util.*;
 
 public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 

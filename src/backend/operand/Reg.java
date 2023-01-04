@@ -1,10 +1,10 @@
 package backend.operand;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import backend.Consts;
 import backend.arm.ArmInst;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class Reg extends Operand {
     private List<ArmInst> instSet;

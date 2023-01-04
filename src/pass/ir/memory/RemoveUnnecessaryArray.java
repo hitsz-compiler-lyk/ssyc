@@ -1,8 +1,11 @@
 package pass.ir.memory;
 
-import ir.*;
 import ir.Module;
-import ir.inst.*;
+import ir.*;
+import ir.inst.CAllocInst;
+import ir.inst.CallInst;
+import ir.inst.GEPInst;
+import ir.inst.LoadInst;
 import pass.ir.IRPass;
 import utils.INodeOwner;
 

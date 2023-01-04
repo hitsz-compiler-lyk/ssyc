@@ -1,6 +1,7 @@
 package utils;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
 
 public interface IListOwner<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> extends List<E> {
     IList<E, P> getIList();
