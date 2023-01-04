@@ -60,9 +60,9 @@ public class JustLoop {
         return loops.stream().map(JustLoop::allSubLoopsInPostOrder).flatMap(List::stream).collect(Collectors.toList());
     }
 
-    BasicBlock header;
-    LinkedHashSet<BasicBlock> body;
+    final BasicBlock header;
+    final LinkedHashSet<BasicBlock> body;
 
     Optional<JustLoop> parent;
-    List<JustLoop> subLoops;
+    final List<JustLoop> subLoops;
 }

@@ -26,8 +26,7 @@ class SimplifierForALLoop {
             for (final var inst : block) {
                 for (final var user_ : inst.getUserList()) {
                     // 指令的 user 还可能是 CurrDef
-                    if (user_ instanceof Instruction) {
-                        final var user = ((Instruction) user_);
+                    if (user_ instanceof final Instruction user) {
                         addUserFor(inst, user);
                     }
                 }
@@ -60,8 +59,7 @@ class SimplifierForALLoop {
     void moveInvariantToBinopRight() {
         for (final var block : loop.getAll()) {
             for (final var inst : block) {
-                if (inst instanceof BinaryOpInst) {
-                    final var bop = ((BinaryOpInst) inst);
+                if (inst instanceof final BinaryOpInst bop) {
                     final var lhs = bop.getLHS();
                     final var rhs = bop.getRHS();
 

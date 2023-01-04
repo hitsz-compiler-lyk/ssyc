@@ -11,7 +11,6 @@ import utils.INodeOwner;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LocalArrayHoist implements IRPass {
@@ -27,8 +26,7 @@ public class LocalArrayHoist implements IRPass {
             for (final var inst : block) {
                 if (inst instanceof CAllocInst) {
                     final var stores = findLocalArrayUsage(inst)
-                        .filter(StoreInst.class::isInstance).map(StoreInst.class::cast)
-                        .collect(Collectors.toList());
+                        .filter(StoreInst.class::isInstance).map(StoreInst.class::cast).toList();
 
                     final var hasOutsideStore = stores.stream()
                         .map(INodeOwner::getParent)

@@ -9,7 +9,6 @@ import ir.inst.LoadInst;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 class LCM implements IRPass {
     @Override
@@ -27,8 +26,7 @@ class LCM implements IRPass {
             }
 
             final var instUsers = inst.getUserList().stream()
-                .filter(Instruction.class::isInstance).map(Instruction.class::cast)
-                .collect(Collectors.toList());
+                .filter(Instruction.class::isInstance).map(Instruction.class::cast).toList();
 
             // only one user
             if (instUsers.size() == 1 && instUsers.get(0).getParent() == block) {
@@ -69,21 +67,5 @@ class LCM implements IRPass {
             .count();
     }
 
-    static class Chunk {
-        public Chunk(List<Instruction> freeInstructions, Instruction fixedInstruction) {
-            this.freeInstructions = freeInstructions;
-            this.fixedInstruction = fixedInstruction;
-        }
-
-        public List<Instruction> getFreeInstructions() {
-            return freeInstructions;
-        }
-
-        public Instruction getFixedInstruction() {
-            return fixedInstruction;
-        }
-
-        private final List<Instruction> freeInstructions;
-        private final Instruction fixedInstruction;
-    }
+    record Chunk(List<Instruction> freeInstructions, Instruction fixedInstruction) {}
 }

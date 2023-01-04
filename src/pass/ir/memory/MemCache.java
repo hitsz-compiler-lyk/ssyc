@@ -85,12 +85,10 @@ class MemCache {
         MemVariable.createWithPointer(ptr).ifPresent(pos -> {
             final var handler = getInitHandler(pos);
 
-            if (ptr instanceof GEPInst) {
-                final var gep = (GEPInst) ptr;
+            if (ptr instanceof final GEPInst gep) {
                 final var info = getInfoFromGEP(gep, handler);
                 whenGEP.accept(info);
-            } else if (ptr instanceof GlobalVar) {
-                final var gv = (GlobalVar) ptr;
+            } else if (ptr instanceof final GlobalVar gv) {
                 Log.ensure(gv.isVariable());
                 whenGlobalVar.accept(handler);
             } else {
@@ -132,8 +130,7 @@ class MemCache {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof MemCache) {
-            final var memCache = (MemCache) obj;
+        if (obj instanceof final MemCache memCache) {
             return cache.equals(memCache.cache);
         } else {
             return false;
@@ -145,15 +142,7 @@ class MemCache {
         return cache.hashCode();
     }
 
-    static class IndicesInfo {
-        public IndicesInfo(MemPositionHandler handler, boolean isExhausted) {
-            this.handler = handler;
-            this.isExhausted = isExhausted;
-        }
-
-        public final MemPositionHandler handler;
-        public final boolean isExhausted;
-    }
+    record IndicesInfo(MemPositionHandler handler, boolean isExhausted) {}
 
     private IndicesInfo getInfoFromGEP(GEPInst inst, MemPositionHandler init) {
         final var indices = inst.getIndices();
@@ -162,8 +151,7 @@ class MemCache {
         var isExhausted = true;
 
         for (final var index : indices) {
-            if (index instanceof IntConst) {
-                final var ic = (IntConst) index;
+            if (index instanceof final IntConst ic) {
                 handler = handler.get(ic.getValue());
             } else {
                 isExhausted = false;
@@ -195,5 +183,5 @@ class MemCache {
         this.cache = new HashMap<>();
     }
 
-    Map<MemVariable, MemPositionHandler> cache;
+    final Map<MemVariable, MemPositionHandler> cache;
 }

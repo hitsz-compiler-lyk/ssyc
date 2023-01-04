@@ -58,7 +58,7 @@ public class CollectLoops {
             // 但实际上不是, 所以我们需要一个与基本块排列顺序无关的方法来识别循环
 
             final var domChildrenInPred = block.getPredecessors().stream()
-                .filter(pred -> DominatorInfo.dom(pred).contains(block)).collect(Collectors.toList());
+                .filter(pred -> DominatorInfo.dom(pred).contains(block)).toList();
 
             if (!domChildrenInPred.isEmpty()) {
                 final var loop = new JustLoop(null, block);

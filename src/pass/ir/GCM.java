@@ -36,8 +36,7 @@ public class GCM implements IRPass {
 
         final var shouldBeMove = function.stream()
             .flatMap(List::stream)
-            .filter(this::canNotBeMoved)
-            .collect(Collectors.toList());
+            .filter(this::canNotBeMoved).toList();
 
         shouldBeMove.forEach(this::getEarliestBlock);
         shouldBeMove.forEach(this::getLatestBlock);
@@ -80,8 +79,7 @@ public class GCM implements IRPass {
             // 先将所有 user 尽可能地往下移
             final var userBlocks = instruction.getUserList().stream()
                 .filter(Instruction.class::isInstance).map(Instruction.class::cast)
-                .map(this::getLatestBlock)
-                .collect(Collectors.toList());
+                .map(this::getLatestBlock).toList();
 
             final var userLCAOpt = userBlocks.stream().reduce(GCM::lcaInDomTree);
             Log.ensure(userLCAOpt.isPresent(), "A non-user non-void instruction should NOT even exist");

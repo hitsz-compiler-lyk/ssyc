@@ -15,8 +15,8 @@ public class ReflectiveTools {
             return baseName;
         }
 
-        public int lineNo;
-        public String baseName;
+        public final int lineNo;
+        public final String baseName;
     }
 
     /**

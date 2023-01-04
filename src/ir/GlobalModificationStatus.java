@@ -49,5 +49,5 @@ public class GlobalModificationStatus {
 
     private static GlobalModificationStatus status = new GlobalModificationStatus(null);
     private boolean hasChanged;
-    private GlobalModificationStatus parent;
+    private final GlobalModificationStatus parent;
 }

@@ -37,6 +37,6 @@ public class FunctionIRTy implements IRType {
         return "(%s) -> %s".formatted(String.join(", ", params), returnType);
     }
 
-    private IRType returnType;
-    private List<IRType> paramTypes;
+    private final IRType returnType;
+    private final List<IRType> paramTypes;
 }

@@ -137,8 +137,7 @@ public class IRBuilder {
     }
 
     public static void refold(Instruction val) {
-        if (val instanceof BrCondInst) {
-            final var br = (BrCondInst) val;
+        if (val instanceof final BrCondInst br) {
             final var cond = br.getCond();
 
             if (cond instanceof BoolConst) {
@@ -182,8 +181,7 @@ public class IRBuilder {
     // (GEP (GEP %a, [*xs,x]), [y,*ys]) <==> (GEP %a [*xs, x+y, *ys])
     private static void tryFoldGEP(GEPInst gep) {
         var currGEP = gep;
-        while (currGEP.getPtr() instanceof GEPInst) {
-            final var ptr = (GEPInst) currGEP.getPtr();
+        while (currGEP.getPtr() instanceof final GEPInst ptr) {
 
             final var xs = CollectionTools.head(ptr.getIndices());
             final var x = CollectionTools.tail(ptr.getIndices());
@@ -223,8 +221,7 @@ public class IRBuilder {
     }
 
     private static Value foldCond(Value cond) {
-        if (cond instanceof CmpInst) {
-            final var cmp = (CmpInst) cond;
+        if (cond instanceof final CmpInst cmp) {
             if (CondFolder.canFold(cmp)) {
                 return CondFolder.foldConst(cmp);
             }

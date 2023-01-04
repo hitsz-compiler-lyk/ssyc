@@ -157,11 +157,9 @@ public class BasicBlock extends User
         // 而不用开 Map<BasicBlock, Boolean> visited
 
         return getLastInstruction().map(lastInst -> {
-            if (lastInst instanceof BrInst) {
-                final var bc = (BrInst) lastInst;
+            if (lastInst instanceof final BrInst bc) {
                 return List.of(bc.getNextBB());
-            } else if (lastInst instanceof BrCondInst) {
-                final var brc = (BrCondInst) lastInst;
+            } else if (lastInst instanceof final BrCondInst brc) {
                 return List.of(brc.getTrueBB(), brc.getFalseBB());
             } else {
                 return new ArrayList<BasicBlock>();

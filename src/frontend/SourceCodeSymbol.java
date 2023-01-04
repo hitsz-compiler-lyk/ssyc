@@ -105,8 +105,7 @@ public class SourceCodeSymbol {
 
     @Override
     public boolean equals(final Object obj) {
-        if (obj instanceof SourceCodeSymbol) {
-            final var other = (SourceCodeSymbol) obj;
+        if (obj instanceof final SourceCodeSymbol other) {
             return line == other.line && column == other.column && name.equals(other.name);
         } else {
             return false;

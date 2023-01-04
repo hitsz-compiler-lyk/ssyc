@@ -44,8 +44,7 @@ public class InstructionCombiner implements IRPass {
     }
 
     private boolean matchMultiOp(Instruction inst) {
-        if (inst instanceof BinaryOpInst) {
-            final var binst = (BinaryOpInst) inst;
+        if (inst instanceof final BinaryOpInst binst) {
             final var kind = binst.getKind();
             if (kind.equals(InstKind.IAdd) || kind.equals(InstKind.IMul)) {
                 return isKind(binst.getLHS(), kind) || isKind(binst.getRHS(), kind);
@@ -118,8 +117,7 @@ public class InstructionCombiner implements IRPass {
         return value instanceof Constant;
     }
     private void swapConst(Instruction inst) {
-        if (inst instanceof BinaryOpInst && (isKind(inst, InstKind.IAdd) || isKind(inst, InstKind.IMul))) {
-            final var binst = (BinaryOpInst) inst;
+        if (inst instanceof final BinaryOpInst binst && (isKind(inst, InstKind.IAdd) || isKind(inst, InstKind.IMul))) {
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
             if (!isConst(rhs) && isConst(lhs)) {
@@ -145,8 +143,7 @@ public class InstructionCombiner implements IRPass {
      * @param inst 待化简的 instruction
      */
     private void biOpWithZeroOneComb(Instruction inst) {
-        if (inst instanceof BinaryOpInst) {
-            final var binst = (BinaryOpInst) inst;
+        if (inst instanceof final BinaryOpInst binst) {
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
             if (isKind(inst, InstKind.IAdd)) {
@@ -229,8 +226,7 @@ public class InstructionCombiner implements IRPass {
 
     // 按树形结构先序遍历, 清扫无用节点
     private void clearUselessTreeNode(Value curr) {
-        if (curr instanceof Instruction) {
-            final var inst = (Instruction) curr;
+        if (curr instanceof final Instruction inst) {
             if (ClearUselessInstruction.canBeRemove(inst)) {
                 final var oldOperands = IRPass.copyForChange(inst.getOperands());
                 ClearUselessInstruction.deleteInstruction(inst);
@@ -345,7 +341,7 @@ public class InstructionCombiner implements IRPass {
         }
     }
 
-    private static Function fpowFunction = constructFastPowFunction();
+    private static final Function fpowFunction = constructFastPowFunction();
 
     // 连续乘法转快速幂
     static Function constructFastPowFunction() {

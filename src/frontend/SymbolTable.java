@@ -16,11 +16,11 @@ public class SymbolTable {
     }
 
     public SourceCodeSymbol resolveSymbol(String name) {
-        return resolve(name).getSymbol();
+        return resolve(name).symbol();
     }
 
     public IRType resolveType(String name) {
-        return resolve(name).getType();
+        return resolve(name).type();
     }
 
     public Entry resolve(final String name) {
@@ -28,11 +28,11 @@ public class SymbolTable {
     }
 
     public Optional<SourceCodeSymbol> resolveSymbolOpt(String name) {
-        return resolveOpt(name).map(Entry::getSymbol);
+        return resolveOpt(name).map(Entry::symbol);
     }
 
     public Optional<IRType> resolveTypeOpt(String name) {
-        return resolveOpt(name).map(Entry::getType);
+        return resolveOpt(name).map(Entry::type);
     }
 
     public Optional<Entry> resolveOpt(String name) {
@@ -59,23 +59,7 @@ public class SymbolTable {
         return table.getInCurr(name).isPresent();
     }
 
-    public static class Entry {
-        public Entry(SourceCodeSymbol symbol, IRType type) {
-            this.symbol = symbol;
-            this.type = type;
-        }
-
-        public SourceCodeSymbol getSymbol() {
-            return symbol;
-        }
-
-        public IRType getType() {
-            return type;
-        }
-
-        final SourceCodeSymbol symbol;
-        final IRType type;
-    }
+    public record Entry(SourceCodeSymbol symbol, IRType type) {}
 
     private ChainMap<String, Entry> table = new ChainMap<>();
 }

@@ -8,8 +8,7 @@ public class DebugTools {
             return "@";
 
         for (final var child : rc.children) {
-            if (child instanceof TerminalNode) {
-                final var tn = (TerminalNode) child;
+            if (child instanceof final TerminalNode tn) {
                 return tn.getText();
             }
         }

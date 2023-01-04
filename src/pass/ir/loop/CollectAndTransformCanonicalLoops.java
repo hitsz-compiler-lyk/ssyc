@@ -161,15 +161,7 @@ public class CollectAndTransformCanonicalLoops {
         return maxIndex;
     }
 
-    static class NewBlocksInfo {
-        public NewBlocksInfo(final BasicBlock block, final List<? extends Value> newIncomings) {
-            this.block = block;
-            this.newIncomings = newIncomings;
-        }
-
-        final BasicBlock block;
-        final List<? extends Value> newIncomings;
-    }
+    record NewBlocksInfo(BasicBlock block, List<? extends Value> newIncomings) {}
     NewBlocksInfo createOrReuseBlockAs(String name, BasicBlock header, List<Integer> inheritIndices) {
         // 如果这种前继只有一个
         if (inheritIndices.size() == 1) {

@@ -29,6 +29,6 @@ public class SimpleIRTy implements IRType {
         return kind.toString();
     }
 
-    private IRTyKind kind;
-    private int size;
+    private final IRTyKind kind;
+    private final int size;
 }

@@ -52,5 +52,5 @@ public interface AnalysisInfoOwner {
         }
     }
 
-    public Map<String, AnalysisInfo> getInfoMap();
+    Map<String, AnalysisInfo> getInfoMap();
 }

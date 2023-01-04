@@ -3,7 +3,7 @@ package pass.backend;
 import backend.codegen.CodeGenManager;
 
 public class BackendPassManager {
-    private CodeGenManager manager;
+    private final CodeGenManager manager;
     public BackendPassManager(CodeGenManager manager) {
         this.manager = manager;
     }

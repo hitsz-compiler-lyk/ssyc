@@ -51,13 +51,11 @@ public class GlobalVariableToValue implements IRPass {
     }
 
     void dealWithPossibleLoad(BasicBlock currBlock, GVCurrDef currDef, Instruction instruction) {
-        if (instruction instanceof LoadInst) {
-            final var load = (LoadInst) instruction;
+        if (instruction instanceof final LoadInst load) {
 
             final var ptr = load.getPtr();
-            if (ptr instanceof GlobalVar) {
+            if (ptr instanceof final GlobalVar gv) {
 
-                final var gv = (GlobalVar) ptr;
                 if (gv.isVariable()) {
                     final var def = findOrInsertPhi(currBlock, currDef, gv);
                     load.replaceAllUseWith(def);
@@ -78,13 +76,11 @@ public class GlobalVariableToValue implements IRPass {
     }
 
     void dealWithPossibleStore(GVCurrDef currDef, Instruction instruction) {
-        if (instruction instanceof StoreInst) {
-            final var store = (StoreInst) instruction;
+        if (instruction instanceof final StoreInst store) {
 
             final var ptr = store.getPtr();
-            if (ptr instanceof GlobalVar) {
+            if (ptr instanceof final GlobalVar gv) {
 
-                final var gv = (GlobalVar) ptr;
                 if (gv.isVariable()) {
                     final var value = store.getVal();
                     currDef.kill(gv, value);

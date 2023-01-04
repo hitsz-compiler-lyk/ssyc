@@ -201,11 +201,11 @@ public class CanonicalLoop {
         ensure(header.getPredecessors().size() == 2, "Header of a loop must have exactly 2 pred");
 
         final var preHeaderCandidates = header.getPredecessors().stream()
-            .filter(this::isNotInBody).collect(Collectors.toList());
+            .filter(this::isNotInBody).toList();
         ensure(preHeaderCandidates.size() == 1, "A loop must have exactly 1 pre-header");
 
         final var latchCandidates = header.getPredecessors().stream()
-            .filter(this::isInBody).collect(Collectors.toList());
+            .filter(this::isInBody).toList();
         ensure(latchCandidates.size() == 1, "A loop must have exactly 1 latch");
 
         final var preHeader = preHeaderCandidates.get(0);
@@ -246,10 +246,8 @@ public class CanonicalLoop {
             .filter(block -> block != latch) // latch 也算 body 的一部分... 吗?
             .map(BasicBlock::getSuccessors)
             .flatMap(List::stream)
-            .forEach(succInBody -> {
-                ensure(isInBody(succInBody) || multiExit.contains(succInBody),
-                    "Successor of non-latch blocks in loop body must either be exit or be in the body");
-            });
+            .forEach(succInBody -> ensure(isInBody(succInBody) || multiExit.contains(succInBody),
+                "Successor of non-latch blocks in loop body must either be exit or be in the body"));
 
         if (isRotated) {
             final var guardCandidates = preHeader.getPredecessors();

@@ -33,12 +33,10 @@ public class HoistGlobalArrayLoad implements IRPass {
     }
 
     void tryReplaceLoadForGlobalArray(Instruction instruction) {
-        if (instruction instanceof LoadInst) {
-            final var load = (LoadInst) instruction;
+        if (instruction instanceof final LoadInst load) {
             final var ptr = load.getPtr();
 
-            if (ptr instanceof GlobalVar) {
-                final var gv = (GlobalVar) ptr;
+            if (ptr instanceof final GlobalVar gv) {
 
                 if (gv.isArray()) {
                     final var newLoad = loadOfGlobalArrays.get(gv);

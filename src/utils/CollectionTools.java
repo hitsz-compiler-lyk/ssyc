@@ -128,18 +128,7 @@ public final class CollectionTools {
 
     public interface RunnerWithIndex<T> { void run(int idx, T elm); }
 
-    public static class TwoList<T> {
-        public TwoList(List<T> first, List<T> second) {
-            this.first = first;
-            this.second = second;
-        }
-
-        public List<T> first() { return first; }
-        public List<T> second() { return second; }
-
-        public final List<T> first;
-        public final List<T> second;
-    }
+    public record TwoList<T>(List<T> first, List<T> second) {}
 
     public static <T> TwoList<T> split(List<T> list, int i) {
         final var first = Collections.unmodifiableList(list.subList(0, i));
