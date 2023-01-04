@@ -131,8 +131,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
 
         @Override
         public boolean equals(final Object obj) {
-            if (obj instanceof IList.IListElementIterator) {
-                final var other = (IList<?, ?>.IListElementIterator) obj;
+            if (obj instanceof final IList<?, ?>.IListElementIterator other) {
                 return other.iter.equals(this.iter);
             } else {
                 return false;
@@ -191,8 +190,7 @@ public class IList<E extends INodeOwner<E, P>, P extends IListOwner<E, P>> exten
 
         @Override
         public boolean equals(final Object obj) {
-            if (obj instanceof IList.IListIterator) {
-                final var other = (IList<?, ?>.IListIterator) obj;
+            if (obj instanceof final IList<?, ?>.IListIterator other) {
                 return other.prevNode == this.prevNode;
             } else {
                 return false;

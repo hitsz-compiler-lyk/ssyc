@@ -42,12 +42,10 @@ public class GEPInst extends Instruction {
 
     public static PointerIRTy calcResultType(IRType originalType, int indexCount) {
         while (indexCount --> 0) {
-            if (originalType instanceof ArrayIRTy) {
-                final var arrayType = (ArrayIRTy) originalType;
+            if (originalType instanceof final ArrayIRTy arrayType) {
                 originalType = arrayType.getElementType();
 
-            } else if (originalType instanceof PointerIRTy) {
-                final var ptrTy = (PointerIRTy) originalType;
+            } else if (originalType instanceof final PointerIRTy ptrTy) {
                 originalType = ptrTy.getBaseType();
 
             } else {
@@ -80,8 +78,7 @@ public class GEPInst extends Instruction {
                 // ensure(indexConst == null || indexConst == 0,
                 //         "Constant index over a pointer must be exactly zero")
                 currType = ((PointerIRTy) currType).getBaseType();
-            } else if (currType instanceof ArrayIRTy) {
-                final var arrayType = (ArrayIRTy) currType;
+            } else if (currType instanceof final ArrayIRTy arrayType) {
 
                 // functional/84_long_array2 中包含对 int[1024][4] 类型的数组访问 [0][7] 的行为
                 // 这非常不好, 非常非常不好, 有可能导致内存分析失效, 但是鉴于罕见情况勉强忍受一下

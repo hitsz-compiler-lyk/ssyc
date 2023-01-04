@@ -100,7 +100,7 @@ public class Function extends Value
         ensure(IteratorTools.isUnique(blockList), "Blocks in function must be unique");
 
         final var funcType = getType();
-        final var paramTypes = parameters.stream().map(Parameter::getParamType).collect(Collectors.toList());
+        final var paramTypes = parameters.stream().map(Parameter::getParamType).toList();
         ensure(funcType.getParamTypes().equals(paramTypes),
                 "Parameters' type must match function type");
 

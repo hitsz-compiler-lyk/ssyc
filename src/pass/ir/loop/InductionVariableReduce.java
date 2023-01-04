@@ -222,8 +222,7 @@ class InductionVariableTransformer implements Runnable {
     }
 
     boolean isMulForm(Value value) {
-        if (value instanceof BinaryOpInst) {
-            final var bop = (BinaryOpInst) value;
+        if (value instanceof final BinaryOpInst bop) {
             return bop.getKind() == InstKind.IMul
                 && isPhiForm(bop.getLHS())
                 && isInvariant(bop.getRHS());
@@ -233,8 +232,7 @@ class InductionVariableTransformer implements Runnable {
     }
 
     boolean isMulAddForm(Value value) {
-        if (value instanceof BinaryOpInst) {
-            final var bop = (BinaryOpInst) value;
+        if (value instanceof final BinaryOpInst bop) {
             return bop.getKind() == InstKind.IAdd
                 && isMulForm(bop.getLHS())
                 && isInvariant(bop.getRHS());
@@ -244,8 +242,7 @@ class InductionVariableTransformer implements Runnable {
     }
 
     boolean isGEPForm(Value value) {
-        if (value instanceof GEPInst) {
-            final var gep = (GEPInst) value;
+        if (value instanceof final GEPInst gep) {
 
             final var indices = gep.getIndices();
             final var head = CollectionTools.head(indices);
@@ -278,8 +275,7 @@ class InductionVariableTransformer implements Runnable {
     private String getNameFor(Value value) {
         if (value instanceof IntConst) {
             return value.toString();
-        } else if (value instanceof Instruction) {
-            final var inst = (Instruction) value;
+        } else if (value instanceof final Instruction inst) {
             return inst.getSymbolOpt().map(SourceCodeSymbol::getName).orElse("U");
         } else {
             return "U";
@@ -341,7 +337,7 @@ class InductionVariableTransformer implements Runnable {
         private final MulInfoExtractor mulExtractor;
     }
 
-    class GEPInfoExtractor {
+    static class GEPInfoExtractor {
         public GEPInfoExtractor(Value gep) {
             this.gep = (GEPInst) gep;
         }

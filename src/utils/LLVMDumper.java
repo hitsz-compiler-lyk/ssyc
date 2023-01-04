@@ -149,13 +149,11 @@ public class LLVMDumper {
             }
         }
 
-        if (inst instanceof BinaryOpInst) {
-            final var bop = (BinaryOpInst) inst;
+        if (inst instanceof final BinaryOpInst bop) {
             pir("<binop> <ty> <lhs-name>, <rhs-name>",
                     getBinOpName(bop), bop.getType(), toName(bop.getLHS()), toName(bop.getRHS()));
 
-        } else if (inst instanceof UnaryOpInst) {
-            final var uop = (UnaryOpInst) inst;
+        } else if (inst instanceof final UnaryOpInst uop) {
             final var kind = uop.getKind();
 
             if (kind.isInt()) {
@@ -175,20 +173,17 @@ public class LLVMDumper {
         } else if (inst instanceof BoolToIntInst) {
             pir("zext <from> to i32", ((BoolToIntInst) inst).getFrom());
 
-        } else if (inst instanceof CmpInst) {
-            final var cmp = (CmpInst) inst;
+        } else if (inst instanceof final CmpInst cmp) {
             pir("<cmpop> <ty> <lhs-name>, <rhs-name>",
                     getCmpOpName(cmp), cmp.getLHS().getType(), toName(cmp.getLHS()), toName(cmp.getRHS()));
 
         } else if (inst instanceof BrInst) {
             pir("br <nextBB>", ((BrInst) inst).getNextBB());
 
-        } else if (inst instanceof BrCondInst) {
-            final var br = (BrCondInst) inst;
+        } else if (inst instanceof final BrCondInst br) {
             pir("br <cond>, <trueBB>, <falseBB>", br.getCond(), br.getTrueBB(), br.getFalseBB());
 
-        } else if (inst instanceof PhiInst) {
-            final var phi = (PhiInst) inst;
+        } else if (inst instanceof final PhiInst phi) {
 
             if (phi.getIncomingSize() == 0) {
                 final var type = phi.getType();
@@ -205,7 +200,7 @@ public class LLVMDumper {
 
             final var incomingStrings = new ArrayList<String>();
             for (final var info : phi.getIncomingInfos()) {
-                final var str = "[ %s, %s ]".formatted(toName(info.getValue()), toName(info.getBlock()));
+                final var str = "[ %s, %s ]".formatted(toName(info.value()), toName(info.block()));
                 incomingStrings.add(str);
             }
 
@@ -222,30 +217,25 @@ public class LLVMDumper {
                 pir("ret void");
             }
 
-        } else if (inst instanceof CallInst) {
-            final var call = (CallInst) inst;
+        } else if (inst instanceof final CallInst call) {
             pir("call <ret-ty> <func-name>(<arg*>)",
                 inst.getType(),
                 toName(call.getCallee()),
                 joinWithRef(call.getArgList()));
 
-        } else if (inst instanceof GEPInst) {
-            final var gep = (GEPInst) inst;
+        } else if (inst instanceof final GEPInst gep) {
             pir("getelementptr <base-type>, <ptr>, <index*>",
                     ((PointerIRTy) gep.getPtr().getType()).getBaseType(),
                     gep.getPtr(),
                     joinWithRef(gep.getIndices()));
 
-        } else if (inst instanceof LoadInst) {
-            final var load = (LoadInst) inst;
+        } else if (inst instanceof final LoadInst load) {
             pir("load <ty>, <ptr>", load.getType(), load.getPtr());
 
-        } else if (inst instanceof StoreInst) {
-            final var store = (StoreInst) inst;
+        } else if (inst instanceof final StoreInst store) {
             pir("store <val>, <ptr>", store.getVal(), store.getPtr());
 
-        } else if (inst instanceof CAllocInst) {
-            final var calloc = (CAllocInst) inst;
+        } else if (inst instanceof final CAllocInst calloc) {
             final var allocaTemp = tempLocal();
 
             ir("<alloca-temp> = alloca <base-type>, align 8", allocaTemp, calloc.getAllocType());
@@ -253,8 +243,7 @@ public class LLVMDumper {
                 toName(calloc), calloc.getAllocType(), calloc.getAllocType(), allocaTemp);
             ir("; <symbol>", calloc.getSymbol());
 
-        } else if (inst instanceof MemInitInst) {
-            final var meminit = (MemInitInst) inst;
+        } else if (inst instanceof final MemInitInst meminit) {
             final var init = meminit.getInit();
             final var arrPtr = meminit.getArrayPtr();
 

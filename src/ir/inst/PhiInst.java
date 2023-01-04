@@ -61,23 +61,7 @@ public class PhiInst extends Instruction {
         addOperandCO(newIncomingValue);
     }
 
-    public static final class IncomingInfo {
-        public IncomingInfo(Value value, BasicBlock block) {
-            this.value = value;
-            this.block = block;
-        }
-
-        public Value getValue() {
-            return value;
-        }
-
-        public BasicBlock getBlock() {
-            return block;
-        }
-
-        public final Value value;
-        public final BasicBlock block;
-    }
+    public record IncomingInfo(Value value, BasicBlock block) {}
 
     public Iterable<IncomingInfo> getIncomingInfos() {
         return () -> new Iterator<>() {

@@ -157,15 +157,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return new Parameter(symbol, type);
     }
 
-    static class LValInfo {
-        public LValInfo(String name, List<Integer> shape) {
-            this.name = name;
-            this.shape = shape;
-        }
-
-        final String name;
-        final List<Integer> shape;
-    }
+    record LValInfo(String name, List<Integer> shape) {}
 
     @Override
     public LValInfo visitLValDecl(LValDeclContext ctx) {
@@ -177,8 +169,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
 
         for (final var exp : ctx.exp()) {
             final var num = visitExp(exp);
-            if (num instanceof IntConst) {
-                final var ic = (IntConst) num;
+            if (num instanceof final IntConst ic) {
                 shape.add(ic.getValue());
             } else {
                 throw new SemanticException(ctx, "exp in lValExp must be an integer constant");
@@ -297,8 +288,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
                     final var constant = justMakeArrayConst(initValue);
                     final var decayType = IRType.createDecayType((ArrayIRTy) type);
 
-                    if (constant instanceof ArrayConst) {
-                        final var arrayConst = (ArrayConst) constant;
+                    if (constant instanceof final ArrayConst arrayConst) {
                         final var global = GlobalVar.createGlobalArray(decayType, symbol, arrayConst);
 
                         currModule.getVariables().add(global);
@@ -363,31 +353,10 @@ public class IRGen extends SysYBaseVisitor<Object> {
     // 本文件中提到 initVal 时指对应的语法上下文, 而提到 InitValue 时指下面的接口
     // 该接口表示 "初始化器对应的 **Value** 的树状结构"
     interface InitValue {}
-    static class InitExp implements InitValue {
-        public InitExp(Value exp) {
-            this.exp = exp;
-        }
 
-        final Value exp;
-    }
-
-    static class InitArray implements InitValue {
-        public InitArray(List<? extends InitValue> elms) {
-            this.elms = elms;
-        }
-
-        final List<? extends InitValue> elms;
-    }
-
-    static class MakeInitValueResult {
-        public MakeInitValueResult(int used, InitValue value) {
-            this.used = used;
-            this.value = value;
-        }
-
-        final int used;
-        final InitValue value;
-    }
+    record InitExp(Value exp) implements InitValue {}
+    record InitArray(List<? extends InitValue> elms) implements InitValue {}
+    record MakeInitValueResult(int used, InitValue value) {}
 
     private Value genCastTo(IRType type, Value exp, ParserRuleContext ctx) {
         final var expType = exp.getType();
@@ -557,8 +526,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
      * @return 构造出的常量
      */
     private Constant makeArrayConstAndInsertStoreForNonConstImpl(Value arrPtr, InitValue initValue, List<Integer> indices) {
-        if (initValue instanceof InitExp) {
-            final var initExp = (InitExp) initValue;
+        if (initValue instanceof final InitExp initExp) {
             final var value = initExp.exp;
             if (value instanceof Constant) {
                 // 由于常数折叠, 如果这个表达式真的能变成常量
@@ -778,8 +746,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
     }
 
     private Value getRightValue(Value value, List<Value> indices) {
-        if (value instanceof GlobalVar) {
-            final var gv = (GlobalVar) value;
+        if (value instanceof final GlobalVar gv) {
             value = builder.insertLoad(gv);
             value.setSymbol(gv.getSymbol());
         }
@@ -821,24 +788,14 @@ public class IRGen extends SysYBaseVisitor<Object> {
         return Float.parseFloat(text);
     }
 
-    static class LValResult {
-        public LValResult(final IRType type, final SourceCodeSymbol symbol, final List<Value> indices) {
-            this.type = type;
-            this.symbol = symbol;
-            this.indices = indices;
-        }
-
-        final IRType type;
-        final SourceCodeSymbol symbol;
-        final List<Value> indices;
-    }
+    record LValResult(IRType type, SourceCodeSymbol symbol, List<Value> indices) {}
 
     @Override
     public LValResult visitLVal(LValContext ctx) {
         final var name = ctx.Ident().getText();
         final var entry = symbolTable.resolve(name);
         final var indices = ctx.exp().stream().map(this::visitExp).collect(Collectors.toList());
-        return new LValResult(entry.type, entry.symbol, indices);
+        return new LValResult(entry.type(), entry.symbol(), indices);
     }
 
     private Value insertConvertForBinary(
@@ -1008,8 +965,7 @@ public class IRGen extends SysYBaseVisitor<Object> {
             }
 
         } else {
-            if (value instanceof GlobalVar) {
-                final var gv = (GlobalVar) value;
+            if (value instanceof final GlobalVar gv) {
                 value = builder.insertLoad(gv);
                 value.setSymbol(gv.getSymbol());
             }
@@ -1348,21 +1304,13 @@ public class IRGen extends SysYBaseVisitor<Object> {
         }
     }
 
-    private static class WhileBBInfo {
-        public WhileBBInfo(final BasicBlock condBlock, final BasicBlock exitBlock) {
-            this.condBlock = condBlock;
-            this.exitBlock = exitBlock;
-        }
-
-        final BasicBlock condBlock;
-        final BasicBlock exitBlock;
-    }
+    private record WhileBBInfo(BasicBlock condBlock, BasicBlock exitBlock) {}
 
     private Module currModule;
-    private IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
-    private SymbolTable symbolTable;
-    private Stack<WhileBBInfo> whileInfo;
-    private FinalInfo finalInfo;
+    private final IRBuilder builder; // 非常非常偶尔的情况下它是 null, 并且在用的时候它必然是有的
+    private final SymbolTable symbolTable;
+    private final Stack<WhileBBInfo> whileInfo;
+    private final FinalInfo finalInfo;
 
     // flags
     private boolean inGlobal() {

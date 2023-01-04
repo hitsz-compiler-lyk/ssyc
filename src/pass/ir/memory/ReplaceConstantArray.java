@@ -10,7 +10,6 @@ import ir.inst.StoreInst;
 import pass.ir.IRPass;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ReplaceConstantArray implements IRPass {
     private Module module;
@@ -21,8 +20,7 @@ public class ReplaceConstantArray implements IRPass {
 
         final var constantGlobalArrays = module.getVariables().stream()
             .filter(GlobalVar::isArray)
-            .filter(this::isGlobalConstantArray)
-            .collect(Collectors.toList());
+            .filter(this::isGlobalConstantArray).toList();
 
         for (final var array : constantGlobalArrays) {
             final var gvMemVar = MemVariable.createWithGlobalVariable(array);
@@ -31,8 +29,7 @@ public class ReplaceConstantArray implements IRPass {
 
             final Iterable<Instruction> instructions = () -> IRPass.instructionStream(module).iterator();
             for (final var inst : instructions) {
-                if (inst instanceof LoadInst) {
-                    final var load = (LoadInst) inst;
+                if (inst instanceof final LoadInst load) {
                     MemVariable.createWithLoad(load).ifPresent(memVar -> {
                         if (memVar.equals(gvMemVar)) {
                             final var valueInPosition = cache.getByLoad(load);

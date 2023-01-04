@@ -37,8 +37,7 @@ public class RemoveUnnecessaryArray implements IRPass {
     }
 
     boolean isGlobalArrayLoad(Value value) {
-        if (value instanceof LoadInst) {
-            final var loadOfArray = (LoadInst) value;
+        if (value instanceof final LoadInst loadOfArray) {
             return loadOfArray.getUserList().stream().anyMatch(this::isLocalLoad);
         } else {
             return false;
@@ -52,8 +51,7 @@ public class RemoveUnnecessaryArray implements IRPass {
 
     void dealWithLocalArray(BasicBlock block) {
         for (final var inst : block) {
-            if (inst instanceof CAllocInst) {
-                final var calloc = (CAllocInst) inst;
+            if (inst instanceof final CAllocInst calloc) {
                 final var hasNoLoad = calloc.getUserList().stream().noneMatch(this::isLocalLoad);
 
                 if (hasNoLoad) {
@@ -64,8 +62,7 @@ public class RemoveUnnecessaryArray implements IRPass {
     }
 
     boolean isLocalLoad(Value value) {
-        if (value instanceof GEPInst) {
-            final var gep = (GEPInst) value;
+        if (value instanceof final GEPInst gep) {
             return gep.getUserList().stream().anyMatch(this::isUse);
         } else {
             return value instanceof CallInst;
@@ -83,8 +80,7 @@ public class RemoveUnnecessaryArray implements IRPass {
             ((User) value).freeFromUseDef();
         }
 
-        if (value instanceof INodeOwner) {
-            final var owner = (INodeOwner) value;
+        if (value instanceof INodeOwner owner) {
             owner.freeFromIList();
         }
     }

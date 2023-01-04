@@ -14,7 +14,7 @@ import java.io.*;
 public class Main {
     public static boolean needOptimize = true;
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         if (args.length != 3) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
             throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
@@ -34,9 +34,7 @@ public class Main {
             }, "", 1 << 30);
 
             final var exceptionSaver = new ExceptionSaver();
-            thread.setUncaughtExceptionHandler((t, exception) -> {
-                exceptionSaver.setException(exception);
-            });
+            thread.setUncaughtExceptionHandler((t, exception) -> exceptionSaver.setException(exception));
 
             thread.start();
             thread.join();
@@ -130,9 +128,7 @@ public class Main {
                 writer.close();
             }
 
-            default -> {
-                throw new RuntimeException("Unsupport target");
-            }
+            default -> throw new RuntimeException("Unsupport target");
         }
 
         inputStream.close();

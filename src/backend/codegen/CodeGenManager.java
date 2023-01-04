@@ -251,8 +251,8 @@ public class CodeGenManager {
                     armBlock.asElementView().add(0, new ArmInstMove(phiReg, temp));
                     while (incomingInfoIt.hasNext()) {
                         var incomingInfo = incomingInfoIt.next();
-                        var src = incomingInfo.getValue();
-                        var incomingBlock = blockMap.get(incomingInfo.getBlock());
+                        var src = incomingInfo.value();
+                        var incomingBlock = blockMap.get(incomingInfo.block());
                         var srcReg = resolvePhiOperand(src, incomingBlock, armFunc);
                         var move = new ArmInstMove(temp, srcReg);
                         if (fristBranch.containsKey(incomingBlock)) {

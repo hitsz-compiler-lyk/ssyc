@@ -165,11 +165,10 @@ class ForLoop {
 
             // 并且这个 Cond 必须得是比较
             final var cond = ((BrCondInst) terminator).getCond();
-            if (cond instanceof CmpInst) {
+            if (cond instanceof final CmpInst cmp) {
 
                 // 这个比较一定得是 <
                 // TODO: 扩展到 <=
-                final var cmp = ((CmpInst) cond);
                 final var kind = cmp.getKind();
                 if (kind == InstKind.ICmpLt) {
 
@@ -256,7 +255,7 @@ class ForLoop {
     }
 
     private final CanonicalLoop loop;
-    private LoopInvariantInfo info;
+    private final LoopInvariantInfo info;
     private PhiInst indexPhi;
     private Value begin;
     private Value end;

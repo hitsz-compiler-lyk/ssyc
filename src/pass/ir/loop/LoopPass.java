@@ -4,8 +4,6 @@ import ir.Module;
 import pass.ir.IRPass;
 import utils.Log;
 
-import java.util.stream.Collectors;
-
 public interface LoopPass extends IRPass {
     void runOnLoop(CanonicalLoop loop);
 
@@ -18,8 +16,7 @@ public interface LoopPass extends IRPass {
                 // 这种循环没人权也没优化的
                 .filter(CanonicalLoop::hasUniqueExit)
                 // 同理, 反转的 do-while 循环也无优化机会的
-                .filter(loop -> !loop.isRotated())
-                .collect(Collectors.toList());
+                .filter(loop -> !loop.isRotated()).toList();
 
             Log.info("In loop pass %s count %d loops".formatted(this.getClass().getSimpleName(), loops.size()));
 

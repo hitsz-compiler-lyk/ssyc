@@ -38,8 +38,7 @@ class MemVariable {
      */
     public static Optional<MemVariable> createWithPointer(Value ptr) {
         Log.ensure(ptr.getType().isPtr());
-        if (ptr instanceof GlobalVar) {
-            final var gv = (GlobalVar) ptr;
+        if (ptr instanceof final GlobalVar gv) {
 
             if (gv.getType().getBaseType().isPtr()) {
                 // 当一条 Load 指令直接 Load 一个全局数组的时候, 说明这条 Load 指令只是负责把全局数组地址加载进来的
@@ -49,8 +48,7 @@ class MemVariable {
                 return Optional.of(new MemVariable(LocationKind.GlobalVariable, ptr));
             }
 
-        } else if (ptr instanceof GEPInst) {
-            final var gep = (GEPInst) ptr;
+        } else if (ptr instanceof final GEPInst gep) {
             final var gepPtr = gep.getPtr();
 
             try {
@@ -59,17 +57,14 @@ class MemVariable {
                 throw new RuntimeException("Unknown structure: (" + gep + " with " + gepPtr + ")");
             }
 
-        } else if (ptr instanceof LoadInst) {
-            final var load = (LoadInst) ptr;
+        } else if (ptr instanceof final LoadInst load) {
             Log.ensure(load.getPtr() instanceof GlobalVar);
             return Optional.of(new MemVariable(LocationKind.GlobalArray, load.getPtr()));
 
-        } else if (ptr instanceof CAllocInst) {
-            final var calloc = (CAllocInst) ptr;
+        } else if (ptr instanceof final CAllocInst calloc) {
             return Optional.of(new MemVariable(LocationKind.LocalArray, calloc));
 
-        } else if (ptr instanceof Parameter) {
-            final var param = (Parameter) ptr;
+        } else if (ptr instanceof final Parameter param) {
             Log.ensure(param.getType().isPtr());
             return Optional.of(new MemVariable(LocationKind.LocalArray, param));
 
@@ -103,8 +98,7 @@ class MemVariable {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof MemVariable) {
-            final var position = (MemVariable) obj;
+        if (obj instanceof final MemVariable position) {
 
             final var locationEqual = this.location == position.location;
             final var kindEqual = this.kind == position.kind;
@@ -120,6 +114,6 @@ class MemVariable {
 
     enum LocationKind {GlobalVariable, GlobalArray, LocalArray}
 
-    private LocationKind kind;
-    private Value location;
+    private final LocationKind kind;
+    private final Value location;
 }

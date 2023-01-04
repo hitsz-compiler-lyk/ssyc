@@ -35,8 +35,7 @@ public class ReplaceUnnecessaryLoad implements IRPass {
                     current.setByCall((CallInst) inst);
                 }
                 // Use
-                else if (inst instanceof LoadInst) {
-                    final var load = (LoadInst) inst;
+                else if (inst instanceof final LoadInst load) {
                     final var newInst = current.getByLoad(load);
 
                     if (newInst != load) {

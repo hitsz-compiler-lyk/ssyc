@@ -58,8 +58,7 @@ class TopoSort {
         }
 
         for (final var op : curr.getOperands()) {
-            if (op instanceof Instruction) {
-                final var opInst = (Instruction) op;
+            if (op instanceof final Instruction opInst) {
                 if (instructions.contains(opInst)) {
                     // 所有参数都应该出现在自己的前面
                     sortByUseDef(opInst);

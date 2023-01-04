@@ -47,5 +47,5 @@ public class Log {
     private static final String colorWhite  = needColor ? "\033[37;1m" : "";
     private static final String colorNormal = needColor ? "\033[0m"    : "";
 
-    private static PrintStream out = System.err;
+    private static final PrintStream out = System.err;
 }

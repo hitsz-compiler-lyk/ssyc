@@ -100,8 +100,7 @@ class MemPositionHandler {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof MemPositionHandler) {
-            final var handler = (MemPositionHandler) obj;
+        if (obj instanceof final MemPositionHandler handler) {
             if (this.isArray() && handler.isArray()) {
                 return elements.equals(handler.elements);
             } else if (this.isVariable() && handler.isVariable()) {

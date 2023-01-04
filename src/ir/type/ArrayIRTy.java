@@ -34,8 +34,7 @@ public class ArrayIRTy implements IRType {
     // 因为实际上两个数组类型本身就不能互操作
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof ArrayIRTy) {
-            final var at = (ArrayIRTy) obj;
+        if (obj instanceof final ArrayIRTy at) {
             return elementNum == at.elementNum
                 && elementType.equals(at.elementType);
         }
@@ -48,6 +47,6 @@ public class ArrayIRTy implements IRType {
         return "[%d x %s]".formatted(elementNum, elementType);
     }
 
-    private int elementNum;
-    private IRType elementType;
+    private final int elementNum;
+    private final IRType elementType;
 }

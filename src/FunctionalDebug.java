@@ -1,7 +1,5 @@
-import java.io.IOException;
-
 public class FunctionalDebug {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         // final var basePath = "./test-data/functional/";
         // final var file_name = "21_if_test2";
         // final var basePath = "./test-data/functional/";
