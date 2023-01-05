@@ -81,11 +81,11 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     private Set<IImm> haveRecoverOffset;
 
-    private Set<IImm> haveRecoveLoadParam;
+    private Set<IImm> haveRecoverLoadParam;
 
-    private Set<IImm> haveRecoveStackLoad;
+    private Set<IImm> haveRecoverStackLoad;
 
-    private Set<Imm> haveRecoveImm;
+    private Set<Imm> haveRecoverImm;
 
     private int loopDepth = 0;
 
@@ -97,16 +97,16 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         return haveRecoverOffset;
     }
 
-    public Set<IImm> getHaveRecoveLoadParam() {
-        return haveRecoveLoadParam;
+    public Set<IImm> getHaveRecoverLoadParam() {
+        return haveRecoverLoadParam;
     }
 
-    public Set<IImm> getHaveRecoveStackLoad() {
-        return haveRecoveStackLoad;
+    public Set<IImm> getHaveRecoverStackLoad() {
+        return haveRecoverStackLoad;
     }
 
-    public Set<Imm> getHaveRecoveImm() {
-        return haveRecoveImm;
+    public Set<Imm> getHaveRecoverImm() {
+        return haveRecoverImm;
     }
 
     @Override
@@ -178,9 +178,9 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.blockLiveInfo = new BlockLiveInfo();
         this.haveRecoverAddrs = new HashSet<>();
         this.haveRecoverOffset = new HashSet<>();
-        this.haveRecoveLoadParam = new HashSet<>();
-        this.haveRecoveStackLoad = new HashSet<>();
-        this.haveRecoveImm = new HashSet<>();
+        this.haveRecoverLoadParam = new HashSet<>();
+        this.haveRecoverStackLoad = new HashSet<>();
+        this.haveRecoverImm = new HashSet<>();
         this.loopDepth = 0;
         func.asElementView().add(this);
     }
@@ -190,9 +190,9 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.pred = new ArrayList<>();
         this.haveRecoverAddrs = new HashSet<>();
         this.haveRecoverOffset = new HashSet<>();
-        this.haveRecoveLoadParam = new HashSet<>();
-        this.haveRecoveStackLoad = new HashSet<>();
-        this.haveRecoveImm = new HashSet<>();
+        this.haveRecoverLoadParam = new HashSet<>();
+        this.haveRecoverStackLoad = new HashSet<>();
+        this.haveRecoverImm = new HashSet<>();
         this.loopDepth = 0;
         this.insts = new IList<>(this);
     }

@@ -1509,9 +1509,9 @@ public class CodeGenManager {
             Map<Imm, Operand> immMap = new HashMap<>();
             var haveRecoverAddrs = block.getHaveRecoverAddrs();
             var haveRecoverOffset = block.getHaveRecoverOffset();
-            var haveRecoveLoadParam = block.getHaveRecoveLoadParam();
-            var haveRecoveImm = block.getHaveRecoveImm();
-            var haveRecoveStackLoad = block.getHaveRecoveStackLoad();
+            var haveRecoverLoadParam = block.getHaveRecoverLoadParam();
+            var haveRecoverImm = block.getHaveRecoverImm();
+            var haveRecoverStackLoad = block.getHaveRecoverStackLoad();
             for (var inst : block.asElementView()) {
                 if (inst instanceof ArmInstStackAddr) {
                     var stackAddr = (ArmInstStackAddr) inst;
@@ -1561,8 +1561,8 @@ public class CodeGenManager {
                         recoverMap.put(load.getDst(), paramMap.get(offset));
                         load.freeFromIList();
                         isFix = true;
-                    } else if (!haveRecoveLoadParam.contains(offset)) {
-                        haveRecoveLoadParam.add(offset);
+                    } else if (!haveRecoverLoadParam.contains(offset)) {
+                        haveRecoverLoadParam.add(offset);
                         paramMap.put(offset, load.getDst());
                         func.getSpillNodes().remove(load.getDst());
                     }
@@ -1580,8 +1580,8 @@ public class CodeGenManager {
                         recoverMap.put(move.getDst(), immMap.get(imm));
                         move.freeFromIList();
                         isFix = true;
-                    } else if (!haveRecoveImm.contains(imm)) {
-                        haveRecoveImm.add(imm);
+                    } else if (!haveRecoverImm.contains(imm)) {
+                        haveRecoverImm.add(imm);
                         immMap.put(imm, move.getDst());
                         func.getSpillNodes().remove(move.getDst());
                     }
@@ -1599,8 +1599,8 @@ public class CodeGenManager {
                         recoverMap.put(load.getDst(), stackLoadMap.get(offset));
                         load.freeFromIList();
                         isFix = true;
-                    } else if (!haveRecoveStackLoad.contains(offset)) {
-                        haveRecoveStackLoad.add(offset);
+                    } else if (!haveRecoverStackLoad.contains(offset)) {
+                        haveRecoverStackLoad.add(offset);
                         stackLoadMap.put(offset, load.getDst());
                         func.getSpillNodes().remove(load.getDst());
                     }
@@ -1614,8 +1614,8 @@ public class CodeGenManager {
                         continue;
                     }
                     var offset = store.getOffset();
-                    if (!haveRecoveStackLoad.contains(offset)) {
-                        haveRecoveStackLoad.add(offset);
+                    if (!haveRecoverStackLoad.contains(offset)) {
+                        haveRecoverStackLoad.add(offset);
                         stackLoadMap.put(offset, store.getDst());
                         func.getSpillNodes().remove(store.getDst());
                         func.getStackLoadMap().put(store.getDst(), new ArmInstStackLoad(store.getDst(), offset));
