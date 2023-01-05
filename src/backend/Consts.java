@@ -1,8 +1,8 @@
 package backend;
 
-import backend.operand.FPhyReg;
-import backend.operand.IPhyReg;
-import backend.operand.Reg;
+import backend.lir.operand.FPhyReg;
+import backend.lir.operand.IPhyReg;
+import backend.lir.operand.Reg;
 
 import java.util.ArrayList;
 import java.util.List;
