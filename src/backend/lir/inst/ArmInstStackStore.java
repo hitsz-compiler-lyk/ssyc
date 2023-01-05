@@ -17,14 +17,14 @@ public class ArmInstStackStore extends ArmInst {
     public ArmInstStackStore(ArmBlock block, Operand dst, IImm offset) {
         super(ArmInstKind.StackStore);
         block.asElementView().add(this);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }
 
     public ArmInstStackStore(Operand dst, IImm offset) {
         super(ArmInstKind.StackStore);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }

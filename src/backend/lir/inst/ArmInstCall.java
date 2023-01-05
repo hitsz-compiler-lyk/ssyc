@@ -6,6 +6,7 @@ import backend.lir.operand.FPhyReg;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
+import pass.ir.IRPass;
 import utils.StringUtils;
 
 import java.util.ArrayList;
@@ -33,10 +34,10 @@ public class ArmInstCall extends ArmInst {
         this.returnFloat = func.isReturnFloat();
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            ops.add(new IPhyReg(i));
+            ops.add(IPhyReg.R(i));
         }
-        ops.add(new IPhyReg("lr"));
-        ops.add(new IPhyReg("r12")); // 如果是外部函数 则会因为链接器从而把r12定值
+        ops.add(IPhyReg.LR);
+        ops.add(IPhyReg.R(12)); // 如果是外部函数 则会因为链接器从而把r12定值
         int fcnt = 0;
         if (this.returnFloat) {
             fcnt = 1;
@@ -58,10 +59,10 @@ public class ArmInstCall extends ArmInst {
         this.returnFloat = returnFloat;
         List<Operand> ops = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            ops.add(new IPhyReg(i));
+            ops.add(IPhyReg.R(i));
         }
-        ops.add(new IPhyReg("lr"));
-        ops.add(new IPhyReg("r12")); // 如果是外部函数 则会因为链接器从而把r12定值 memset 和 memcpy不会?
+        ops.add(IPhyReg.LR);
+        ops.add(IPhyReg.R(12)); // 如果是外部函数 则会因为链接器从而把r12定值 memset 和 memcpy不会?
         for (int i = 0; i < 16; i++) {
             ops.add(new FPhyReg(i));
         }
@@ -85,7 +86,7 @@ public class ArmInstCall extends ArmInst {
     public Set<Reg> getRegUse() {
         var ret = new HashSet<Reg>();
         for (int i = 0; i < Integer.min(this.paramsCnt, 4); i++) {
-            ret.add(new IPhyReg(i));
+            ret.add(IPhyReg.R(i));
         }
         for (int i = 0; i < Integer.min(this.fparamsCnt, 16); i++) {
             ret.add(new FPhyReg(i));

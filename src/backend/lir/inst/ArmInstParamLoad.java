@@ -17,14 +17,14 @@ public class ArmInstParamLoad extends ArmInst {
     public ArmInstParamLoad(ArmBlock block, Operand dst, IImm offset) {
         super(ArmInstKind.ParamLoad);
         block.asElementView().add(this);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }
 
     public ArmInstParamLoad(Operand dst, IImm offset) {
         super(ArmInstKind.ParamLoad);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }

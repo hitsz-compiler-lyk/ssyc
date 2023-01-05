@@ -29,7 +29,7 @@ public class ArmInstReturn extends ArmInst {
             } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
                 ret += "\tsub" + getCond().toString() + "\tsp,\tsp,\t#" + stackSize + "\n";
             } else {
-                var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
                 move.setCond(getCond());
                 ret += move.print();
                 ret += "\tadd" + getCond().toString() + "\tsp,\tsp,\tr4\n";
@@ -43,7 +43,7 @@ public class ArmInstReturn extends ArmInst {
             if (!first) {
                 iuse.append(", ");
             }
-            if (reg.equals(new IPhyReg("lr"))) {
+            if (reg.equals(IPhyReg.LR)) {
                 iuse.append("pc");
                 useLR = true;
             } else {
