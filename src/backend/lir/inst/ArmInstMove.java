@@ -3,6 +3,7 @@ package backend.lir.inst;
 import backend.lir.ArmBlock;
 import backend.lir.ArmShift;
 import backend.codegen.CodeGenManager;
+import backend.lir.operand.Addr;
 import backend.lir.operand.FImm;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
@@ -21,14 +22,14 @@ public class ArmInstMove extends ArmInst {
         super(ArmInstKind.MOV);
         block.asElementView().add(this);
         this.initOperands(dst, src);
-        if (src.IsIImm()) {
-            int imm = ((IImm) src).getImm();
+        if (src instanceof IImm srcIImm) {
+            int imm = srcIImm.getImm();
             if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
                 this.setPrintCnt(1);
             } else {
                 this.setPrintCnt(2);
             }
-        } else if (src.IsAddr()) {
+        } else if (src instanceof Addr) {
             this.setPrintCnt(2);
         } else {
             this.setPrintCnt(1);
@@ -39,14 +40,14 @@ public class ArmInstMove extends ArmInst {
     public ArmInstMove(Operand dst, Operand src) {
         super(ArmInstKind.MOV);
         this.initOperands(dst, src);
-        if (src.IsIImm()) {
+        if (src instanceof IImm) {
             int imm = ((IImm) src).getImm();
             if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
                 this.setPrintCnt(1);
             } else {
                 this.setPrintCnt(2);
             }
-        } else if (src.IsAddr()) {
+        } else if (src instanceof Addr) {
             this.setPrintCnt(2);
         } else {
             this.setPrintCnt(1);
@@ -59,14 +60,14 @@ public class ArmInstMove extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, src);
-        if (src.IsIImm()) {
+        if (src instanceof IImm) {
             int imm = ((IImm) src).getImm();
             if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
                 this.setPrintCnt(1);
             } else {
                 this.setPrintCnt(2);
             }
-        } else if (src.IsAddr()) {
+        } else if (src instanceof Addr) {
             this.setPrintCnt(2);
         } else {
             this.setPrintCnt(1);
@@ -78,14 +79,14 @@ public class ArmInstMove extends ArmInst {
         super(ArmInstKind.MOV);
         this.setCond(cond);
         this.initOperands(dst, src);
-        if (src.IsIImm()) {
+        if (src instanceof IImm) {
             int imm = ((IImm) src).getImm();
             if (CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm)) {
                 this.setPrintCnt(1);
             } else {
                 this.setPrintCnt(2);
             }
-        } else if (src.IsAddr()) {
+        } else if (src instanceof Addr) {
             this.setPrintCnt(2);
         } else {
             this.setPrintCnt(1);
@@ -115,11 +116,11 @@ public class ArmInstMove extends ArmInst {
         var src = getSrc();
 
         var isVector = "";
-        if (dst.IsFloat() || src.IsFloat()) {
+        if (dst.isFloat() || src.isFloat()) {
             isVector = "v";
         }
 
-        if (src.IsIImm()) {
+        if (src instanceof IImm) {
             int imm = ((IImm) src).getImm();
             // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-immediate-values-using-mov-and-mvn?lang=en
             if (CodeGenManager.checkEncodeImm(~imm)) {
@@ -142,13 +143,13 @@ public class ArmInstMove extends ArmInst {
                 }
                 return ret;
             }
-        } else if (src.IsFImm()) {
+        } else if (src instanceof FImm) {
             // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-32-bit-immediate-values-to-a-register-using-ldr-rd---const?lang=en
             // VLDR Rn =Const
             return "\t" + "vldr" + getCond().toString() + "\t" + dst.print() + ",\t" + "="
                     + ((FImm) src).toHexString() + "\n";
-        } else if (src.IsAddr()) {
-            Log.ensure(!dst.IsFloat(), "load addr into vfp");
+        } else if (src instanceof Addr) {
+            Log.ensure(!dst.isFloat(), "load addr into vfp");
             // return "\tldr" + getCond().toString() + "\t" + dst.print() + ",\t=" +
             // src.print() + "\n";
             return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + src.print() + "\n" +

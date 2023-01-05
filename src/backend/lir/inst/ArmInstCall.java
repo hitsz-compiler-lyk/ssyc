@@ -44,7 +44,7 @@ public class ArmInstCall extends ArmInst {
         }
         fcnt = Integer.max(fcnt, this.fparamsCnt);
         for (int i = 0; i < 16; i++) {
-            ops.add(new FPhyReg(i));
+            ops.add(FPhyReg.S(i));
         }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
@@ -64,7 +64,7 @@ public class ArmInstCall extends ArmInst {
         ops.add(IPhyReg.LR);
         ops.add(IPhyReg.R(12)); // 如果是外部函数 则会因为链接器从而把r12定值 memset 和 memcpy不会?
         for (int i = 0; i < 16; i++) {
-            ops.add(new FPhyReg(i));
+            ops.add(FPhyReg.S(i));
         }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
         this.setPrintCnt(1);
@@ -89,7 +89,7 @@ public class ArmInstCall extends ArmInst {
             ret.add(IPhyReg.R(i));
         }
         for (int i = 0; i < Integer.min(this.fparamsCnt, 16); i++) {
-            ret.add(new FPhyReg(i));
+            ret.add(FPhyReg.S(i));
         }
         return ret;
     }

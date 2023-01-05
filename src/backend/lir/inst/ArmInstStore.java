@@ -2,6 +2,7 @@ package backend.lir.inst;
 
 import backend.lir.ArmBlock;
 import backend.lir.ArmShift;
+import backend.lir.operand.Addr;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
 import utils.Log;
@@ -123,16 +124,16 @@ public class ArmInstStore extends ArmInst {
         var src = getSrc();
         var addr = getAddr();
         var offset = getOffset();
-        Log.ensure(!addr.IsAddr(), "str a actual addr");
+        Log.ensure(!(addr instanceof Addr), "str a actual addr");
 
         var isVector = "";
-        if (src.IsFloat()) {
+        if (src.isFloat()) {
             isVector = "v";
         }
         if (offset.equals(new IImm(0))) {
             return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print() + "]\n";
         } else if (shift != null) {
-            Log.ensure(offset.IsReg(), "offset must be reg");
+            Log.ensure(offset.isReg(), "offset must be reg");
             return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print()
                     + ",\t" + offset.print() + shift.toString() + "]\n";
         } else {

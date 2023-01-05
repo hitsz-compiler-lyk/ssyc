@@ -1,9 +1,7 @@
 package backend.lir.operand;
 
-import java.util.Objects;
-
 public abstract class Operand {
-    public enum opType {
+    public enum OperandKind {
         IVirtual,
         IPhy,
         FVirtual,
@@ -13,99 +11,41 @@ public abstract class Operand {
         Addr,
     }
 
-    opType s;
+    private final OperandKind kind;
 
-    public opType getState() {
-        return s;
+    public Operand(OperandKind kind) {
+        this.kind = kind;
     }
 
-    public Operand(opType s) {
-        this.s = s;
+    public boolean isImm() {
+        return kind == OperandKind.IImm || kind == OperandKind.FImm;
     }
 
-    public boolean IsIVirtual() {
-        return s == opType.IVirtual;
+    public boolean isInt() {
+        return kind == OperandKind.IImm || kind == OperandKind.IPhy || kind == OperandKind.IVirtual;
     }
 
-    public boolean IsIPhy() {
-        return s == opType.IPhy;
+    public boolean isFloat() {
+        return kind == OperandKind.FImm || kind == OperandKind.FPhy || kind == OperandKind.FVirtual;
     }
 
-    public boolean IsFVirtual() {
-        return s == opType.FVirtual;
+    public boolean isVirtual() {
+        return kind == OperandKind.IVirtual || kind == OperandKind.FVirtual;
     }
 
-    public boolean IsFPhy() {
-        return s == opType.FPhy;
+    public boolean isPhy() {
+        return kind == OperandKind.IPhy || kind == OperandKind.FPhy;
     }
 
-    public boolean IsIImm() {
-        return s == opType.IImm;
+    public boolean isReg() {
+        return !isImm() && kind != OperandKind.Addr;
     }
 
-    public boolean IsFImm() {
-        return s == opType.FImm;
+    public OperandKind getKind() {
+        return kind;
     }
 
-    public boolean IsImm() {
-        return s == opType.IImm || s == opType.FImm;
+    public String print() {
+        return toString();
     }
-
-    public boolean IsInt() {
-        return s == opType.IImm || s == opType.IPhy || s == opType.IVirtual;
-    }
-
-    public boolean IsFloat() {
-        return s == opType.FImm || s == opType.FPhy || s == opType.FVirtual;
-    }
-
-    public boolean IsAddr() {
-        return s == opType.Addr;
-    }
-
-    public boolean IsVirtual() {
-        return s == opType.IVirtual || s == opType.FVirtual;
-    }
-
-    public boolean IsPhy() {
-        return !IsVirtual();
-    }
-
-    public boolean IsReg() {
-        return !IsImm() && s != opType.Addr;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof Operand)) {
-            return false;
-        }
-        if (((Operand) obj).getState() != this.s) {
-            return false;
-        }
-        return switch (this.getState()) {
-            case IImm -> ((IImm) obj).getImm() == ((IImm) this).getImm();
-            case FImm -> ((FImm) obj).getImm() == ((FImm) this).getImm();
-            case Addr -> ((Addr) obj).getLabel().equals(((Addr) this).getLabel())
-                        && ((Addr) obj).isGlobal() == ((Addr) this).isGlobal();
-            case IPhy, FPhy, IVirtual, FVirtual -> ((Reg) obj).getId() == ((Reg) this).getId();
-            default -> this.equals(obj);
-        };
-    }
-
-    @Override
-    public int hashCode() {
-        return switch (this.getState()) {
-            case IImm -> Objects.hash(s, ((IImm) this).getImm());
-            case FImm -> Objects.hash(s, ((FImm) this).getImm());
-            case Addr -> Objects.hash(s, ((Addr) this).getLabel(), ((Addr) this).isGlobal());
-            case IPhy, FPhy, IVirtual, FVirtual -> Objects.hash(s, ((Reg) this).getId());
-            default -> super.hashCode();
-        };
-    }
-
-    public abstract String print();
-
-    @Override
-    public abstract String toString();
 }

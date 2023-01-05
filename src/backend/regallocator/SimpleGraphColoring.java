@@ -1,6 +1,5 @@
 package backend.regallocator;
 
-import backend.Consts;
 import backend.lir.*;
 import backend.lir.inst.*;
 import backend.lir.operand.*;
@@ -18,7 +17,7 @@ public class SimpleGraphColoring implements RegAllocator {
 
         public InterfereRegs(Reg self) {
             this.regs = new HashSet<>();
-            this.selfIsInt = self.IsInt();
+            this.selfIsInt = self.isInt();
             this.icnt = 0;
             this.fcnt = 0;
             if (this.selfIsInt) {
@@ -32,7 +31,7 @@ public class SimpleGraphColoring implements RegAllocator {
             if (regs.contains(reg)) {
                 return;
             }
-            if (reg.IsInt()) {
+            if (reg.isInt()) {
                 this.icnt++;
             } else {
                 this.fcnt++;
@@ -42,7 +41,7 @@ public class SimpleGraphColoring implements RegAllocator {
 
         public void remove(Reg reg) {
             Log.ensure(regs.contains(reg), "remove reg not contains in regs");
-            if (reg.IsInt()) {
+            if (reg.isInt()) {
                 this.icnt--;
             } else {
                 this.fcnt--;
@@ -55,7 +54,8 @@ public class SimpleGraphColoring implements RegAllocator {
         }
 
         public boolean canSimolify() {
-            return icnt <= Consts.iAllocableRegCnt && fcnt <= Consts.fAllocableRegCnt;
+            return icnt <= IPhyReg.getIntAllocatableRegs().size()
+                && fcnt <= FPhyReg.getFloatAllocatableRegs().size();
         }
 
         public void clear() {
@@ -83,7 +83,7 @@ public class SimpleGraphColoring implements RegAllocator {
 
     @Override
     public String getName() {
-        return Consts.SimpleGraphColoring;
+        return "SimpleGraphColoring";
     }
 
     @Override
@@ -100,7 +100,7 @@ public class SimpleGraphColoring implements RegAllocator {
         buildGraph(func);
         for (var ent : adj.entrySet()) {
             var reg = ent.getKey();
-            if (reg.IsPhy()) {
+            if (reg.isPhy()) {
                 continue;
             }
             remainNodes.add(reg);
@@ -120,29 +120,29 @@ public class SimpleGraphColoring implements RegAllocator {
             return null;
         }
         Map<Reg, Reg> ans = new HashMap<>();
-        Set<Reg> used = Consts.allocableRegs.stream().filter(adj::containsKey).collect(Collectors.toSet());
+        Set<Reg> used = Reg.getAllAllocatableRegs().stream().filter(adj::containsKey).collect(Collectors.toSet());
         for (int i = simplifyWorkLists.size() - 1; i >= 0; i--) {
             var workList = simplifyWorkLists.get(i);
             var reg = workList.getKey();
             var conflictNodes = workList.getValue();
             Set<Reg> flag = new HashSet<>();
             Log.ensure(!ans.containsKey(reg), "reg: " + reg + " allocator twice");
-            conflictNodes.stream().filter(Consts.allocableRegs::contains).forEach(flag::add);
+            conflictNodes.stream().filter(Reg.getAllAllocatableRegs()::contains).forEach(flag::add);
             conflictNodes.stream().filter(ans::containsKey).map(ans::get).forEach(flag::add);
-            if (reg.IsInt()) {
-                final var phyReg = Consts.allocableIRegs.stream()
+            if (reg.isInt()) {
+                final var phyReg = IPhyReg.getIntAllocatableRegs().stream()
                         .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
                                 && !flag.contains(oneReg))
                         .findFirst().orElse(
-                                Consts.allocableIRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                IPhyReg.getIntAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
                                         .orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             } else {
-                final var phyReg = Consts.allocableFRegs.stream()
+                final var phyReg = FPhyReg.getFloatAllocatableRegs().stream()
                         .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
                                 && !flag.contains(oneReg))
                         .findFirst().orElse(
-                                Consts.allocableFRegs.stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
+                                FPhyReg.getFloatAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
                                         .orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             }
@@ -193,10 +193,10 @@ public class SimpleGraphColoring implements RegAllocator {
     }
 
     private void remove(Reg reg) {
-        Log.ensure(reg.IsVirtual(), "remove reg must be a virtual reg");
+        Log.ensure(reg.isVirtual(), "remove reg must be a virtual reg");
         for (var u : adj.get(reg).getRegs()) {
             adj.get(u).remove(reg);
-            if (adj.get(u).canSimolify() && !haveSimplify.contains(u) && u.IsVirtual()) {
+            if (adj.get(u).canSimolify() && !haveSimplify.contains(u) && u.isVirtual()) {
                 simplifyQueue.add(u);
                 haveSimplify.add(u);
             }
@@ -273,7 +273,7 @@ public class SimpleGraphColoring implements RegAllocator {
                     if (inst.getOperands().contains(spill)) {
                         if (func.getImmMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
-                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            Reg vr = spill.isInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldMove = func.getImmMap().get(spill);
                             var newMove = new ArmInstMove(vr, oldMove.getSrc());
                             inst.insertBeforeCO(newMove);
@@ -303,7 +303,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             func.getSpillNodes().add(vr);
                         } else if (func.getParamLoadMap().containsKey(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
-                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            Reg vr = spill.isInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldParamLoad = func.getParamLoadMap().get(spill);
                             var newParamLoad = new ArmInstParamLoad(vr, oldParamLoad.getOffset());
                             // newParamLoad.replaceAddr(oldParamLoad.getAddr());
@@ -316,7 +316,7 @@ public class SimpleGraphColoring implements RegAllocator {
                         } else if (func.getStackLoadMap().containsKey(spill) && !(inst instanceof ArmInstStackStore)
                                 && !inst.getRegDef().contains(spill)) {
                             Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
-                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            Reg vr = spill.isInt() ? new IVirtualReg() : new FVirtualReg();
                             var oldStackLoad = func.getStackLoadMap().get(spill);
                             var newStackLoad = new ArmInstStackLoad(vr, oldStackLoad.getOffset());
                             newStackLoad.replaceAddr(oldStackLoad.getAddr());
@@ -325,7 +325,7 @@ public class SimpleGraphColoring implements RegAllocator {
                             func.getStackLoadMap().put(vr, newStackLoad);
                             func.getSpillNodes().add(vr);
                         } else if (!func.getStackStoreSet().contains(spill)) {
-                            Reg vr = spill.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                            Reg vr = spill.isInt() ? new IVirtualReg() : new FVirtualReg();
                             int offset = offsetMap.get(spill);
                             if (inst.getRegUse().contains(spill)) {
                                 var stackLoad = new ArmInstStackLoad(vr, new IImm(offset));

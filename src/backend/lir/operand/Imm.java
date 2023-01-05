@@ -2,7 +2,7 @@ package backend.lir.operand;
 
 public abstract class Imm extends Operand {
 
-    public Imm(opType s) {
+    public Imm(OperandKind s) {
         super(s);
     }
 

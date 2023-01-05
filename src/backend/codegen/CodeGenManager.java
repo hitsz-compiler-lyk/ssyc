@@ -74,12 +74,12 @@ public class CodeGenManager {
         int acCnt = 0;
         for (var val : irModule.getArrayConstants()) {
             arrayConstMap.put(val, "meminit_array_" + acCnt);
-            valMap.put(val, new Addr("meminit_array_" + acCnt++, true));
+            valMap.put(val, new Addr("meminit_array_" + acCnt++));
         }
 
         // 添加Global信息
         for (var val : globalvars.values()) {
-            valMap.put(val, new Addr(val.getSymbol().getName(), true));
+            valMap.put(val, new Addr(val.getSymbol().getName()));
         }
 
         for (var func : irModule.getFunctions()) {
@@ -248,7 +248,7 @@ public class CodeGenManager {
                     var phi = phiIt.next();
                     var incomingInfoIt = phi.getIncomingInfos().iterator();
                     var phiReg = resolveOperand(phi, armBlock, armFunc);
-                    var temp = phiReg.IsInt() ? new IVirtualReg() : new FVirtualReg();
+                    var temp = phiReg.isInt() ? new IVirtualReg() : new FVirtualReg();
                     armBlock.asElementView().add(0, new ArmInstMove(phiReg, temp));
                     while (incomingInfoIt.hasNext()) {
                         var incomingInfo = incomingInfoIt.next();
@@ -356,7 +356,7 @@ public class CodeGenManager {
                         var move = new ArmInstMove(vr, IPhyReg.R(i));
                         func.getPrologue().asElementView().add(0, move);
                     } else if (i < icnt + fcnt) {
-                        var move = new ArmInstMove(vr, new FPhyReg(i - icnt));
+                        var move = new ArmInstMove(vr, FPhyReg.S(i - icnt));
                         func.getPrologue().asElementView().add(0, move);
                     } else {
                         // LDR VR [SP, (i-4)*4]
@@ -698,8 +698,8 @@ public class CodeGenManager {
             var offset = resolveOperand(indices.get(i), block, func);
             var length = dim.get(i);
 
-            if (offset.IsIImm()) {
-                tot += ((IImm) offset).getImm() * length;
+            if (offset instanceof IImm offsetImm) {
+                tot += offsetImm.getImm() * length;
                 if (i == indices.size() - 1) {
                     if (tot == 0) {
                         // MOVR inst 当前地址
@@ -818,7 +818,7 @@ public class CodeGenManager {
         }
         for (int i = icnt + fcnt - 1; i >= icnt; i--) {
             var src = resolveOperand(finalArg.get(i), block, func);
-            new ArmInstMove(block, new FPhyReg(i - icnt), src);
+            new ArmInstMove(block, FPhyReg.S(i - icnt), src);
         }
         Operand offsetOp = null;
         if (finalArg.size() > icnt + fcnt) {
@@ -842,7 +842,7 @@ public class CodeGenManager {
                 // 如果结果是一个浮点数 则直接用s0来保存数据
                 // VMOV inst S0
                 // atpcs 规范
-                new ArmInstMove(block, dst, new FPhyReg("s0"));
+                new ArmInstMove(block, dst, FPhyReg.S(0));
             } else if (inst.getType().isInt()) {
                 // 否则用r0来保存数据
                 // MOV inst R0
@@ -859,7 +859,7 @@ public class CodeGenManager {
             if (src.getType().isFloat()) {
                 // atpcs 规范
                 // VMOV S0 inst.getReturnValue()
-                new ArmInstMove(block, new FPhyReg("s0"), srcReg);
+                new ArmInstMove(block, FPhyReg.S(0), srcReg);
             } else {
                 // VMOV R0 inst.getReturnValue()
                 new ArmInstMove(block, IPhyReg.R(0), srcReg);
@@ -1040,9 +1040,9 @@ public class CodeGenManager {
             while (isFix) {
                 var allocatorMap = regAllocator.run(func);
                 for (var kv : allocatorMap.entrySet()) {
-                    Log.ensure(kv.getKey().IsVirtual(), "allocatorMap key not Virtual");
+                    Log.ensure(kv.getKey().isVirtual(), "allocatorMap key not Virtual");
                     ;
-                    Log.ensure(kv.getValue().IsPhy(), "allocatorMap value not Phy");
+                    Log.ensure(kv.getValue().isPhy(), "allocatorMap value not Phy");
                 }
                 Set<IPhyReg> iPhyRegs = new HashSet<>();
                 Set<FPhyReg> fPhyRegs = new HashSet<>();
@@ -1074,7 +1074,7 @@ public class CodeGenManager {
                             inst.InitSymbol();
                             String symbol = "@";
                             for (var op : inst.getOperands()) {
-                                if (op.IsVirtual()) {
+                                if (op.isVirtual()) {
                                     Log.ensure(allocatorMap.containsKey(op),
                                             "virtual reg:" + op.print() + " not exist in allocator map");
                                     inst.replaceOperand(op, allocatorMap.get(op));
@@ -1308,7 +1308,7 @@ public class CodeGenManager {
     }
 
     public static boolean checkOffsetRange(int offset, Operand dst) {
-        if (dst.IsFloat()) {
+        if (dst.isFloat()) {
             return checkOffsetVRange(offset);
         } else {
             return checkOffsetRange(offset);
@@ -1517,7 +1517,7 @@ public class CodeGenManager {
                 if (inst instanceof ArmInstStackAddr) {
                     var stackAddr = (ArmInstStackAddr) inst;
                     var offset = stackAddr.getOffset();
-                    if (!stackAddr.getDst().IsVirtual()) {
+                    if (!stackAddr.getDst().isVirtual()) {
                         continue;
                     }
                     if (offsetMap.containsKey(offset)) {
@@ -1532,13 +1532,12 @@ public class CodeGenManager {
                 }
                 if (inst instanceof ArmInstLoad) {
                     var load = (ArmInstLoad) inst;
-                    if (!load.getAddr().IsAddr()) {
+                    if (!(load.getAddr() instanceof Addr addr)) {
                         continue;
                     }
-                    if (!load.getDst().IsVirtual()) {
+                    if (!load.getDst().isVirtual()) {
                         continue;
                     }
-                    var addr = (Addr) load.getAddr();
                     if (addrMap.containsKey(addr)) {
                         recoverMap.put(load.getDst(), addrMap.get(addr));
                         load.freeFromIList();
@@ -1554,7 +1553,7 @@ public class CodeGenManager {
                     if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
-                    if (!load.getDst().IsVirtual()) {
+                    if (!load.getDst().isVirtual()) {
                         continue;
                     }
                     var offset = load.getOffset();
@@ -1570,7 +1569,7 @@ public class CodeGenManager {
                 }
                 if (inst instanceof ArmInstMove) {
                     var move = (ArmInstMove) inst;
-                    if (!move.getDst().IsVirtual()) {
+                    if (!move.getDst().isVirtual()) {
                         continue;
                     }
                     if (!func.getImmMap().containsKey(move.getDst())) {
@@ -1592,7 +1591,7 @@ public class CodeGenManager {
                     if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
-                    if (!load.getDst().IsVirtual()) {
+                    if (!load.getDst().isVirtual()) {
                         continue;
                     }
                     var offset = load.getOffset();
@@ -1611,7 +1610,7 @@ public class CodeGenManager {
                     if (!store.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
-                    if (!store.getDst().IsVirtual()) {
+                    if (!store.getDst().isVirtual()) {
                         continue;
                     }
                     var offset = store.getOffset();
@@ -1654,8 +1653,8 @@ public class CodeGenManager {
         var fUseRegs = func.getfUsedRegs();
         fUseRegs.clear();
         for (int i = 16; i <= 31; i++) {
-            if (regs.contains(new FPhyReg(i))) {
-                fUseRegs.add(new FPhyReg(i));
+            if (regs.contains(FPhyReg.S(i))) {
+                fUseRegs.add(FPhyReg.S(i));
             }
         }
     }

@@ -1,10 +1,10 @@
 package backend.lir.operand;
 
 public class FImm extends Imm {
-    float imm;
+    private final float imm;
 
     public FImm(float imm) {
-        super(opType.FImm);
+        super(OperandKind.FImm);
         this.imm = imm;
     }
 
@@ -15,11 +15,6 @@ public class FImm extends Imm {
     @Override
     public String toHexString() {
         return "0x" + Integer.toHexString(Float.floatToIntBits(imm));
-    }
-
-    @Override
-    public String print() {
-        return "#" + imm;
     }
 
     @Override
