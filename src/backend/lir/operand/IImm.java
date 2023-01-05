@@ -1,10 +1,10 @@
 package backend.lir.operand;
 
 public class IImm extends Imm {
-    int imm;
+    private final int imm;
 
     public IImm(int imm) {
-        super(opType.IImm);
+        super(OperandKind.IImm);
         this.imm = imm;
     }
 
@@ -15,11 +15,6 @@ public class IImm extends Imm {
     @Override
     public String toHexString() {
         return Integer.toHexString(imm);
-    }
-
-    @Override
-    public String print() {
-        return "#" + imm;
     }
 
     @Override

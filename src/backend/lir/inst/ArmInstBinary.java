@@ -92,11 +92,11 @@ public class ArmInstBinary extends ArmInst {
 
     @Override
     public String print() {
-        String op = binaryMap.get(getInst());
+        String op = binaryMap.get(getKind());
         var dst = getDst();
         var lhs = getLhs();
         var rhs = getRhs();
-        String fprint = dst.IsFloat() ? ".f32" : "";
+        String fprint = dst.isFloat() ? ".f32" : "";
         Log.ensure(op != null);
         if (shift != null) {
             return "\t" + op + getCond().toString() + fprint + "\t" + dst.print() + ",\t" + lhs.print() + ",\t"

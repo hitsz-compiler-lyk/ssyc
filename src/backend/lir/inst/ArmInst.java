@@ -1,6 +1,7 @@
 package backend.lir.inst;
 
 import backend.lir.ArmBlock;
+import backend.lir.operand.FImm;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
 import utils.INode;
@@ -122,7 +123,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 case Lt -> Ge;
                 case Eq -> Ne;
                 case Ne -> Eq;
-                default -> this;
+                default -> throw new RuntimeException("Unknown cond: " + this);
             };
         }
 
@@ -132,24 +133,29 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 case Ge -> Le;
                 case Gt -> Lt;
                 case Lt -> Gt;
-                default -> this;
+                default -> throw new RuntimeException("Unknown cond: " + this);
             };
         }
     }
 
-    private ArmInstKind inst;
-    private INode<ArmInst, ArmBlock> inode;
-    private Set<Reg> regUse, regDef;
-    private List<Operand> operands;
+    private final ArmInstKind kind;
+
+    private final Set<Reg> regUse;
+    private final Set<Reg> regDef;
+    private final List<Operand> operands;
+
     private ArmCondType cond;
+
     private int printCnt;
     private String symbol;
 
-    public ArmInst(ArmInstKind inst) {
-        this.inst = inst;
+    private final INode<ArmInst, ArmBlock> inode;
+
+    protected ArmInst(ArmInstKind kind) {
+        this.kind = kind;
         this.inode = new INode<>(this);
-        this.regUse = new HashSet<>();
-        this.regDef = new HashSet<>();
+        this.regUse = new LinkedHashSet<>();
+        this.regDef = new LinkedHashSet<>();
         this.operands = new ArrayList<>();
         this.cond = ArmCondType.Any;
         this.printCnt = 0;
@@ -164,8 +170,8 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         return printCnt;
     }
 
-    public ArmInstKind getInst() {
-        return inst;
+    public ArmInstKind getKind() {
+        return kind;
     }
 
     public Set<Reg> getRegUse() {
@@ -209,7 +215,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public void initOperands(Operand... op) {
-        var defCnt = defCntMap.get(inst);
+        var defCnt = defCntMap.get(kind);
         for (int i = 0; i < op.length; i++) {
             operands.add(op[i]);
             if (i < defCnt) {
@@ -217,21 +223,32 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
             } else {
                 this.addRegUse(op[i]);
             }
-            if (op[i] instanceof Reg) {
-                ((Reg) op[i]).addInst(this);
-            }
+        }
+    }
+
+    // WIP: spill init for def/use
+    protected void initDefOperands(Operand... operands) {
+        for (final var op : operands) {
+            initOperand(regDef, op);
+        }
+    }
+
+    protected void initUseOperands(Operand... operands) {
+        for (final var op : operands) {
+            initOperand(regUse, op);
+        }
+    }
+
+    private void initOperand(Set<Reg> useOrDef, Operand op) {
+        operands.add(op);
+        if (op instanceof Reg reg) {
+            useOrDef.add(reg);
         }
     }
 
     public void replaceOperand(int idx, Operand op) {
-        var defCnt = defCntMap.get(inst);
+        var defCnt = defCntMap.get(kind);
         var oldOp = operands.get(idx);
-        if (oldOp instanceof Reg) {
-            ((Reg) oldOp).removeInst(this);
-        }
-        if (op instanceof Reg) {
-            ((Reg) op).addInst(this);
-        }
         if (idx < defCnt) {
             this.delRegDef(oldOp);
             this.addRegDef(op);
@@ -251,7 +268,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public void replaceDefOperand(Operand oldOp, Operand op) {
-        var defCnt = defCntMap.get(inst);
+        var defCnt = defCntMap.get(kind);
         for (int i = 0; i < defCnt; i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);
@@ -260,7 +277,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public void replaceUseOperand(Operand oldOp, Operand op) {
-        var defCnt = defCntMap.get(inst);
+        var defCnt = defCntMap.get(kind);
         for (int i = defCnt; i < operands.size(); i++) {
             if (operands.get(i).equals(oldOp)) {
                 this.replaceOperand(i, op);
@@ -277,15 +294,15 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     }
 
     public boolean needLtorg() {
-        return (inst.equals(ArmInstKind.MOV) && getOperand(1).IsFImm());
+        return (kind.equals(ArmInstKind.MOV) && getOperand(1) instanceof FImm);
         // || inst.equals(ArmInstKind.Branch)
         // || inst.equals(ArmInstKind.Call);
     }
 
     public boolean haveLtorg() {
-        return (inst.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any))
-                || (inst.equals(ArmInstKind.Return) && getCond().equals(ArmCondType.Any))
-                || (inst.equals(ArmInstKind.Ltorg));
+        return (kind.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any))
+                || (kind.equals(ArmInstKind.Return) && getCond().equals(ArmCondType.Any))
+                || (kind.equals(ArmInstKind.Ltorg));
     }
 
     public abstract String print();

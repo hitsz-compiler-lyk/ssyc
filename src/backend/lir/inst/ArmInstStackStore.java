@@ -57,7 +57,7 @@ public class ArmInstStackStore extends ArmInst {
         Log.ensure(offset != null, "true offset must not be null");
 
         var isVector = "";
-        if (dst.IsFloat()) {
+        if (dst.isFloat()) {
             isVector = "v";
             Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), true), "LoadParam offset illegal");
         } else {

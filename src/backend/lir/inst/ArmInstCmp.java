@@ -17,7 +17,7 @@ public class ArmInstCmp extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(lhs, rhs);
-        if (lhs.IsFloat() || rhs.IsFloat()) {
+        if (lhs.isFloat() || rhs.isFloat()) {
             this.setPrintCnt(2);
         } else {
             this.setPrintCnt(1);
@@ -47,13 +47,13 @@ public class ArmInstCmp extends ArmInst {
         var rhs = getRhs();
         var op = "cmp";
         var ret = "";
-        if (lhs.IsFloat() || rhs.IsFloat()) {
+        if (lhs.isFloat() || rhs.isFloat()) {
             op = "vcmp.f32";
         } else if (isCmn) {
             op = "cmn";
         }
         ret += "\t" + op + "\t" + lhs.print() + ",\t" + rhs.print() + "\n";
-        if (lhs.IsFloat() || rhs.IsFloat()) {
+        if (lhs.isFloat() || rhs.isFloat()) {
             ret += "\tvmrs\tAPSR_nzcv,\tfpscr\n";
         }
         return ret;

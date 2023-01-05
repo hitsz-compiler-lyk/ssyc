@@ -79,7 +79,7 @@ public class ArmInstTernay extends ArmInst {
 
     @Override
     public String print() {
-        String op = ternayMap.get(getInst());
+        String op = ternayMap.get(getKind());
         Log.ensure(op != null);
         String ret = "\t" + op + getCond().toString() + "\t" + getDst().print() + ",\t" + getOp1().print() + ",\t"
                 + getOp2().print() + ",\t" + getOp3().print() + "\n";

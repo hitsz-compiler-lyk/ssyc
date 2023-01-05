@@ -1,27 +1,29 @@
 package backend.lir.operand;
 
+import java.util.Objects;
+
 public class IVirtualReg extends Reg {
     private static int cnt = 0;
 
-    public IVirtualReg(opType s) {
-        super(s);
-    }
+    private final int id;
 
     public IVirtualReg() {
-        super(opType.IVirtual, cnt++);
-    }
-
-    public static int nowId(){
-        return cnt;
+        super(OperandKind.IVirtual);
+        this.id = cnt++;
     }
 
     @Override
-    public String print() {
-        return "@IV" + this.getId();
+    public boolean equals(Object obj) {
+        return obj instanceof IVirtualReg reg && id == reg.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
-        return "@IV" + this.getId();
+        return "@IV" + id;
     }
 }
