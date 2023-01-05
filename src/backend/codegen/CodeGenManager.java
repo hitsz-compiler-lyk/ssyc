@@ -353,7 +353,7 @@ public class CodeGenManager {
                         // MOVE VR Ri
                         // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
                         // 加到最前面防止后续load修改了r0 - r3
-                        var move = new ArmInstMove(vr, new IPhyReg(i));
+                        var move = new ArmInstMove(vr, IPhyReg.R(i));
                         func.getPrologue().asElementView().add(0, move);
                     } else if (i < icnt + fcnt) {
                         var move = new ArmInstMove(vr, new FPhyReg(i - icnt));
@@ -785,7 +785,7 @@ public class CodeGenManager {
             int finalOffset = nowOffset;
             // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
             // 越后面的参数越靠近栈顶
-            Operand addr = new IPhyReg("sp");
+            Operand addr = IPhyReg.SP;
             if (!checkOffsetRange(nowOffset, src)) {
                 for (var entry : stackAddrSet) {
                     var op = entry.key;
@@ -796,7 +796,7 @@ public class CodeGenManager {
                         break;
                     }
                 }
-                if (addr.equals(new IPhyReg("sp"))) {
+                if (addr.equals(IPhyReg.SP)) {
                     int instOffset = nowOffset / 1024 * 1024;// 负值 因此是往更大的方向
                     var vr = new IVirtualReg();
                     var stackAddr = new ArmInstStackAddr(block, vr, new IImm(instOffset));
@@ -825,16 +825,16 @@ public class CodeGenManager {
             offsetOp = resolveIImmOperand(offset, block, func);
         }
         for (int i = icnt - 1; i >= 0; i--) {
-            new ArmInstMove(block, new IPhyReg(i), argOp.get(i));
+            new ArmInstMove(block, IPhyReg.R(i), argOp.get(i));
         }
         if (finalArg.size() > icnt + fcnt) {
             // SUB SP SP (inst.args.size() - 4) * 4
-            new ArmInstBinary(block, ArmInstKind.ISub, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
+            new ArmInstBinary(block, ArmInstKind.ISub, IPhyReg.SP, IPhyReg.SP, offsetOp);
         }
         new ArmInstCall(block, funcMap.get(inst.getCallee()));
         if (finalArg.size() > icnt + fcnt) {
             // ADD SP SP (inst.args.size() - 4) * 4
-            new ArmInstBinary(block, ArmInstKind.IAdd, new IPhyReg("sp"), new IPhyReg("sp"), offsetOp);
+            new ArmInstBinary(block, ArmInstKind.IAdd, IPhyReg.SP, IPhyReg.SP, offsetOp);
         }
         if (!inst.getType().isVoid()) {
             var dst = resolveLhsOperand(inst, block, func);
@@ -846,7 +846,7 @@ public class CodeGenManager {
             } else if (inst.getType().isInt()) {
                 // 否则用r0来保存数据
                 // MOV inst R0
-                new ArmInstMove(block, dst, new IPhyReg("r0"));
+                new ArmInstMove(block, dst, IPhyReg.R(0));
             }
         }
     }
@@ -862,7 +862,7 @@ public class CodeGenManager {
                 new ArmInstMove(block, new FPhyReg("s0"), srcReg);
             } else {
                 // VMOV R0 inst.getReturnValue()
-                new ArmInstMove(block, new IPhyReg("r0"), srcReg);
+                new ArmInstMove(block, IPhyReg.R(0), srcReg);
             }
 
         }
@@ -1019,16 +1019,16 @@ public class CodeGenManager {
         int size = inst.getInit().getType().getSize();
         if (ac instanceof ZeroArrayConst) {
             var imm = resolveIImmOperand(size, block, func);
-            new ArmInstMove(block, new IPhyReg("r0"), dst);
-            new ArmInstMove(block, new IPhyReg("r1"), new IImm(0));
-            new ArmInstMove(block, new IPhyReg("r2"), imm);
+            new ArmInstMove(block, IPhyReg.R(0), dst);
+            new ArmInstMove(block, IPhyReg.R(1), new IImm(0));
+            new ArmInstMove(block, IPhyReg.R(2), imm);
             new ArmInstCall(block, "memset", 3, 0, false);
         } else {
             var src = resolveOperand(ac, block, func);
             var imm = resolveIImmOperand(size, block, func);
-            new ArmInstMove(block, new IPhyReg("r0"), dst);
-            new ArmInstMove(block, new IPhyReg("r1"), src);
-            new ArmInstMove(block, new IPhyReg("r2"), imm);
+            new ArmInstMove(block, IPhyReg.R(0), dst);
+            new ArmInstMove(block, IPhyReg.R(1), src);
+            new ArmInstMove(block, IPhyReg.R(2), imm);
             new ArmInstCall(block, "memcpy", 3, 0, false);
         }
     }
@@ -1188,7 +1188,7 @@ public class CodeGenManager {
                 } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
                     prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
                 } else {
-                    var move = new ArmInstMove(new IPhyReg("r4"), new IImm(stackSize));
+                    var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
                     prologuePrint += move.print();
                     prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
                 }
@@ -1368,7 +1368,7 @@ public class CodeGenManager {
                     var paramLoad = (ArmInstParamLoad) inst;
                     int trueOffset = paramLoad.getOffset().getImm() + stackSize + 4 * regCnt;
                     if (!checkOffsetRange(trueOffset, paramLoad.getDst())) {
-                        if (paramLoad.getAddr().equals(new IPhyReg("sp"))) {
+                        if (paramLoad.getAddr().equals(IPhyReg.SP)) {
                             isFix = true;
                             for (var entry : stackAddrMap.entrySet()) {
                                 var offset = entry.getKey();
@@ -1381,7 +1381,7 @@ public class CodeGenManager {
                                     break;
                                 }
                             }
-                            if (paramLoad.getAddr().equals(new IPhyReg("sp"))) {
+                            if (paramLoad.getAddr().equals(IPhyReg.SP)) {
                                 int addrTrueOffset = trueOffset / 1024 * 1024;
                                 var vr = new IVirtualReg();
                                 int instOffset = stackSize - addrTrueOffset;
@@ -1411,7 +1411,7 @@ public class CodeGenManager {
                     Log.ensure(stackMap.containsKey(stackLoad.getOffset().getImm()), "stack offset not present");
                     int trueOffset = stackMap.get(stackLoad.getOffset().getImm());
                     if (!checkOffsetRange(trueOffset, stackLoad.getDst())) {
-                        if (stackLoad.getAddr().equals(new IPhyReg("sp"))) {
+                        if (stackLoad.getAddr().equals(IPhyReg.SP)) {
                             isFix = true;
                             for (var entry : stackAddrMap.entrySet()) {
                                 var offset = entry.getKey();
@@ -1424,7 +1424,7 @@ public class CodeGenManager {
                                     break;
                                 }
                             }
-                            if (stackLoad.getAddr().equals(new IPhyReg("sp"))) {
+                            if (stackLoad.getAddr().equals(IPhyReg.SP)) {
                                 int addrTrueOffset = trueOffset / 1024 * 1024;
                                 var vr = new IVirtualReg();
                                 int instOffset = stackSize - addrTrueOffset;
@@ -1454,7 +1454,7 @@ public class CodeGenManager {
                     Log.ensure(stackMap.containsKey(stackStore.getOffset().getImm()), "stack offset not present");
                     int trueOffset = stackMap.get(stackStore.getOffset().getImm());
                     if (!checkOffsetRange(trueOffset, stackStore.getDst())) {
-                        if (stackStore.getAddr().equals(new IPhyReg("sp"))) {
+                        if (stackStore.getAddr().equals(IPhyReg.SP)) {
                             isFix = true;
                             for (var entry : stackAddrMap.entrySet()) {
                                 var offset = entry.getKey();
@@ -1468,7 +1468,7 @@ public class CodeGenManager {
                                     break;
                                 }
                             }
-                            if (stackStore.getAddr().equals(new IPhyReg("sp"))) {
+                            if (stackStore.getAddr().equals(IPhyReg.SP)) {
                                 int addrTrueOffset = trueOffset / 1024 * 1024;
                                 var vr = new IVirtualReg();
                                 int instOffset = stackSize - addrTrueOffset;
@@ -1551,7 +1551,7 @@ public class CodeGenManager {
                 }
                 if (inst instanceof ArmInstParamLoad) {
                     var load = (ArmInstParamLoad) inst;
-                    if (!load.getAddr().equals(new IPhyReg("sp"))) {
+                    if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
                     if (!load.getDst().IsVirtual()) {
@@ -1589,7 +1589,7 @@ public class CodeGenManager {
                 }
                 if (inst instanceof ArmInstStackLoad) {
                     var load = (ArmInstStackLoad) inst;
-                    if (!load.getAddr().equals(new IPhyReg("sp"))) {
+                    if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
                     if (!load.getDst().IsVirtual()) {
@@ -1608,7 +1608,7 @@ public class CodeGenManager {
                 }
                 if (inst instanceof ArmInstStackStore) {
                     var store = (ArmInstStackStore) inst;
-                    if (!store.getAddr().equals(new IPhyReg("sp"))) {
+                    if (!store.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
                     if (!store.getDst().IsVirtual()) {
@@ -1644,8 +1644,8 @@ public class CodeGenManager {
             if (i == 13) {
                 continue;
             }
-            if (regs.contains(new IPhyReg(i))) {
-                iUseRegs.add(new IPhyReg(i));
+            if (regs.contains(IPhyReg.R(i))) {
+                iUseRegs.add(IPhyReg.R(i));
             }
         }
     }

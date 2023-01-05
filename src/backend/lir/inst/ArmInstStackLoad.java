@@ -17,14 +17,14 @@ public class ArmInstStackLoad extends ArmInst {
     public ArmInstStackLoad(ArmBlock block, Operand dst, IImm offset) {
         super(ArmInstKind.StackLoad);
         block.asElementView().add(this);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }
 
     public ArmInstStackLoad(Operand dst, IImm offset) {
         super(ArmInstKind.StackLoad);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         this.setPrintCnt(1);
         this.trueOffset = null;
     }

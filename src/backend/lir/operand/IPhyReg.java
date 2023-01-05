@@ -4,49 +4,35 @@ import utils.Log;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class IPhyReg extends Reg {
-    private String name;
+    private final int id;
 
-    private static final Map<Integer, String> idNameMap = new HashMap<>() {
+    public static final IPhyReg SP = new IPhyReg(13);
+    public static final IPhyReg LR = new IPhyReg(14);
+    public static final IPhyReg PC = new IPhyReg(15);
+    public static final IPhyReg CSPR = new IPhyReg(16);
+
+    private static final Map<Integer, IPhyReg> phyRegs = new HashMap<>() {
         {
             for (int i = 0; i <= 12; i++) {
-                put(i, "r" + i);
+                put(i, new IPhyReg(i));
             }
-            put(13, "sp");
-            put(14, "lr");
-            put(15, "pc");
-            put(16, "cspr");
+            put(13, SP);
+            put(14, LR);
+            put(15, PC);
         }
     };
 
-    private static final Map<String, Integer> nameIdMap = new HashMap<>() {
-        {
-            for (int i = 0; i <= 15; i++) {
-                put("r" + i, i);
-            }
-            put("sp", 13);
-            put("lr", 14);
-            put("pc", 15);
-            put("cspr", 16);
-        }
-    };
-
-    public IPhyReg(opType s) {
-        super(s);
+    public static IPhyReg R(int n) {
+        Log.ensure(0 <= n && n <= 15, "only r0 - r15 exists");
+        return phyRegs.get(n);
     }
 
-    public IPhyReg(int n) {
-        super(opType.IPhy, n);
-        this.name = idNameMap.get(n);
-        Log.ensure(this.name != null);
-    }
-
-    public IPhyReg(String name) {
+    private IPhyReg(int id) {
         super(opType.IPhy);
-        Log.ensure(nameIdMap.get(name) != null);
-        this.setId(nameIdMap.get(name));
-        this.name = name;
+        this.id = id;
     }
 
     public boolean isCallerSave() {
@@ -61,13 +47,35 @@ public class IPhyReg extends Reg {
         return !this.isCallerSave() && !this.isSpecial();
     }
 
+    public String getName() {
+        return switch (id) {
+            case 13 -> "sp";
+            case 14 -> "lr";
+            case 15 -> "pc";
+            case 16 -> "cspr";
+            default -> "r" + id;
+        };
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        // 没有创建新 IPhyReg 的方法, equals 的判断直接用 == 就可以了
+        return o == this;
+    }
+
+    @Override
+    public int hashCode() {
+        // 没有创建新 IPhyReg 的方法, equals 的判断直接用指针类似物就可以了
+        return System.identityHashCode(this);
+    }
+
     @Override
     public String print() {
-        return name;
+        return getName();
     }
 
     @Override
     public String toString() {
-        return name;
+        return getName();
     }
 }

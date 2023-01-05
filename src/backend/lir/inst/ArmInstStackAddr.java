@@ -19,7 +19,7 @@ public class ArmInstStackAddr extends ArmInst {
     public ArmInstStackAddr(ArmBlock block, Operand dst, IImm offset) {
         super(ArmInstKind.StackAddr);
         block.asElementView().add(this);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         if (CodeGenManager.checkEncodeImm(Math.abs(offset.getImm()))) {
             this.setPrintCnt(1);
         } else {
@@ -31,7 +31,7 @@ public class ArmInstStackAddr extends ArmInst {
 
     public ArmInstStackAddr(Operand dst, IImm offset) {
         super(ArmInstKind.StackAddr);
-        this.initOperands(dst, new IPhyReg("sp"), offset);
+        this.initOperands(dst, IPhyReg.SP, offset);
         if (CodeGenManager.checkEncodeImm(Math.abs(offset.getImm()))) {
             this.setPrintCnt(1);
         } else {

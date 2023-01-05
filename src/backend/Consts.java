@@ -14,9 +14,9 @@ public class Consts {
     public static final List<Reg> allocableRegs = new ArrayList<>() {
         {
             for (int i = 0; i <= 12; i++) {
-                add(new IPhyReg(i));
+                add(IPhyReg.R(i));
             }
-            add(new IPhyReg(14));
+            add(IPhyReg.LR);
 
             for (int i = 0; i <= 31; i++) {
                 add(new FPhyReg(i));
@@ -26,9 +26,9 @@ public class Consts {
     public static final List<IPhyReg> allocableIRegs = new ArrayList<>() {
         {
             for (int i = 0; i <= 12; i++) {
-                add(new IPhyReg(i));
+                add(IPhyReg.R(i));
             }
-            add(new IPhyReg(14));
+            add(IPhyReg.LR);
         }
     };
     public static final List<FPhyReg> allocableFRegs = new ArrayList<>() {
