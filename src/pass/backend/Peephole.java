@@ -1,11 +1,12 @@
 package pass.backend;
 
-import backend.arm.*;
-import backend.arm.ArmInst.ArmInstKind;
+import backend.lir.*;
+import backend.lir.inst.ArmInst.ArmInstKind;
+import backend.lir.inst.*;
 import backend.codegen.CodeGenManager;
-import backend.operand.IImm;
-import backend.operand.Operand;
-import backend.operand.Reg;
+import backend.lir.operand.IImm;
+import backend.lir.operand.Operand;
+import backend.lir.operand.Reg;
 import utils.Log;
 import utils.Pair;
 

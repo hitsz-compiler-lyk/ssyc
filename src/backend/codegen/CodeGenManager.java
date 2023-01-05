@@ -1,9 +1,10 @@
 package backend.codegen;
 
-import backend.arm.*;
-import backend.arm.ArmInst.ArmCondType;
-import backend.arm.ArmInst.ArmInstKind;
-import backend.operand.*;
+import backend.lir.*;
+import backend.lir.inst.ArmInst.ArmCondType;
+import backend.lir.inst.ArmInst.ArmInstKind;
+import backend.lir.inst.*;
+import backend.lir.operand.*;
 import backend.regallocator.RegAllocator;
 import backend.regallocator.SimpleGraphColoring;
 import ir.Module;

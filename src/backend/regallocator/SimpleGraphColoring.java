@@ -1,8 +1,9 @@
 package backend.regallocator;
 
 import backend.Consts;
-import backend.arm.*;
-import backend.operand.*;
+import backend.lir.*;
+import backend.lir.inst.*;
+import backend.lir.operand.*;
 import utils.Log;
 import utils.Pair;
 

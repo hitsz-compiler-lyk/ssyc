@@ -1,7 +1,7 @@
 package backend.regallocator;
 
-import backend.arm.ArmFunction;
-import backend.operand.Reg;
+import backend.lir.ArmFunction;
+import backend.lir.operand.Reg;
 
 import java.util.Map;
 
