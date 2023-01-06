@@ -7,6 +7,7 @@ import backend.codegen.CodeGenManager;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
+import ir.Module;
 import utils.Log;
 import utils.Pair;
 
@@ -15,9 +16,9 @@ import java.util.Map;
 
 public class Peephole implements BackendPass {
 
-    private boolean peepholePass(CodeGenManager manager) {
+    private boolean peepholePass(ArmModule module) {
         boolean done = true;
-        for (var func : manager.getFunctions()) {
+        for (var func : module.getFunctions()) {
             for (var block : func.asElementView()) {
                 var live = calcBlockLiveRange(block);
                 for (var inst : block.asElementView()) {
@@ -282,9 +283,9 @@ public class Peephole implements BackendPass {
         return ret;
     }
 
-    private boolean clearNotUseInst(CodeGenManager manager) {
+    private boolean clearNotUseInst(ArmModule module) {
         boolean done = true;
-        for (var func : manager.getFunctions()) {
+        for (var func : module.getFunctions()) {
             for (var block : func.asElementView()) {
                 Map<Operand, ArmInst> instMap = new HashMap<>();
                 for (var inst : block.asElementView()) {
@@ -317,13 +318,13 @@ public class Peephole implements BackendPass {
     }
 
     @Override
-    public void runPass(CodeGenManager manager) {
-        clearNotUseInst(manager);
+    public void runPass(ArmModule module) {
+        clearNotUseInst(module);
         boolean done = false;
         while (!done) {
             done = true;
-            done &= peepholePass(manager);
-            done &= clearNotUseInst(manager);
+            done &= peepholePass(module);
+            done &= clearNotUseInst(module);
         }
     }
 
