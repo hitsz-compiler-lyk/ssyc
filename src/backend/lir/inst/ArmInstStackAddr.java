@@ -103,33 +103,4 @@ public class ArmInstStackAddr extends ArmInst {
     public void replaceOffset(Operand addr) {
         this.replaceOperand(2, addr);
     }
-
-    @Override
-    public String print() {
-        var dst = getDst();
-        var src = getSrc();
-        var offset = getOffset();
-        if (trueOffset != null) {
-            offset = trueOffset;
-        }
-        int imm = Math.abs(offset.getImm());
-        if (!isCAlloc) {
-            Log.ensure((imm % 1024) == 0, "offset must be %1024 ==0");
-        }
-        String op = "add";
-        if (offset.getImm() < 0) {
-            op = "sub";
-        }
-        if (CodeGenManager.checkEncodeImm(imm)) {
-            return "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + ",\t#"
-                    + imm + "\n";
-        } else {
-            var move = new ArmInstMove(dst, new IImm(imm));
-            move.setCond(getCond());
-            return move.print() +
-                    "\t" + op + getCond().toString() + "\t" + dst.print() + ",\t" + src.print() + ",\t" + dst.print()
-                    + "\n";
-        }
-    }
-
 }

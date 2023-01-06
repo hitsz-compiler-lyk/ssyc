@@ -40,23 +40,4 @@ public class ArmInstCmp extends ArmInst {
     public boolean isCmn() {
         return isCmn;
     }
-
-    @Override
-    public String print() {
-        var lhs = getLhs();
-        var rhs = getRhs();
-        var op = "cmp";
-        var ret = "";
-        if (lhs.isFloat() || rhs.isFloat()) {
-            op = "vcmp.f32";
-        } else if (isCmn) {
-            op = "cmn";
-        }
-        ret += "\t" + op + "\t" + lhs.print() + ",\t" + rhs.print() + "\n";
-        if (lhs.isFloat() || rhs.isFloat()) {
-            ret += "\tvmrs\tAPSR_nzcv,\tfpscr\n";
-        }
-        return ret;
-    }
-
 }

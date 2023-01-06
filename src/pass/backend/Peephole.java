@@ -224,7 +224,7 @@ public class Peephole implements BackendPass {
                                 } else {
                                     add = binary.getLhs();
                                 }
-                                var ternay = new ArmInstTernay(ArmInstKind.IMulAdd, binary.getDst(), binary2.getLhs(),
+                                var ternay = new ArmInstTernary(ArmInstKind.IMulAdd, binary.getDst(), binary2.getLhs(),
                                         binary2.getRhs(), add, binary.getCond());
                                 binary2.insertBeforeCO(ternay);
                                 binary2.freeFromIList();
@@ -245,7 +245,7 @@ public class Peephole implements BackendPass {
                             boolean noImm = binary2.getLhs().isReg() && binary2.getRhs().isReg()
                                     && binary.getLhs().isReg() && binary.getRhs().isReg();
                             if (isEqualRhs && isNoShift && isMul && isNoCond && canFix && noImm) {
-                                var ternay = new ArmInstTernay(ArmInstKind.IMulSub, binary.getDst(), binary2.getLhs(),
+                                var ternay = new ArmInstTernary(ArmInstKind.IMulSub, binary.getDst(), binary2.getLhs(),
                                         binary2.getRhs(), binary.getLhs(), binary.getCond());
                                 binary2.insertBeforeCO(ternay);
                                 binary2.freeFromIList();

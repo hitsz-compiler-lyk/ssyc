@@ -117,28 +117,4 @@ public class ArmInstStore extends ArmInst {
     public void setShift(ArmShift shift) {
         this.shift = shift;
     }
-
-
-    @Override
-    public String print() {
-        var src = getSrc();
-        var addr = getAddr();
-        var offset = getOffset();
-        Log.ensure(!(addr instanceof Addr), "str a actual addr");
-
-        var isVector = "";
-        if (src.isFloat()) {
-            isVector = "v";
-        }
-        if (offset.equals(new IImm(0))) {
-            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print() + "]\n";
-        } else if (shift != null) {
-            Log.ensure(offset.isReg(), "offset must be reg");
-            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print()
-                    + ",\t" + offset.print() + shift.toString() + "]\n";
-        } else {
-            return "\t" + isVector + "str" + getCond().toString() + "\t" + src.print() + ",\t[" + addr.print()
-                    + ",\t" + offset.print() + "]\n";
-        }
-    }
 }

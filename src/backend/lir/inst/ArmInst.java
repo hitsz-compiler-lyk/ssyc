@@ -1,9 +1,12 @@
 package backend.lir.inst;
 
+import backend.codegen.InstToAsm;
+import backend.codegen.ToAsmManager;
 import backend.lir.ArmBlock;
 import backend.lir.operand.FImm;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
+import backend.lir.visitor.ArmInstVisitor;
 import utils.INode;
 import utils.INodeOwner;
 import utils.Log;
@@ -52,7 +55,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 put(kind, 1);
             }
 
-            // ArmInstTernay
+            // ArmInstTernary
             for (var kind : Arrays.asList(ArmInstKind.IMulAdd, ArmInstKind.IMulSub, ArmInstKind.ILMulAdd,
                     ArmInstKind.ILMulSub, ArmInstKind.FMulAdd, ArmInstKind.FMulSub)) {
                 put(kind, 1);
@@ -305,10 +308,8 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 || (kind.equals(ArmInstKind.Ltorg));
     }
 
-    public abstract String print();
-
     public void InitSymbol() {
-        var sb = new StringBuffer("@" + print());
+        var sb = new StringBuilder("@" + new InstToAsm().visit(this));
         int p = sb.indexOf("\n");
         while (p != sb.length() - 1 && p != -1) {
             sb.insert(p + 1, "@");

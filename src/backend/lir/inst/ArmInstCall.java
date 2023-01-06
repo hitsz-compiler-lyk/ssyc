@@ -70,6 +70,8 @@ public class ArmInstCall extends ArmInst {
         this.setPrintCnt(1);
     }
 
+    public ArmFunction getFunc() { return func; }
+
     public void setFunc(ArmFunction func) {
         this.func = func;
     }
@@ -92,18 +94,5 @@ public class ArmInstCall extends ArmInst {
             ret.add(FPhyReg.S(i));
         }
         return ret;
-    }
-
-    @Override
-    public String print() {
-        // String ret = "\tmov\tlr,\tpc\n";
-        // if (!StringUtils.isEmpty(funcName)) {
-        // return ret + "\t" + "ldr" + "\tpc,\t=" + funcName + "\n";
-        // }
-        // return ret + "\t" + "ldr" + "\tpc,\t=" + func.getName() + "\n";
-        if (!StringUtils.isEmpty(funcName)) {
-            return "\t" + "bl" + getCond().toString() + "\t" + funcName + "\n";
-        }
-        return "\t" + "bl" + getCond().toString() + "\t" + func.getName() + "\n";
     }
 }
