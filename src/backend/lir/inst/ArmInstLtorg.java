@@ -13,12 +13,7 @@ public class ArmInstLtorg extends ArmInst {
         this.setPrintCnt(3);
     }
 
-    @Override
-    public String print() {
-        String ret = "\tb\t" + label + "\n";
-        ret += ".ltorg\n";
-        ret += label + ":\n";
-        return ret;
+    public String getLabel() {
+        return label;
     }
-
 }

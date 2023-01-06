@@ -580,7 +580,7 @@ public class CodeGenManager {
                     new ArmInstBinary(block, ArmInstKind.ISub, dstReg, lhsReg, vr2);
                 } else {
                     rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会再Ternay变成 lhs
-                    new ArmInstTernay(block, ArmInstKind.IMulSub, dstReg, vr, rhsReg, lhsReg);
+                    new ArmInstTernary(block, ArmInstKind.IMulSub, dstReg, vr, rhsReg, lhsReg);
                 }
                 break;
             }
@@ -732,7 +732,7 @@ public class CodeGenManager {
                     var imm = resolveLhsIImmOperand(length, block, func);
                     // MLA inst dim.get(i) indices.get(i) 当前地址
                     // inst = dim.get(i)*indices.get(i) + 当前地址
-                    new ArmInstTernay(block, ArmInstKind.IMulAdd, dst, offset, imm, arr);
+                    new ArmInstTernary(block, ArmInstKind.IMulAdd, dst, offset, imm, arr);
                 }
 
                 if (i != indices.size() - 1) {
@@ -1189,7 +1189,7 @@ public class CodeGenManager {
                     prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
                 } else {
                     var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
-                    prologuePrint += move.print();
+                    prologuePrint += new InstToAsm().visitArmInstMove(move);
                     prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
                 }
             }
@@ -1199,11 +1199,7 @@ public class CodeGenManager {
             for (var block : func.asElementView()) {
                 arm.append(block.getLabel() + ":\n");
                 for (var inst : block.asElementView()) {
-                    arm.append(inst.print());
-                    // if (inst.getSymbol() == null) {
-                    // inst.InitSymbol();
-                    // }
-                    // arm.append(inst.getSymbol());
+                    arm.append(new InstToAsm().visit(inst));
                 }
             }
         }
@@ -1744,7 +1740,7 @@ public class CodeGenManager {
             var vn = resolveLhsIImmOperand(n, block, func);
             var vr = new IVirtualReg();
             if (m >= 2147483648L) {
-                new ArmInstTernay(block, ArmInstKind.ILMulAdd, vr, src, vn, src);
+                new ArmInstTernary(block, ArmInstKind.ILMulAdd, vr, src, vn, src);
             } else {
                 new ArmInstBinary(block, ArmInstKind.ILMul, vr, src, vn);
             }

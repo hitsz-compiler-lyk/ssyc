@@ -52,27 +52,4 @@ public class ArmInstParamLoad extends ArmInst {
     public void replaceAddr(Operand addr) {
         this.replaceOperand(1, addr);
     }
-
-    @Override
-    public String print() {
-        var dst = getDst();
-        var addr = getAddr();
-        var offset = trueOffset;
-        Log.ensure(offset != null, "true offset must not be null");
-
-        var isVector = "";
-        if (dst.isFloat()) {
-            isVector = "v";
-            Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), true), "LoadParam offset illegal");
-        } else {
-            Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), false), "LoadParam offset illegal");
-        }
-
-        if (offset.equals(new IImm(0))) {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print() + "]\n";
-        }
-        return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
-                + ",\t" + offset.print() + "]\n";
-    }
-
 }

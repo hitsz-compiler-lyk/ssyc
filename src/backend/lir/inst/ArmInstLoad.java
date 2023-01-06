@@ -142,7 +142,6 @@ public class ArmInstLoad extends ArmInst {
 
     public void replaceOffset(Operand op) {
         this.replaceOperand(2, op);
-        ;
     }
 
     public ArmShift getShift() {
@@ -152,34 +151,4 @@ public class ArmInstLoad extends ArmInst {
     public void setShift(ArmShift shift) {
         this.shift = shift;
     }
-
-    @Override
-    public String print() {
-        var dst = getDst();
-        var addr = getAddr();
-        var offset = getOffset();
-
-        var isVector = "";
-        if (dst.isFloat()) {
-            isVector = "v";
-        }
-
-        if (addr instanceof Addr) {
-            Log.ensure(!dst.isFloat(), "load addr into vfp");
-            // return "\tldr" + getCond().toString() + "\t" + dst.print() + ",\t=" +
-            // addr.print() + "\n";
-            return "\tmovw" + getCond().toString() + "\t" + dst.print() + ",\t:lower16:" + addr.print() + "\n" +
-                    "\tmovt" + getCond().toString() + "\t" + dst.print() + ",\t:upper16:" + addr.print() + "\n";
-        } else if (offset.equals(new IImm(0))) {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print() + "]\n";
-        } else if (shift != null) {
-            Log.ensure(offset.isReg(), "offset must be reg");
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
-                    + ",\t" + offset.print() + shift.toString() + "]\n";
-        } else {
-            return "\t" + isVector + "ldr" + getCond().toString() + "\t" + dst.print() + ",\t[" + addr.print()
-                    + ",\t" + offset.print() + "]\n";
-        }
-    }
-
 }
