@@ -1,5 +1,6 @@
 package pass.backend;
 
+import backend.lir.ArmModule;
 import backend.lir.inst.ArmInst;
 import backend.lir.inst.ArmInstBranch;
 import backend.lir.inst.ArmInstCmp;
@@ -9,8 +10,8 @@ import backend.codegen.CodeGenManager;
 public class BranchToCond implements BackendPass {
 
     @Override
-    public void runPass(CodeGenManager manager) {
-        for (var func : manager.getFunctions()) {
+    public void runPass(ArmModule module) {
+        for (var func : module.getFunctions()) {
             for (var block : func.asElementView()) {
                 for (var inst : block.asElementView()) {
                     if (inst instanceof ArmInstBranch) {

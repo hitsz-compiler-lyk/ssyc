@@ -1,4 +1,5 @@
 import backend.codegen.CodeGenManager;
+import backend.codegen.ToAsmManager;
 import frontend.IRGen;
 import frontend.SysYLexer;
 import frontend.SysYParser;
@@ -118,13 +119,15 @@ public class Main {
                 final var codeGenManager = new CodeGenManager();
                 codeGenManager.genArm(module);
                 codeGenManager.regAllocate();
+                final var armModule = codeGenManager.getArmModule();
 
                 if (needOptimize) {
-                    final var BackendPass = new BackendPassManager(codeGenManager);
+                    final var BackendPass = new BackendPassManager(armModule);
                     BackendPass.runAllPasses();
                 }
 
-                writer.append(codeGenManager.codeGenArm());
+                final var asm = new ToAsmManager(armModule).codeGenArm();
+                writer.append(asm);
                 writer.close();
             }
 
