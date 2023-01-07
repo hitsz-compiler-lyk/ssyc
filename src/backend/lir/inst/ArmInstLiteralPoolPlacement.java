@@ -1,13 +1,13 @@
 package backend.lir.inst;
 
-public class ArmInstLtorg extends ArmInst {
+public class ArmInstLiteralPoolPlacement extends ArmInst {
     private String label;
 
-    public ArmInstLtorg(ArmInstKind inst) {
+    public ArmInstLiteralPoolPlacement(ArmInstKind inst) {
         super(inst);
     }
 
-    public ArmInstLtorg(String label) {
+    public ArmInstLiteralPoolPlacement(String label) {
         super(ArmInstKind.Ltorg);
         this.label = label;
         this.setPrintCnt(3);

@@ -10,11 +10,9 @@ import backend.lir.inst.ArmInst.ArmInstKind;
 import backend.lir.operand.*;
 import backend.lir.visitor.ArmInstVisitor;
 import ir.GlobalVar;
-import ir.constant.ArrayConst;
+import ir.constant.*;
 import ir.constant.ArrayConst.ZeroArrayConst;
-import ir.constant.Constant;
-import ir.constant.FloatConst;
-import ir.constant.IntConst;
+import ir.visitor.ConstantVisitor;
 import utils.Log;
 
 import java.util.*;
@@ -24,6 +22,7 @@ public class ToAsmManager {
     private final ArmModule module;
     private final AsmBuilder asm;
     private final InstToAsm instVisitor = new InstToAsm();
+    private final InitConstToAsm initConstToAsmVisitor = new InitConstToAsm();
 
     public ToAsmManager(ArmModule module) {
         this.module = module;
@@ -56,95 +55,126 @@ public class ToAsmManager {
         asm.newline();
         asm.directive("text");
 
-        for (var func : module.getFunctions()) {
+        for (final var func : module.getFunctions()) {
             asm.directive("global", func.getName());
             asm.block(func.getName());
 
-            var iuse = new StringBuilder();
-            var first = true;
-            for (var reg : func.getiUsedRegs()) {
-                if (!first) {
-                    iuse.append(", ");
-                }
-                iuse.append(reg.print());
-                first = false;
-            }
+            codeGenRegPushAtFuncBegin(func);
+            codeGenStackAllocAtFuncBegin(func);
 
-            var fuse1 = new StringBuilder();
-            var fuse2 = new StringBuilder();
-            var fusedList = func.getfUsedRegs();
-            first = true;
-            for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
-                var reg = fusedList.get(i);
-                if (!first) {
-                    fuse1.append(", ");
-                }
-                fuse1.append(reg.print());
-                first = false;
-            }
-            first = true;
-            for (int i = 16; i < fusedList.size(); i++) {
-                var reg = fusedList.get(i);
-                if (!first) {
-                    fuse2.append(", ");
-                }
-                fuse2.append(reg.print());
-                first = false;
-            }
-
-            if (!func.getiUsedRegs().isEmpty()) {
-                asm.instruction("push")
-                    .literal("{" + iuse + "}")
-                    .end();
-            }
-
-            if (fuse1.length() != 0) {
-                asm.instruction("vpush")
-                    .literal("{" + fuse1 + "}")
-                    .end();
-            }
-
-            if (fuse2.length() != 0) {
-                asm.instruction("vpush")
-                    .literal("{" + fuse2 + "}")
-                    .end();
-            }
-
-            final var stackSize = func.getFinalstackSize();
-            if (stackSize > 0) {
-                if (CodeGenManager.checkEncodeImm(stackSize)) {
-                    asm.instruction("sub")
-                        .literal("sp")
-                        .literal("sp")
-                        .literal(stackSize)
-                        .end();
-                } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                    asm.instruction("add")
-                        .literal("sp")
-                        .literal("sp")
-                        .literal(stackSize)
-                        .end();
-                } else {
-                    var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
-                    instVisitor.visitArmInstMove(move);
-                    asm.instruction("sub")
-                        .literal("sp")
-                        .literal("sp")
-                        .literal("r4")
-                        .end();
-                }
-            }
-
-            fixLtorg(func);
-            for (var block : func.asElementView()) {
+            placeLiteralPool(func);
+            for (final var block : func) {
                 asm.block(block);
-                for (var inst : block.asElementView()) {
-                    instVisitor.visit(inst);
-                }
+                block.forEach(instVisitor::visit);
             }
         }
 
         return asm.getBuilder();
+    }
+
+    private void codeGenStackAllocAtFuncBegin(ArmFunction func) {
+        genStackOpAroundFunc(func, "sub", ArmCondType.Any);
+    }
+
+    private void codeGenStackFreeAtFuncEnd(ArmInstReturn inst, ArmFunction func) {
+        genStackOpAroundFunc(func, "add", inst.getCond());
+    }
+
+    private void genStackOpAroundFunc(ArmFunction func, String opForSP, ArmCondType cond) {
+        final var negOpForSP = switch (opForSP) {
+            case "add" -> "sub";
+            case "sub" -> "add";
+            default -> throw new RuntimeException("Unsupported op: " + opForSP);
+        };
+
+        final var stackSize = func.getFinalstackSize();
+        if (stackSize > 0) {
+            if (CodeGenManager.checkEncodeImm(stackSize)) {
+                asm.instruction(opForSP).cond(cond)
+                    .literal("sp")
+                    .literal("sp")
+                    .literal(stackSize)
+                    .end();
+            } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
+                asm.instruction(negOpForSP).cond(cond)
+                    .literal("sp")
+                    .literal("sp")
+                    .literal(stackSize)
+                    .end();
+            } else {
+                var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
+                instVisitor.visitArmInstMove(move);
+                asm.instruction(opForSP).cond(cond)
+                    .literal("sp")
+                    .literal("sp")
+                    .literal("r4")
+                    .end();
+            }
+        }
+    }
+
+    private void codeGenRegPushAtFuncBegin(ArmFunction func) {
+        final var usedRegs = spillUsedPhyRegsForPushOrPop(func);
+
+        if (!usedRegs.iRegs.isEmpty()) {
+            asm.instruction("push")
+                .group(usedRegs.iRegs.toArray(Operand[]::new))
+                .end();
+        }
+
+        if (!usedRegs.fRegsFront.isEmpty()) {
+            asm.instruction("vpush")
+                .group(usedRegs.fRegsFront.toArray(Operand[]::new))
+                .end();
+        }
+
+        if (!usedRegs.fRegBack.isEmpty()) {
+            asm.instruction("vpush")
+                .group(usedRegs.fRegBack.toArray(Operand[]::new))
+                .end();
+        }
+    }
+
+    private void codeGenRegPopAtFuncEnd(ArmInstReturn inst, ArmFunction func) {
+        final var usedRegs = spillUsedPhyRegsForPushOrPop(func);
+
+        if (!usedRegs.fRegBack.isEmpty()) {
+            asm.instruction("vpop").cond(inst)
+                .group(usedRegs.fRegBack.toArray(Operand[]::new))
+                .end();
+        }
+
+        if (!usedRegs.fRegsFront.isEmpty()) {
+            asm.instruction("vpop").cond(inst)
+                .group(usedRegs.fRegsFront.toArray(Operand[]::new))
+                .end();
+        }
+
+        if (!usedRegs.iRegs.isEmpty()) {
+            usedRegs.iRegs.replaceAll(reg -> reg.equals(IPhyReg.LR) ? IPhyReg.PC : reg);
+            asm.instruction("pop").cond(inst)
+                .group(usedRegs.iRegs.toArray(Operand[]::new))
+                .end();
+        }
+    }
+
+    record UsedPhyRegs(List<IPhyReg> iRegs, List<FPhyReg> fRegsFront, List<FPhyReg> fRegBack) {}
+    private UsedPhyRegs spillUsedPhyRegsForPushOrPop(ArmFunction func) {
+        final var usedIPhyReg = func.getiUsedRegs();
+        final var usedFPhyReg = func.getfUsedRegs();
+
+        final var maxRegInAPop = 16;
+        final List<FPhyReg> usedFPhyRegFront;
+        final List<FPhyReg> usedFPhyRegBack;
+        if (usedFPhyReg.size() <= maxRegInAPop) {
+            usedFPhyRegFront = usedFPhyReg;
+            usedFPhyRegBack = List.of();
+        } else {
+            usedFPhyRegFront = usedFPhyReg.subList(0, maxRegInAPop + 1);
+            usedFPhyRegBack = usedFPhyReg.subList(maxRegInAPop + 1, usedFPhyReg.size());
+        }
+
+        return new UsedPhyRegs(usedIPhyReg, usedFPhyRegFront, usedFPhyRegBack);
     }
 
     private void codeGenInit(String name, Constant init) {
@@ -157,81 +187,16 @@ public class ToAsmManager {
         }
 
         asm.block(name);
-
-        if (init instanceof ArrayConst ac) {
-            codeGenArrayConst(ac);
-        } else {
-            codeGenScalarConst(init);
-        }
-
+        initConstToAsmVisitor.visit(init);
         asm.newline();
     }
 
-    private <T extends Constant> void codeGenScalarConst(T val) {
-        final var type = val.getType();
-        Log.ensure(type.isFloat() || type.isInt(), "scalar type must be either Int or Float");
-        asm.indent().directive("word", val.toString());
-    }
-
-    private void codeGenArrayConst(ArrayConst val) {
-        if (val instanceof ZeroArrayConst) {
-            final var text = String.valueOf(val.getType().getSize());
-            asm.indent().directive("zero", text);
-        }
-
-        final var elmType = val.getType().getElementType();
-        if (elmType.isInt()) {
-            codeGenArrayConstFor(IntConst.class, val);
-        } else if (elmType.isFloat()) {
-            codeGenArrayConstFor(FloatConst.class, val);
-        } else if (elmType.isArray()) {
-            val.getRawElements().stream()
-                .map(ArrayConst.class::cast)
-                .forEach(this::codeGenArrayConst);
-        } else {
-            Log.ensure(false, "Unknown ArrayConst element type");
-        }
-    }
-
-    private <T extends Constant> void codeGenArrayConstFor(Class<T> elmClass, ArrayConst arr) {
-        int sameElmCnt = 0;
-        T lastElm = null;
-
-        for (final var rawElm : arr.getRawElements()) {
-            if (elmClass.isInstance(rawElm)) {
-                final var elm = elmClass.cast(rawElm);
-                if (lastElm != null && lastElm.equals(elm)) {
-                    sameElmCnt++;
-                } else {
-                    genContinuousElements(sameElmCnt, lastElm);
-                    sameElmCnt = 1;
-                    lastElm = elm;
-                }
-            }
-        }
-
-        genContinuousElements(sameElmCnt, lastElm);
-    }
-
-    private <T extends Constant> void genContinuousElements(int sameElmCnt, T elm) {
-        if (sameElmCnt == 1) {
-            codeGenScalarConst(elm);
-        } else if (sameElmCnt > 1) {
-            if (elm.isZero()) {
-                final var text = String.valueOf(4 * sameElmCnt);
-                asm.directive("zero", text);
-            } else {
-                asm.directive("fill", String.valueOf(sameElmCnt), "4", elm.toString());
-            }
-        }
-    }
-
-    private void fixLtorg(ArmFunction func) {
+    private void placeLiteralPool(ArmFunction func) {
         boolean haveLoadFImm = false;
         int offset = 0;
         int cnt = 0;
-        for (var block : func.asElementView()) {
-            for (var inst : block.asElementView()) {
+        for (final var block : func) {
+            for (final var inst : block) {
                 if (inst.needLtorg()) {
                     haveLoadFImm = true;
                 }
@@ -243,12 +208,78 @@ public class ToAsmManager {
                     offset += inst.getPrintCnt();
                 }
                 if (offset > 250) {
-                    var ltorg = new ArmInstLtorg(func.getName() + "_ltorg_" + cnt++);
-                    inst.insertAfterCO(ltorg);
+                    final var pool = new ArmInstLiteralPoolPlacement(func.getName() + "_ltorg_" + cnt++);
+                    inst.insertAfterCO(pool);
                     haveLoadFImm = false;
                     offset = 0;
                 }
             }
+        }
+    }
+
+    private class InitConstToAsm implements ConstantVisitor<Void> {
+        @Override
+        public Void visitIntConst(IntConst constant) {
+            asm.indent().directive("word", constant.toString());
+            return null;
+        }
+
+        @Override
+        public Void visitFloatConst(FloatConst constant) {
+            asm.indent().directive("word", constant.toString());
+            return null;
+        }
+
+        @Override
+        public Void visitArrayConst(ArrayConst constant) {
+            if (constant instanceof ZeroArrayConst) {
+                final var text = String.valueOf(constant.getType().getSize());
+                asm.indent().directive("zero", text);
+            } else {
+                final var elmType = constant.getType().getElementType();
+                if (elmType.isArray()) {
+                    constant.getRawElements().forEach(this::visit);
+                } else {
+                    genScalarElementsCompressed(constant);
+                }
+            }
+            return null;
+        }
+
+        private void genScalarElementsCompressed(ArrayConst arr) {
+            int sameElmCnt = 0;
+            Constant lastElm = null;
+
+            for (final var elm : arr.getRawElements()) {
+                if (lastElm != null && lastElm.equals(elm)) {
+                    sameElmCnt++;
+                } else {
+                    genContinuousElements(sameElmCnt, lastElm);
+                    sameElmCnt = 1;
+                    lastElm = elm;
+                }
+            }
+
+            genContinuousElements(sameElmCnt, lastElm);
+        }
+
+        private void genContinuousElements(int sameElmCnt, Constant elm) {
+            if (sameElmCnt == 1) {
+                visit(elm);
+            } else if (sameElmCnt > 1) {
+                if (elm.isZero()) {
+                    final var text = String.valueOf(4 * sameElmCnt);
+                    asm.directive("zero", text);
+                } else {
+                    asm.directive("fill", String.valueOf(sameElmCnt), "4", elm.toString());
+                }
+            }
+        }
+
+        @Override
+        public Void visitBoolConst(BoolConst constant) {
+            Log.ensure(false, "bool constant should not appear in init");
+            return null;
         }
     }
 
@@ -364,7 +395,7 @@ public class ToAsmManager {
         }
 
         @Override
-        public Void visitArmInstLtorg(ArmInstLtorg inst) {
+        public Void visitArmInstLtorg(ArmInstLiteralPoolPlacement inst) {
             asm.instruction("b").literal(inst.getLabel()).end();
             asm.directive("ltorg");
             asm.block(inst.getLabel());
@@ -464,89 +495,11 @@ public class ToAsmManager {
         public Void visitArmInstReturn(ArmInstReturn inst) {
             final var block = inst.getParent();
             final var func = block.getParent();
-            final var stackSize = func.getFinalstackSize();
 
-            if (stackSize > 0) {
-                if (CodeGenManager.checkEncodeImm(stackSize)) {
-                    asm.instruction("add").cond(inst)
-                        .literal("sp")
-                        .literal("sp")
-                        .literal(stackSize)
-                        .end();
-                } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                    asm.instruction("sub").cond(inst)
-                        .literal("sp")
-                        .literal("sp")
-                        .literal(stackSize)
-                        .end();
-                } else {
-                    final var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize), inst.getCond());
-                    visitArmInstMove(move);
-                    asm.instruction("add").cond(inst)
-                        .literal("sp")
-                        .literal("sp")
-                        .literal("r4")
-                        .end();
-                }
-            }
+            codeGenStackFreeAtFuncEnd(inst, func);
+            codeGenRegPopAtFuncEnd(inst, func);
 
-            // TODO: clean up this
-            var iuse = new StringBuilder();
-            var useLR = false;
-            var first = true;
-            for (var reg : func.getiUsedRegs()) {
-                if (!first) {
-                    iuse.append(", ");
-                }
-                if (reg.equals(IPhyReg.LR)) {
-                    iuse.append("pc");
-                    useLR = true;
-                } else {
-                    iuse.append(reg.print());
-                }
-                first = false;
-            }
-
-            var fuse1 = new StringBuilder();
-            var fuse2 = new StringBuilder();
-            var fusedList = func.getfUsedRegs();
-            first = true;
-            for (int i = 0; i < Integer.min(fusedList.size(), 16); i++) {
-                var reg = fusedList.get(i);
-                if (!first) {
-                    fuse1.append(", ");
-                }
-                fuse1.append(reg.print());
-                first = false;
-            }
-            first = true;
-            for (int i = 16; i < fusedList.size(); i++) {
-                var reg = fusedList.get(i);
-                if (!first) {
-                    fuse2.append(", ");
-                }
-                fuse2.append(reg.print());
-                first = false;
-            }
-
-            if (fuse2.length() != 0) {
-                asm.instruction("vpop").cond(inst)
-                    .literal("{" + fuse2 + "}")
-                    .end();
-            }
-
-            if (fuse1.length() != 0) {
-                asm.instruction("vpop").cond(inst)
-                    .literal("{" + fuse1 + "}")
-                    .end();
-            }
-
-            if (!func.getiUsedRegs().isEmpty()) {
-                asm.instruction("pop").cond(inst)
-                    .literal("{" + iuse + "}")
-                    .end();
-            }
-
+            final var useLR = func.getiUsedRegs().contains(IPhyReg.LR);
             if (!useLR) {
                 asm.instruction("bx").cond(inst)
                     .literal("lr")
@@ -737,11 +690,15 @@ class AsmBuilder {
     }
 
     public AsmBuilder cond(ArmInst inst) {
+        return cond(inst.getCond());
+    }
+
+    public AsmBuilder cond(ArmCondType cond) {
         ensureState(State.FirstArg);
-        if (inst.getCond().isAny()) {
+        if (cond.isAny()) {
             return this;
         } else {
-            return add(inst.getCond().toString());
+            return add(cond.toString());
         }
     }
 
@@ -889,10 +846,5 @@ class AsmBuilder {
 
     public StringBuilder getBuilder() {
         return builder;
-    }
-
-    @Override
-    public String toString() {
-        return builder.toString();
     }
 }

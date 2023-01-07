@@ -101,7 +101,7 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 put(kind, 0);
             }
 
-            // ArmInstLtorg
+            // ArmInstLiteralPoolPlacement
             put(ArmInstKind.Ltorg, 0);
         }
     };
