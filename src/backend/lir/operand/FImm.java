@@ -1,5 +1,7 @@
 package backend.lir.operand;
 
+import java.util.Objects;
+
 public class FImm extends Imm {
     private final float imm;
 
@@ -20,5 +22,15 @@ public class FImm extends Imm {
     @Override
     public String toString() {
         return "#" + imm;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof FImm fImm && imm == fImm.imm;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(imm);
     }
 }
