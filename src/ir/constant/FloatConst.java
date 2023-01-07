@@ -22,6 +22,8 @@ public class FloatConst extends Constant {
 
     @Override
     public String toString() {
+        // Float.toHexString 只会返回 IEEE 标准的十六进制浮点数格式
+        // 而这个方法返回的是二进制位相同的 float 的十六进制整数表示
         final var lifted = (double) value;
         final var bits = Double.doubleToLongBits(lifted);
         final var hex = Long.toHexString(bits).toUpperCase();
