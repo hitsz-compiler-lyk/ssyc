@@ -8,7 +8,7 @@ import utils.Log;
 
 import java.util.List;
 
-public class Constant extends Value {
+public abstract class Constant extends Value {
     protected Constant(IRType type) {
         super(type);
         assert type.getKind().isInt() || type.getKind().isFloat()
@@ -51,14 +51,8 @@ public class Constant extends Value {
         }
     }
 
-    private static boolean isZero(Constant constant) {
-        if (constant instanceof IntConst) {
-            return ((IntConst) constant).getValue() == 0;
-        } else if (constant instanceof FloatConst) {
-            return ((FloatConst) constant).getValue() == 0.0f;
-        } else {
-            return constant instanceof ZeroArrayConst;
-        }
+    public boolean isZero() {
+        return false;
     }
 
     public static ArrayConst createArrayConst(List<Constant> elements) {

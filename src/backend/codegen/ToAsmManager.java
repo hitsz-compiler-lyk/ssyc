@@ -9,13 +9,16 @@ import backend.lir.inst.ArmInst.ArmCondType;
 import backend.lir.inst.ArmInst.ArmInstKind;
 import backend.lir.operand.*;
 import backend.lir.visitor.ArmInstVisitor;
+import ir.GlobalVar;
 import ir.constant.ArrayConst;
 import ir.constant.ArrayConst.ZeroArrayConst;
+import ir.constant.Constant;
 import ir.constant.FloatConst;
 import ir.constant.IntConst;
 import utils.Log;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ToAsmManager {
     private final ArmModule module;
@@ -30,55 +33,24 @@ public class ToAsmManager {
     public StringBuilder codeGenArm() {
         asm.directive("arch", "armv7ve");
 
-        final var arrayConstants = new HashSet<ArrayConst>();
+        final var initsForGlobalVar = module.getGlobalVariables().values().stream()
+            .map(GlobalVar::getInit).collect(Collectors.toUnmodifiableSet());
 
         for (final var entry : module.getGlobalVariables().entrySet()) {
             final var name = entry.getKey();
             final var init = entry.getValue().getInit();
 
-            if (init instanceof ZeroArrayConst) {
-                asm.directive("bss");
-                asm.directive("align", "4");
-            } else {
-                asm.directive("data");
-                asm.directive("align", "4");
-            }
-
             asm.directive("global", name);
-            asm.block(name);
-
-            if (init instanceof IntConst ic) {
-                codeGenIntConst(ic);
-            } else if (init instanceof FloatConst fc) {
-                codeGenFloatConst(fc);
-            } else if (init instanceof ArrayConst ac) {
-                arrayConstants.add(ac);
-                codeGenArrayConst(ac);
-            }
-
-            asm.newline();
+            codeGenInit(name, init);
         }
 
         for (final var entry : module.getArrayConstants().entrySet()) {
             final var name = entry.getKey();
             final var init = entry.getValue();
 
-            if (arrayConstants.contains(init)) {
-                continue;
+            if (!initsForGlobalVar.contains(init)) {
+                codeGenInit(name, init);
             }
-
-            if (init instanceof ZeroArrayConst) {
-                asm.directive("bss");
-                asm.directive("align", "4");
-            } else {
-                asm.directive("data");
-                asm.directive("align", "4");
-            }
-
-            asm.block(name);
-            codeGenArrayConst(init);
-
-            asm.newline();
         }
 
         asm.newline();
@@ -175,14 +147,30 @@ public class ToAsmManager {
         return asm.getBuilder();
     }
 
-    private void codeGenIntConst(IntConst val) {
-        final var text = String.valueOf(val.getValue());
-        asm.indent().directive("word", text);
+    private void codeGenInit(String name, Constant init) {
+        if (init instanceof ZeroArrayConst) {
+            asm.directive("bss");
+            asm.directive("align", "4");
+        } else {
+            asm.directive("data");
+            asm.directive("align", "4");
+        }
+
+        asm.block(name);
+
+        if (init instanceof ArrayConst ac) {
+            codeGenArrayConst(ac);
+        } else {
+            codeGenScalarConst(init);
+        }
+
+        asm.newline();
     }
 
-    private void codeGenFloatConst(FloatConst val) {
-        final var text = "0x" + Integer.toHexString(Float.floatToIntBits(val.getValue()));
-        asm.indent().directive("word", text);
+    private <T extends Constant> void codeGenScalarConst(T val) {
+        final var type = val.getType();
+        Log.ensure(type.isFloat() || type.isInt(), "scalar type must be either Int or Float");
+        asm.indent().directive("word", val.toString());
     }
 
     private void codeGenArrayConst(ArrayConst val) {
@@ -193,9 +181,9 @@ public class ToAsmManager {
 
         final var elmType = val.getType().getElementType();
         if (elmType.isInt()) {
-            codeGenIntArrayConst(val);
+            codeGenArrayConstFor(IntConst.class, val);
         } else if (elmType.isFloat()) {
-            codeGenFloatArrayConst(val);
+            codeGenArrayConstFor(FloatConst.class, val);
         } else if (elmType.isArray()) {
             val.getRawElements().stream()
                 .map(ArrayConst.class::cast)
@@ -205,82 +193,38 @@ public class ToAsmManager {
         }
     }
 
-    private void codeGenIntArrayConst(ArrayConst arr) {
+    private <T extends Constant> void codeGenArrayConstFor(Class<T> elmClass, ArrayConst arr) {
         int sameElmCnt = 0;
-        IntConst lastElm = null;
+        T lastElm = null;
 
         for (final var rawElm : arr.getRawElements()) {
-            if (rawElm instanceof IntConst elm) {
+            if (elmClass.isInstance(rawElm)) {
+                final var elm = elmClass.cast(rawElm);
                 if (lastElm != null && lastElm.equals(elm)) {
                     sameElmCnt++;
                 } else {
-                    if (sameElmCnt == 1) {
-                        codeGenIntConst(lastElm);
-                    } else if (sameElmCnt > 1) {
-                        if (lastElm.getValue() == 0) {
-                            final var text = String.valueOf(4 * sameElmCnt);
-                            asm.directive("zero", text);
-                        } else {
-                            asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
-                        }
-                    }
-
+                    genContinuousElements(sameElmCnt, lastElm);
                     sameElmCnt = 1;
                     lastElm = elm;
                 }
             }
         }
 
+        genContinuousElements(sameElmCnt, lastElm);
+    }
+
+    private <T extends Constant> void genContinuousElements(int sameElmCnt, T elm) {
         if (sameElmCnt == 1) {
-            codeGenIntConst(lastElm);
+            codeGenScalarConst(elm);
         } else if (sameElmCnt > 1) {
-            if (lastElm.getValue() == 0) {
+            if (elm.isZero()) {
                 final var text = String.valueOf(4 * sameElmCnt);
                 asm.directive("zero", text);
             } else {
-                asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
+                asm.directive("fill", String.valueOf(sameElmCnt), "4", elm.toString());
             }
         }
     }
-
-    private void codeGenFloatArrayConst(ArrayConst arr) {
-        int sameElmCnt = 0;
-        FloatConst lastElm = null;
-
-        for (final var rawElm : arr.getRawElements()) {
-            if (rawElm instanceof FloatConst elm) {
-                if (lastElm != null && lastElm.equals(elm)) {
-                    sameElmCnt++;
-                } else {
-                    if (sameElmCnt == 1) {
-                        codeGenFloatConst(lastElm);
-                    } else if (sameElmCnt > 1) {
-                        if (lastElm.getValue() == 0) {
-                            final var text = String.valueOf(4 * sameElmCnt);
-                            asm.directive("zero", text);
-                        } else {
-                            asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
-                        }
-                    }
-
-                    sameElmCnt = 1;
-                    lastElm = elm;
-                }
-            }
-        }
-
-        if (sameElmCnt == 1) {
-            codeGenFloatConst(lastElm);
-        } else if (sameElmCnt > 1) {
-            if (lastElm.getValue() == 0) {
-                final var text = String.valueOf(4 * sameElmCnt);
-                asm.directive("zero", text);
-            } else {
-                asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
-            }
-        }
-    }
-
 
     private void fixLtorg(ArmFunction func) {
         boolean haveLoadFImm = false;
