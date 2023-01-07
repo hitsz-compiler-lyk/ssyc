@@ -28,6 +28,7 @@ public class ArmInstCall extends ArmInst {
     public ArmInstCall(ArmBlock block, ArmFunction func) {
         super(ArmInstKind.Call);
         this.func = func;
+        this.funcName = func.getName();
         block.asElementView().add(this);
         this.paramsCnt = func.getParamsCnt();
         this.fparamsCnt = func.getFparamsCnt();
