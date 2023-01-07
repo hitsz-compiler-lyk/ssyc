@@ -1,12 +1,9 @@
 package backend.lir.inst;
 
-import backend.codegen.InstToAsm;
-import backend.codegen.ToAsmManager;
 import backend.lir.ArmBlock;
 import backend.lir.operand.FImm;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
-import backend.lir.visitor.ArmInstVisitor;
 import utils.INode;
 import utils.INodeOwner;
 import utils.Log;
@@ -115,7 +112,11 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
         @Override
         public String toString() {
-            return this == ArmCondType.Any ? "" : super.toString().toLowerCase();
+            return isAny() ? "" : super.toString().toLowerCase();
+        }
+
+        public boolean isAny() {
+            return this == ArmCondType.Any;
         }
 
         public ArmCondType getOppCondType() {
@@ -150,7 +151,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
     private ArmCondType cond;
 
     private int printCnt;
-    private String symbol;
 
     private final INode<ArmInst, ArmBlock> inode;
 
@@ -306,24 +306,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         return (kind.equals(ArmInstKind.Branch) && getCond().equals(ArmCondType.Any))
                 || (kind.equals(ArmInstKind.Return) && getCond().equals(ArmCondType.Any))
                 || (kind.equals(ArmInstKind.Ltorg));
-    }
-
-    public void InitSymbol() {
-        var sb = new StringBuilder("@" + new InstToAsm().visit(this));
-        int p = sb.indexOf("\n");
-        while (p != sb.length() - 1 && p != -1) {
-            sb.insert(p + 1, "@");
-            p = sb.indexOf("\n", p + 1);
-        }
-        symbol = sb.toString();
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void addSymbol(String symbol) {
-        this.symbol += symbol;
     }
 
     @Override

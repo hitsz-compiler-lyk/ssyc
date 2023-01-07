@@ -1047,24 +1047,15 @@ public class CodeGenManager {
                 isFix = recoverRegAllocate(func);
                 isFix |= fixStack(func);
 
-                if (isFix) {
-                    continue;
-                } else {
+                if (!isFix) {
                     for (var block : func.asElementView()) {
                         for (var inst : block.asElementView()) {
-                            inst.InitSymbol();
-                            String symbol = "@";
                             for (var op : inst.getOperands()) {
                                 if (op.isVirtual()) {
                                     Log.ensure(allocatorMap.containsKey(op),
                                             "virtual reg:" + op.print() + " not exist in allocator map");
                                     inst.replaceOperand(op, allocatorMap.get(op));
-                                    symbol += op.print() + ":" + allocatorMap.get(op).print() + "\t";
                                 }
-                            }
-                            symbol += "\n";
-                            if (symbol.length() > 2) {
-                                inst.addSymbol(symbol);
                             }
                         }
                     }
