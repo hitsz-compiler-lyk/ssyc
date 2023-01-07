@@ -1,5 +1,7 @@
 package backend.lir.operand;
 
+import org.xml.sax.HandlerBase;
+
 public abstract class Operand {
     public enum OperandKind {
         IVirtual,
@@ -48,4 +50,10 @@ public abstract class Operand {
     public String print() {
         return toString();
     }
+
+    @Override
+    public abstract boolean equals(Object obj);
+
+    @Override
+    public abstract int hashCode();
 }
