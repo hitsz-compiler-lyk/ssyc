@@ -14,6 +14,11 @@ public class FloatConst extends Constant {
     }
 
     @Override
+    public boolean isZero() {
+        return value == 0.0f;
+    }
+
+    @Override
     public void verify() throws IRVerifyException {
         super.verify();
         ensureNot(value == 0.0f && this != Constant.FLOAT_0,
