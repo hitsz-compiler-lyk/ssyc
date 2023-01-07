@@ -14,64 +14,79 @@ import ir.constant.ArrayConst.ZeroArrayConst;
 import ir.constant.FloatConst;
 import ir.constant.IntConst;
 import utils.Log;
-import utils.StringUtils;
 
 import java.util.*;
 
 public class ToAsmManager {
     private final ArmModule module;
-    private final StringBuilder asmBuilder;
     private final AsmBuilder asm;
     private final InstToAsm instVisitor = new InstToAsm();
 
     public ToAsmManager(ArmModule module) {
         this.module = module;
         this.asm = new AsmBuilder();
-        this.asmBuilder = asm.getBuilder();
     }
 
-    public StringBuilder codeGenArm()   {
-        asmBuilder.append(".arch armv7ve\n");
-        Set<ArrayConst> acSet = new HashSet<>();
-        for (var entry : module.getGlobalVariables().entrySet()) {
-            var key = entry.getKey();
-            var val = entry.getValue().getInit();
-            if (val instanceof ZeroArrayConst) {
-                asmBuilder.append("\n.bss\n.align 4\n");
+    public StringBuilder codeGenArm() {
+        asm.directive("arch", "armv7ve");
+
+        final var arrayConstants = new HashSet<ArrayConst>();
+
+        for (final var entry : module.getGlobalVariables().entrySet()) {
+            final var name = entry.getKey();
+            final var init = entry.getValue().getInit();
+
+            if (init instanceof ZeroArrayConst) {
+                asm.directive("bss");
+                asm.directive("align", "4");
             } else {
-                asmBuilder.append("\n.data\n.align 4\n");
+                asm.directive("data");
+                asm.directive("align", "4");
             }
-            asmBuilder.append(".global\t" + key + "\n" + key + ":\n");
-            if (val instanceof IntConst) {
-                asmBuilder.append(codeGenIntConst((IntConst) val));
-            } else if (val instanceof FloatConst) {
-                asmBuilder.append(codeGenFloatConst((FloatConst) val));
-            } else if (val instanceof ArrayConst) {
-                acSet.add((ArrayConst) val);
-                asmBuilder.append(codeGenArrayConst((ArrayConst) val));
+
+            asm.directive("global", name);
+            asm.block(name);
+
+            if (init instanceof IntConst ic) {
+                codeGenIntConst(ic);
+            } else if (init instanceof FloatConst fc) {
+                codeGenFloatConst(fc);
+            } else if (init instanceof ArrayConst ac) {
+                arrayConstants.add(ac);
+                codeGenArrayConst(ac);
             }
-            asmBuilder.append("\n");
-        }
-        for (var entry : module.getArrayConstants().entrySet()) {
-            var key = entry.getKey();
-            var val = entry.getValue();
-            if (acSet.contains(val)) {
-                continue;
-            }
-            if (val instanceof ZeroArrayConst) {
-                asmBuilder.append("\n.bss\n.align 4\n");
-            } else {
-                asmBuilder.append("\n.data\n.align 4\n");
-            }
-            asmBuilder.append(key + ":\n");
-            asmBuilder.append(codeGenArrayConst(val));
-            asmBuilder.append("\n");
+
+            asm.newline();
         }
 
-        asmBuilder.append("\n.text\n");
+        for (final var entry : module.getArrayConstants().entrySet()) {
+            final var name = entry.getKey();
+            final var init = entry.getValue();
+
+            if (arrayConstants.contains(init)) {
+                continue;
+            }
+
+            if (init instanceof ZeroArrayConst) {
+                asm.directive("bss");
+                asm.directive("align", "4");
+            } else {
+                asm.directive("data");
+                asm.directive("align", "4");
+            }
+
+            asm.block(name);
+            codeGenArrayConst(init);
+
+            asm.newline();
+        }
+
+        asm.newline();
+        asm.directive("text");
+
         for (var func : module.getFunctions()) {
-            var stackSize = func.getFinalstackSize();
-            String prologuePrint = "";
+            asm.directive("global", func.getName());
+            asm.block(func.getName());
 
             var iuse = new StringBuilder();
             var first = true;
@@ -106,136 +121,164 @@ public class ToAsmManager {
             }
 
             if (!func.getiUsedRegs().isEmpty()) {
-                prologuePrint += "\tpush\t{" + iuse.toString() + "}\n";
+                asm.instruction("push")
+                    .literal("{" + iuse + "}")
+                    .end();
             }
 
             if (fuse1.length() != 0) {
-                prologuePrint += "\tvpush\t{" + fuse1.toString() + "}\n";
+                asm.instruction("vpush")
+                    .literal("{" + fuse1 + "}")
+                    .end();
             }
 
             if (fuse2.length() != 0) {
-                prologuePrint += "\tvpush\t{" + fuse2.toString() + "}\n";
+                asm.instruction("vpush")
+                    .literal("{" + fuse2 + "}")
+                    .end();
             }
 
+            final var stackSize = func.getFinalstackSize();
             if (stackSize > 0) {
                 if (CodeGenManager.checkEncodeImm(stackSize)) {
-                    prologuePrint += "\tsub\tsp,\tsp,\t#" + stackSize + "\n";
+                    asm.instruction("sub")
+                        .literal("sp")
+                        .literal("sp")
+                        .literal(stackSize)
+                        .end();
                 } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
-                    prologuePrint += "\tadd\tsp,\tsp,\t#" + stackSize + "\n";
+                    asm.instruction("add")
+                        .literal("sp")
+                        .literal("sp")
+                        .literal(stackSize)
+                        .end();
                 } else {
                     var move = new ArmInstMove(IPhyReg.R(4), new IImm(stackSize));
                     instVisitor.visitArmInstMove(move);
-                    prologuePrint += "\tsub\tsp,\tsp,\tr4\n";
+                    asm.instruction("sub")
+                        .literal("sp")
+                        .literal("sp")
+                        .literal("r4")
+                        .end();
                 }
             }
-            asmBuilder.append("\n.global\t" + func.getName() + "\n" + func.getName() + ":\n");
-            asmBuilder.append(prologuePrint);
+
             fixLtorg(func);
             for (var block : func.asElementView()) {
-                asmBuilder.append(block.getLabel() + ":\n");
+                asm.block(block);
                 for (var inst : block.asElementView()) {
                     instVisitor.visit(inst);
                 }
             }
         }
-        return asmBuilder;
+
+        return asm.getBuilder();
     }
 
-    private String codeGenIntConst(IntConst val) {
-        return "\t" + ".word" + "\t" + val.getValue() + "\n";
+    private void codeGenIntConst(IntConst val) {
+        final var text = String.valueOf(val.getValue());
+        asm.indent().directive("word", text);
     }
 
-    private String codeGenFloatConst(FloatConst val) {
-        return "\t" + ".word" + "\t" + "0x" + Integer.toHexString(Float.floatToIntBits(val.getValue())) + "\n";
+    private void codeGenFloatConst(FloatConst val) {
+        final var text = "0x" + Integer.toHexString(Float.floatToIntBits(val.getValue()));
+        asm.indent().directive("word", text);
     }
 
-    private String codeGenArrayConst(ArrayConst val) {
+    private void codeGenArrayConst(ArrayConst val) {
         if (val instanceof ZeroArrayConst) {
-            return "\t" + ".zero" + "\t" + val.getType().getSize() + "\n";
+            final var text = String.valueOf(val.getType().getSize());
+            asm.indent().directive("zero", text);
         }
-        var sb = new StringBuilder();
-        for (var elem : val.getRawElements()) {
-            if (elem instanceof IntConst) {
-                return codeGenIntArrayConst(val);
-                // sb.append(CodeGenIntConst((IntConst) elem));
-            } else if (elem instanceof FloatConst) {
-                return codeGenFloatArrayConst(val);
-                // sb.append(CodeGenFloatConst((FloatConst) elem));
-            } else if (elem instanceof ArrayConst) {
-                sb.append(codeGenArrayConst((ArrayConst) elem));
-            }
+
+        final var elmType = val.getType().getElementType();
+        if (elmType.isInt()) {
+            codeGenIntArrayConst(val);
+        } else if (elmType.isFloat()) {
+            codeGenFloatArrayConst(val);
+        } else if (elmType.isArray()) {
+            val.getRawElements().stream()
+                .map(ArrayConst.class::cast)
+                .forEach(this::codeGenArrayConst);
+        } else {
+            Log.ensure(false, "Unknown ArrayConst element type");
         }
-        return sb.toString();
     }
 
-    private String codeGenIntArrayConst(ArrayConst arr) {
-        var sb = new StringBuilder();
-        int cnt = 0;
-        IntConst val = null;
-        for (var elem : arr.getRawElements()) {
-            Log.ensure(elem instanceof IntConst);
-            var ic = (IntConst) elem;
-            if (val != null && val.getValue() == ic.getValue()) {
-                cnt++;
-            } else {
-                if (cnt == 1) {
-                    sb.append(codeGenIntConst(val));
-                } else if (cnt > 1) {
-                    if (val.getValue() == 0) {
-                        sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
-                    } else {
-                        sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
+    private void codeGenIntArrayConst(ArrayConst arr) {
+        int sameElmCnt = 0;
+        IntConst lastElm = null;
+
+        for (final var rawElm : arr.getRawElements()) {
+            if (rawElm instanceof IntConst elm) {
+                if (lastElm != null && lastElm.equals(elm)) {
+                    sameElmCnt++;
+                } else {
+                    if (sameElmCnt == 1) {
+                        codeGenIntConst(lastElm);
+                    } else if (sameElmCnt > 1) {
+                        if (lastElm.getValue() == 0) {
+                            final var text = String.valueOf(4 * sameElmCnt);
+                            asm.directive("zero", text);
+                        } else {
+                            asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
+                        }
                     }
+
+                    sameElmCnt = 1;
+                    lastElm = elm;
                 }
-                cnt = 1;
-                val = ic;
             }
         }
-        if (cnt == 1) {
-            sb.append(codeGenIntConst(val));
-        } else if (cnt > 1) {
-            if (val.getValue() == 0) {
-                sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
+
+        if (sameElmCnt == 1) {
+            codeGenIntConst(lastElm);
+        } else if (sameElmCnt > 1) {
+            if (lastElm.getValue() == 0) {
+                final var text = String.valueOf(4 * sameElmCnt);
+                asm.directive("zero", text);
             } else {
-                sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
+                asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
             }
         }
-        return sb.toString();
     }
 
-    private String codeGenFloatArrayConst(ArrayConst arr) {
-        var sb = new StringBuilder();
-        int cnt = 0;
-        FloatConst val = null;
-        for (var elem : arr.getRawElements()) {
-            Log.ensure(elem instanceof FloatConst);
-            var fc = (FloatConst) elem;
-            if (val != null && (val.getValue() == fc.getValue())) {
-                cnt++;
-            } else {
-                if (cnt == 1) {
-                    sb.append(codeGenFloatConst(val));
-                } else if (cnt > 1) {
-                    if (val.getValue() == 0) {
-                        sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
-                    } else {
-                        sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
+    private void codeGenFloatArrayConst(ArrayConst arr) {
+        int sameElmCnt = 0;
+        FloatConst lastElm = null;
+
+        for (final var rawElm : arr.getRawElements()) {
+            if (rawElm instanceof FloatConst elm) {
+                if (lastElm != null && lastElm.equals(elm)) {
+                    sameElmCnt++;
+                } else {
+                    if (sameElmCnt == 1) {
+                        codeGenFloatConst(lastElm);
+                    } else if (sameElmCnt > 1) {
+                        if (lastElm.getValue() == 0) {
+                            final var text = String.valueOf(4 * sameElmCnt);
+                            asm.directive("zero", text);
+                        } else {
+                            asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
+                        }
                     }
+
+                    sameElmCnt = 1;
+                    lastElm = elm;
                 }
-                cnt = 1;
-                val = fc;
             }
         }
-        if (cnt == 1) {
-            sb.append(codeGenFloatConst(val));
-        } else if (cnt > 1) {
-            if (val.getValue() == 0) {
-                sb.append("\t" + ".zero" + "\t" + 4 * cnt + "\n");
+
+        if (sameElmCnt == 1) {
+            codeGenFloatConst(lastElm);
+        } else if (sameElmCnt > 1) {
+            if (lastElm.getValue() == 0) {
+                final var text = String.valueOf(4 * sameElmCnt);
+                asm.directive("zero", text);
             } else {
-                sb.append("\t" + ".fill" + "\t" + cnt + ",\t4,\t" + val + "\n");
+                asm.directive("fill", String.valueOf(sameElmCnt), "4", lastElm.toString());
             }
         }
-        return sb.toString();
     }
 
 
@@ -285,7 +328,7 @@ public class ToAsmManager {
                 .end();
 
             if (inst.getCond().equals(ArmCondType.Any)) {
-                asm.ltorg();
+                asm.directive("ltorg");
             }
             return null;
         }
@@ -379,7 +422,7 @@ public class ToAsmManager {
         @Override
         public Void visitArmInstLtorg(ArmInstLtorg inst) {
             asm.instruction("b").literal(inst.getLabel()).end();
-            asm.ltorg();
+            asm.directive("ltorg");
             asm.block(inst.getLabel());
             return null;
         }
@@ -567,7 +610,7 @@ public class ToAsmManager {
             }
 
             if (inst.getCond().isAny()) {
-                asm.ltorg();
+                asm.directive("ltorg");
             }
 
             return null;
@@ -828,19 +871,10 @@ class AsmBuilder {
     }
 
     public AsmBuilder group(Operand... operands) {
+        final var texts = Arrays.stream(operands).map(Operand::toString).toArray(String[]::new);
         return argument(() -> {
             builder.append('{');
-            switch (operands.length) {
-                case 0 -> {}
-                case 1 -> builder.append(operands[0]);
-                default -> {
-                    builder.append(operands[0]);
-                    for (int i = 1; i < operands.length; i++) {
-                        builder.append(',');
-                        builder.append(operands[i]);
-                    }
-                }
-            }
+            join(", ", texts);
             builder.append('}');
         });
     }
@@ -867,14 +901,42 @@ class AsmBuilder {
         return this;
     }
 
-    public void ltorg() {
+    public void directive(String directive, String... args) {
         ensureState(State.Normal);
-        builder.append(".ltorg\n");
+
+        builder.append('.');
+        builder.append(directive);
+        builder.append(' ');
+        join(", ", args);
+        builder.append('\n');
+    }
+
+    public void newline() {
+        builder.append('\n');
     }
 
     public AsmBuilder add(String text) {
         builder.append(text);
         return this;
+    }
+
+    public AsmBuilder indent() {
+        builder.append(INDENT);
+        return this;
+    }
+
+    private void join(String delimiter, String... items) {
+        switch (items.length) {
+            case 0 -> {}
+            case 1 -> builder.append(items[0]);
+            default -> {
+                builder.append(items[0]);
+                for (int i = 1; i < items.length; i++) {
+                    builder.append(delimiter);
+                    builder.append(items[i]);
+                }
+            }
+        }
     }
 
     public int getBlockInstCnt() {
