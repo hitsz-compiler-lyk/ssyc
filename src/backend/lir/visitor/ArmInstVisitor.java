@@ -11,7 +11,7 @@ public interface ArmInstVisitor<T> {
         if (inst instanceof ArmInstFloatToInt) { return visitArmInstFloatToInt((ArmInstFloatToInt) inst); }
         if (inst instanceof ArmInstIntToFloat) { return visitArmInstIntToFloat((ArmInstIntToFloat) inst); }
         if (inst instanceof ArmInstLoad) { return visitArmInstLoad((ArmInstLoad) inst); }
-        if (inst instanceof ArmInstLtorg) { return visitArmInstLtorg((ArmInstLtorg) inst); }
+        if (inst instanceof ArmInstLiteralPoolPlacement) { return visitArmInstLtorg((ArmInstLiteralPoolPlacement) inst); }
         if (inst instanceof ArmInstMove) { return visitArmInstMove((ArmInstMove) inst); }
         if (inst instanceof ArmInstParamLoad) { return visitArmInstParamLoad((ArmInstParamLoad) inst); }
         if (inst instanceof ArmInstReturn) { return visitArmInstReturn((ArmInstReturn) inst); }
@@ -31,7 +31,7 @@ public interface ArmInstVisitor<T> {
     T visitArmInstFloatToInt(ArmInstFloatToInt inst);
     T visitArmInstIntToFloat(ArmInstIntToFloat inst);
     T visitArmInstLoad(ArmInstLoad inst);
-    T visitArmInstLtorg(ArmInstLtorg inst);
+    T visitArmInstLtorg(ArmInstLiteralPoolPlacement inst);
     T visitArmInstMove(ArmInstMove inst);
     T visitArmInstParamLoad(ArmInstParamLoad inst);
     T visitArmInstReturn(ArmInstReturn inst);
