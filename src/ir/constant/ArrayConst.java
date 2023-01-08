@@ -73,6 +73,11 @@ public class ArrayConst extends Constant {
         public ZeroArrayConst(IRType type) {
             super(type);
         }
+
+        @Override
+        public boolean isZero() {
+            return true;
+        }
     }
 
     // Only for subclass

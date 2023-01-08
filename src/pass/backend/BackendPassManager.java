@@ -1,11 +1,12 @@
 package pass.backend;
 
 import backend.codegen.CodeGenManager;
+import backend.lir.ArmModule;
 
 public class BackendPassManager {
-    private final CodeGenManager manager;
-    public BackendPassManager(CodeGenManager manager) {
-        this.manager = manager;
+    private final ArmModule module;
+    public BackendPassManager(ArmModule module) {
+        this.module = module;
     }
 
     public void runAllPasses() {
@@ -14,6 +15,6 @@ public class BackendPassManager {
     }
 
     private void runPass(BackendPass pass) {
-        pass.runPass(manager);
+        pass.runPass(module);
     }
 }

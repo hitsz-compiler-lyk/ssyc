@@ -103,7 +103,7 @@ replaceUseOperand(Operand oldOp, Operand op)
 
 对于创建一个物理寄存器 可以直接通过
 ```java
-new IPhyReg("r0"),  new IPhyReg("sp"),  new IPhyReg(0),  new IPhyReg(13)
+IPhyReg.R(0),  IPhyReg.SP,  new IPhyReg(0),  new IPhyReg(13)
 ```
 其中第一个和第三个等价 第二个和第四个等价
 

@@ -14,6 +14,11 @@ public class FloatConst extends Constant {
     }
 
     @Override
+    public boolean isZero() {
+        return value == 0.0f;
+    }
+
+    @Override
     public void verify() throws IRVerifyException {
         super.verify();
         ensureNot(value == 0.0f && this != Constant.FLOAT_0,
@@ -22,9 +27,10 @@ public class FloatConst extends Constant {
 
     @Override
     public String toString() {
-        final var lifted = (double) value;
-        final var bits = Double.doubleToLongBits(lifted);
-        final var hex = Long.toHexString(bits).toUpperCase();
+        // Float.toHexString 只会返回 IEEE 标准的十六进制浮点数格式
+        // 而这个方法返回的是二进制位相同的 float 的十六进制整数表示
+        final var bits = Float.floatToIntBits(value);
+        final var hex = Integer.toHexString(bits).toUpperCase();
         return "0x" + hex;
     }
 

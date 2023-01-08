@@ -1,18 +1,19 @@
 package pass.backend;
 
-import backend.arm.ArmInst;
-import backend.arm.ArmInstBranch;
-import backend.arm.ArmInstCmp;
-import backend.arm.ArmInstReturn;
+import backend.lir.ArmModule;
+import backend.lir.inst.ArmInst;
+import backend.lir.inst.ArmInstBranch;
+import backend.lir.inst.ArmInstCmp;
+import backend.lir.inst.ArmInstReturn;
 import backend.codegen.CodeGenManager;
 
 public class BranchToCond implements BackendPass {
 
     @Override
-    public void runPass(CodeGenManager manager) {
-        for (var func : manager.getFunctions()) {
-            for (var block : func.asElementView()) {
-                for (var inst : block.asElementView()) {
+    public void runPass(ArmModule module) {
+        for (var func : module.getFunctions()) {
+            for (var block : func) {
+                for (var inst : block) {
                     if (inst instanceof ArmInstBranch) {
                         var branch = (ArmInstBranch) inst;
                         var nxtBlockOp = block.getINode().getNext();
@@ -29,10 +30,10 @@ public class BranchToCond implements BackendPass {
                                 && branch.getTargetBlock().equals(nxtNxtBlock)
                                 && nxtBlock.getPred().size() == 1
                                 && nxtBlock.getPred().get(0).equals(block)
-                                && nxtBlock.asElementView().size() <= 4) {
+                                && nxtBlock.size() <= 4) {
                             boolean canFix = true;
                             var OppCond = branch.getCond().getOppCondType();
-                            for (var inst2 : nxtBlock.asElementView()) {
+                            for (var inst2 : nxtBlock) {
                                 if ((inst2 instanceof ArmInstBranch) || (inst2 instanceof ArmInstCmp)
                                         || (inst2 instanceof ArmInstReturn)) {
                                     canFix = false;
@@ -45,7 +46,7 @@ public class BranchToCond implements BackendPass {
                                 }
                             }
                             if (canFix) {
-                                for (var inst2 : nxtBlock.asElementView()) {
+                                for (var inst2 : nxtBlock) {
                                     inst2.setCond(OppCond);
                                 }
                                 branch.freeFromIList();

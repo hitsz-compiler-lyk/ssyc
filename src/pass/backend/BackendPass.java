@@ -1,11 +1,12 @@
 package pass.backend;
 
 import backend.codegen.CodeGenManager;
+import backend.lir.ArmModule;
 
 public interface BackendPass {
     default String getPassName() {
         return getClass().getSimpleName();
     }
 
-    void runPass(CodeGenManager manager);
+    void runPass(ArmModule module);
 }

@@ -14,6 +14,11 @@ public class IntConst extends Constant {
     }
 
     @Override
+    public boolean isZero() {
+        return value == 0;
+    }
+
+    @Override
     public void verify() throws IRVerifyException {
         super.verify();
         ensureNot(value == 0 && this != Constant.INT_0,
