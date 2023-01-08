@@ -184,7 +184,7 @@ public class ToAsmManager {
     }
 
     private void genStackOpAroundFunc(ArmFunction func, String opForSP, ArmCondType cond) {
-        final var stackSize = func.getFinalstackSize();
+        final var stackSize = func.getFinalStackSize();
         if (stackSize > 0) {
             // 检查栈大小是否可以被编码为 add/sub 指令的立即数
             // 如果可以被编码, 就直接生成一条 add/sub 指令来调整 SP
@@ -276,8 +276,8 @@ public class ToAsmManager {
     private static final int MAX_REG_IN_ONE_POP = 16;
     record UsedPhyRegs(List<IPhyReg> iRegs, List<FPhyReg> fRegsFront, List<FPhyReg> fRegBack) {}
     private UsedPhyRegs spillUsedPhyRegsForPushOrPop(ArmFunction func) {
-        final var usedIPhyReg = func.getiUsedRegs();
-        final var usedFPhyReg = func.getfUsedRegs();
+        final var usedIPhyReg = func.getIUsedRegs();
+        final var usedFPhyReg = func.getFUsedRegs();
 
         final List<FPhyReg> usedFPhyRegFront;
         final List<FPhyReg> usedFPhyRegBack;
@@ -622,7 +622,7 @@ public class ToAsmManager {
 
             // 因为在恢复寄存器的时候, 如果检测到有保存 lr 的话, 会直接把 lr 恢复到 pc 去
             // 所以如果保存着的寄存器里有 lr 的话, 就不用生成最后一条 bx lr 了
-            final var useLR = func.getiUsedRegs().contains(IPhyReg.LR);
+            final var useLR = func.getIUsedRegs().contains(IPhyReg.LR);
             if (!useLR) {
                 asm.instruction("bx").cond(inst)
                     .literal("lr")

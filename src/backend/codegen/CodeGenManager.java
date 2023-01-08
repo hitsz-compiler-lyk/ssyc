@@ -1,16 +1,22 @@
 package backend.codegen;
 
-import backend.lir.*;
+import backend.lir.ArmBlock;
+import backend.lir.ArmFunction;
+import backend.lir.ArmModule;
+import backend.lir.ArmShift;
+import backend.lir.inst.*;
 import backend.lir.inst.ArmInst.ArmCondType;
 import backend.lir.inst.ArmInst.ArmInstKind;
-import backend.lir.inst.*;
 import backend.lir.operand.*;
 import backend.regallocator.RegAllocator;
 import backend.regallocator.SimpleGraphColoring;
 import ir.Module;
 import ir.*;
-import ir.constant.*;
 import ir.constant.ArrayConst.ZeroArrayConst;
+import ir.constant.BoolConst;
+import ir.constant.Constant;
+import ir.constant.FloatConst;
+import ir.constant.IntConst;
 import ir.inst.*;
 import ir.type.ArrayIRTy;
 import ir.type.PointerIRTy;
@@ -126,7 +132,7 @@ public class CodeGenManager {
             funcMap.put(func, armFunc);
             String funcName = func.getFunctionSourceName();
 
-            var blocks = func.asElementView();
+            var blocks = func;
             for (int i = 0; i < blocks.size(); i++) {
                 var block = blocks.get(i);
                 var armblock = new ArmBlock(armFunc, block.getSymbol().getName() + "_" + funcName + "_" + i);
@@ -134,14 +140,14 @@ public class CodeGenManager {
             }
 
             // 处理起始块的后驱和第一个基本块的前驱
-            if (func.asElementView().size() > 0) {
-                var armblock = blockMap.get(func.asElementView().get(0));
+            if (func.size() > 0) {
+                var armblock = blockMap.get(func.get(0));
                 armFunc.getPrologue().setTrueSuccBlock(armblock);
                 armblock.addPred(armFunc.getPrologue());
             }
 
             // 处理Arm基本块的前后驱
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var armBlock = blockMap.get(block);
                 for (var pred : block.getPredecessors()) {
                     armBlock.addPred(blockMap.get(pred));
@@ -165,12 +171,12 @@ public class CodeGenManager {
             }
             var armFunc = funcMap.get(func);
 
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var armBlock = blockMap.get(block);
                 // 清空globalMap 不允许跨基本块读取Global地址
                 globalMap.clear();
 
-                for (var inst : block.asElementView()) {
+                for (var inst : block) {
                     if (inst instanceof BinaryOpInst) {
                         resolveBinaryInst((BinaryOpInst) inst, armBlock, armFunc);
                     } else if (inst instanceof UnaryOpInst) {
@@ -212,9 +218,9 @@ public class CodeGenManager {
             // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
             // MOVE Phi Incoming.Value
             Map<ArmBlock, ArmInst> fristBranch = new HashMap<>();
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var armBlock = blockMap.get(block);
-                for (var inst : armBlock.asElementView()) {
+                for (var inst : armBlock) {
                     if (inst instanceof ArmInstBranch) {
                         fristBranch.put(armBlock, inst);
                         break;
@@ -222,7 +228,7 @@ public class CodeGenManager {
                 }
             }
 
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var armBlock = blockMap.get(block);
                 var phiIt = block.iterPhis();
                 while (phiIt.hasNext()) {
@@ -230,7 +236,7 @@ public class CodeGenManager {
                     var incomingInfoIt = phi.getIncomingInfos().iterator();
                     var phiReg = resolveOperand(phi, armBlock, armFunc);
                     var temp = phiReg.isInt() ? new IVirtualReg() : new FVirtualReg();
-                    armBlock.asElementView().add(0, new ArmInstMove(phiReg, temp));
+                    armBlock.add(0, new ArmInstMove(phiReg, temp));
                     while (incomingInfoIt.hasNext()) {
                         var incomingInfo = incomingInfoIt.next();
                         var src = incomingInfo.value();
@@ -241,7 +247,7 @@ public class CodeGenManager {
                             var branch = fristBranch.get(incomingBlock);
                             branch.insertBeforeCO(move);
                         } else {
-                            incomingBlock.asElementView().add(move);
+                            incomingBlock.add(move);
                         }
                     }
                 }
@@ -335,10 +341,10 @@ public class CodeGenManager {
                         // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
                         // 加到最前面防止后续load修改了r0 - r3
                         var move = new ArmInstMove(vr, IPhyReg.R(i));
-                        func.getPrologue().asElementView().add(0, move);
+                        func.getPrologue().add(0, move);
                     } else if (i < icnt + fcnt) {
                         var move = new ArmInstMove(vr, FPhyReg.S(i - icnt));
-                        func.getPrologue().asElementView().add(0, move);
+                        func.getPrologue().add(0, move);
                     } else {
                         // LDR VR [SP, (i-4)*4]
                         // 寄存器分配后修改为 LDR VR [SP, (i-4)*4 + stackSize + push的大小]
@@ -1003,14 +1009,14 @@ public class CodeGenManager {
             new ArmInstMove(block, IPhyReg.R(0), dst);
             new ArmInstMove(block, IPhyReg.R(1), new IImm(0));
             new ArmInstMove(block, IPhyReg.R(2), imm);
-            new ArmInstCall(block, "memset", 3, 0, false);
+            new ArmInstCall(block, "memset", 3, 0);
         } else {
             var src = resolveOperand(ac, block, func);
             var imm = resolveIImmOperand(size, block, func);
             new ArmInstMove(block, IPhyReg.R(0), dst);
             new ArmInstMove(block, IPhyReg.R(1), src);
             new ArmInstMove(block, IPhyReg.R(2), imm);
-            new ArmInstCall(block, "memcpy", 3, 0, false);
+            new ArmInstCall(block, "memcpy", 3, 0);
         }
     }
 
@@ -1027,8 +1033,8 @@ public class CodeGenManager {
                 }
                 Set<IPhyReg> iPhyRegs = new HashSet<>();
                 Set<FPhyReg> fPhyRegs = new HashSet<>();
-                for (var block : func.asElementView()) {
-                    for (var inst : block.asElementView()) {
+                for (var block : func) {
+                    for (var inst : block) {
                         for (var op : inst.getOperands()) {
                             if (allocatorMap.containsKey(op)) {
                                 op = allocatorMap.get(op);
@@ -1048,8 +1054,8 @@ public class CodeGenManager {
                 isFix |= fixStack(func);
 
                 if (!isFix) {
-                    for (var block : func.asElementView()) {
-                        for (var inst : block.asElementView()) {
+                    for (var block : func) {
+                        for (var inst : block) {
                             for (var op : inst.getOperands()) {
                                 if (op.isVirtual()) {
                                     Log.ensure(allocatorMap.containsKey(op),
@@ -1265,9 +1271,9 @@ public class CodeGenManager {
 
     private boolean fixStack(ArmFunction func) {
         boolean isFix = false;
-        int regCnt = func.getfUsedRegs().size() + func.getiUsedRegs().size();
+        int regCnt = func.getFUsedRegs().size() + func.getIUsedRegs().size();
         int stackSize = (func.getStackSize() + 4 * regCnt + 4) / 8 * 8 - 4 * regCnt;
-        func.setFinalstackSize(stackSize);
+        func.setFinalStackSize(stackSize);
         stackSize = stackSize - func.getStackSize();
         Map<Integer, Integer> stackMap = new HashMap<>();
         var stackObject = func.getStackObject();
@@ -1278,9 +1284,9 @@ public class CodeGenManager {
         }
         Map<Integer, Operand> stackAddrMap = new HashMap<>();
         Map<Operand, Integer> addrStackMap = new HashMap<>();
-        Log.ensure(stackSize == func.getFinalstackSize(), "stack size error");
-        for (var block : func.asElementView()) {
-            for (var inst : block.asElementView()) {
+        Log.ensure(stackSize == func.getFinalStackSize(), "stack size error");
+        for (var block : func) {
+            for (var inst : block) {
                 if (inst instanceof ArmInstStackAddr) {
                     var stackAddr = (ArmInstStackAddr) inst;
                     if (stackAddr.isCAlloc()) {
@@ -1434,7 +1440,7 @@ public class CodeGenManager {
     private boolean recoverRegAllocate(ArmFunction func) {
         boolean isFix = false;
         Map<Operand, Operand> recoverMap = new HashMap<>();
-        for (var block : func.asElementView()) {
+        for (var block : func) {
             Map<Addr, Operand> addrMap = new HashMap<>();
             Map<IImm, Operand> offsetMap = new HashMap<>();
             Map<IImm, Operand> paramMap = new HashMap<>();
@@ -1445,7 +1451,7 @@ public class CodeGenManager {
             var haveRecoverLoadParam = block.getHaveRecoverLoadParam();
             var haveRecoverImm = block.getHaveRecoverImm();
             var haveRecoverStackLoad = block.getHaveRecoverStackLoad();
-            for (var inst : block.asElementView()) {
+            for (var inst : block) {
                 if (inst instanceof ArmInstStackAddr) {
                     var stackAddr = (ArmInstStackAddr) inst;
                     var offset = stackAddr.getOffset();
@@ -1555,8 +1561,8 @@ public class CodeGenManager {
                 }
             }
         }
-        for (var block : func.asElementView()) {
-            for (var inst : block.asElementView()) {
+        for (var block : func) {
+            for (var inst : block) {
                 var ops = new ArrayList<>(inst.getOperands());
                 for (var op : ops) {
                     if (recoverMap.containsKey(op)) {
@@ -1569,7 +1575,7 @@ public class CodeGenManager {
     }
 
     private void calcIUseRegs(ArmFunction func, Set<IPhyReg> regs) {
-        var iUseRegs = func.getiUsedRegs();
+        var iUseRegs = func.getIUsedRegs();
         iUseRegs.clear();
         for (int i = 4; i <= 14; i++) {
             if (i == 13) {
@@ -1582,7 +1588,7 @@ public class CodeGenManager {
     }
 
     private void calcFUseRegs(ArmFunction func, Set<FPhyReg> regs) {
-        var fUseRegs = func.getfUsedRegs();
+        var fUseRegs = func.getFUsedRegs();
         fUseRegs.clear();
         for (int i = 16; i <= 31; i++) {
             if (regs.contains(FPhyReg.S(i))) {

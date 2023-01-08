@@ -1,27 +1,21 @@
 package backend.lir.inst;
 
 import backend.lir.ArmBlock;
-import backend.codegen.CodeGenManager;
 import backend.lir.operand.IImm;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
 import utils.Log;
 
-public class ArmInstStackAddr extends ArmInst {
-    IImm trueOffset;
-    boolean isFix;
-    boolean isCAlloc;
+import java.util.Objects;
 
-    public ArmInstStackAddr(ArmInstKind inst) {
-        super(inst);
-    }
+public class ArmInstStackAddr extends ArmInst {
+    private IImm trueOffset;
+    private boolean isFix;
+    private boolean isCAlloc;
 
     public ArmInstStackAddr(ArmBlock block, Operand dst, IImm offset) {
-        super(ArmInstKind.StackAddr);
-        block.asElementView().add(this);
-        this.initOperands(dst, IPhyReg.SP, offset);
-        this.trueOffset = null;
-        this.isFix = false;
+        this(dst, offset);
+        block.add(this);
     }
 
     public ArmInstStackAddr(Operand dst, IImm offset) {
@@ -31,23 +25,12 @@ public class ArmInstStackAddr extends ArmInst {
         this.isFix = false;
     }
 
-    public Operand getDst() {
-        return this.getOperand(0);
-    }
-
-    public Operand getSrc() {
-        return this.getOperand(1);
-    }
-
-    public IImm getOffset() {
-        return (IImm) this.getOperand(2);
-    }
+    public Operand getDst() { return getOperand(0); }
+    public Operand getSrc() { return getOperand(1); }
+    public IImm getOffset() { return (IImm) getOperand(2); }
 
     public int getIntOffset() {
-        if (trueOffset != null) {
-            return trueOffset.getImm();
-        }
-        return getOffset().getImm();
+        return Objects.requireNonNullElse(trueOffset, getOffset()).getImm();
     }
 
     public boolean isCAlloc() {

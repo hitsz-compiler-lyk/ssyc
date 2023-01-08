@@ -1,7 +1,5 @@
 package backend.lir.operand;
 
-import org.xml.sax.HandlerBase;
-
 public abstract class Operand {
     public enum OperandKind {
         IVirtual,

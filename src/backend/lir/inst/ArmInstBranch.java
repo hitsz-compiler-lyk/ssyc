@@ -3,29 +3,15 @@ package backend.lir.inst;
 import backend.lir.ArmBlock;
 
 public class ArmInstBranch extends ArmInst {
-    private ArmBlock targetBlock;
-
-    public ArmInstBranch(ArmInstKind inst) {
-        super(inst);
-    }
+    private final ArmBlock targetBlock;
 
     public ArmInstBranch(ArmBlock block, ArmBlock targetBlock) {
-        super(ArmInstKind.Branch);
-        this.targetBlock = targetBlock;
-        block.asElementView().add(this);
+        this(block, targetBlock, ArmCondType.Any);
     }
-
-    public ArmInstBranch(ArmBlock targetBlock) {
-        super(ArmInstKind.Branch);
-        this.targetBlock = targetBlock;
-    }
-
 
     public ArmInstBranch(ArmBlock block, ArmBlock targetBlock, ArmCondType cond) {
-        super(ArmInstKind.Branch);
-        this.targetBlock = targetBlock;
-        block.asElementView().add(this);
-        this.setCond(cond);
+        this(targetBlock, cond);
+        block.add(this);
     }
 
     public ArmInstBranch(ArmBlock targetBlock, ArmCondType cond) {
@@ -36,9 +22,5 @@ public class ArmInstBranch extends ArmInst {
 
     public ArmBlock getTargetBlock() {
         return targetBlock;
-    }
-
-    public void setTargetBlock(ArmBlock targetBlock) {
-        this.targetBlock = targetBlock;
     }
 }

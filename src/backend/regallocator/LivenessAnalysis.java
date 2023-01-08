@@ -7,11 +7,11 @@ import java.util.HashSet;
 
 public class LivenessAnalysis {
     public static void funcLivenessAnalysis(ArmFunction func) {
-        for (var block : func.asElementView()) {
+        for (var block : func) {
             var blockLiveInfo = block.getBlockLiveInfo();
             blockLiveInfo.clear();
 
-            for (var inst : block.asElementView()) {
+            for (var inst : block) {
                 for (var reg : inst.getRegUse()) {
                     if (!blockLiveInfo.getLiveDef().contains(reg)) {
                         blockLiveInfo.getLiveUse().add(reg);
@@ -31,7 +31,7 @@ public class LivenessAnalysis {
         boolean changed = true;
         while (changed) {
             changed = false;
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var blockLiveInfo = block.getBlockLiveInfo();
                 var liveOut = new HashSet<Reg>();
 
