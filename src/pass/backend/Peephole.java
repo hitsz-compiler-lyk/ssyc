@@ -19,9 +19,9 @@ public class Peephole implements BackendPass {
     private boolean peepholePass(ArmModule module) {
         boolean done = true;
         for (var func : module.getFunctions()) {
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 var live = calcBlockLiveRange(block);
-                for (var inst : block.asElementView()) {
+                for (var inst : block) {
                     var preInstOp = inst.getINode().getPrev();
                     var preInst = preInstOp.isPresent() ? preInstOp.get().getValue() : null;
                     var nxtInstOp = inst.getINode().getNext();
@@ -265,7 +265,7 @@ public class Peephole implements BackendPass {
         Map<Pair<Operand, ArmInst>, ArmInst> ret = new HashMap<>();
         Map<Pair<Operand, ArmInst>, ArmInst> temp = new HashMap<>();
         Map<Operand, ArmInst> regMap = new HashMap<>();
-        for (var inst : block.asElementView()) {
+        for (var inst : block) {
             for (var use : inst.getRegUse()) {
                 if (regMap.containsKey(use)) {
                     temp.put(new Pair<>(use, regMap.get(use)), inst);
@@ -286,9 +286,9 @@ public class Peephole implements BackendPass {
     private boolean clearNotUseInst(ArmModule module) {
         boolean done = true;
         for (var func : module.getFunctions()) {
-            for (var block : func.asElementView()) {
+            for (var block : func) {
                 Map<Operand, ArmInst> instMap = new HashMap<>();
-                for (var inst : block.asElementView()) {
+                for (var inst : block) {
                     for (var use : inst.getRegUse()) {
                         if (use instanceof Reg) {
                             instMap.remove(use);

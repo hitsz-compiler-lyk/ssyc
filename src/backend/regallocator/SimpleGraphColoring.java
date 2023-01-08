@@ -1,6 +1,6 @@
 package backend.regallocator;
 
-import backend.lir.*;
+import backend.lir.ArmFunction;
 import backend.lir.inst.*;
 import backend.lir.operand.*;
 import utils.Log;
@@ -162,7 +162,7 @@ public class SimpleGraphColoring implements RegAllocator {
                 .filter(op -> op instanceof Reg).map(op -> (Reg) op)
                 .distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
-        for (var block : func.asElementView()) {
+        for (var block : func) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
 
             var instsInReverse = new ArrayList<>(block);
@@ -255,8 +255,8 @@ public class SimpleGraphColoring implements RegAllocator {
                 offsetMap.put(spill, offset);
             }
         }
-        for (var block : func.asElementView()) {
-            for (var inst : block.asElementView()) {
+        for (var block : func) {
+            for (var inst : block) {
                 boolean nxt = false;
                 for (var reg : inst.getRegDef()) {
                     if (specialNode.contains(reg)) {

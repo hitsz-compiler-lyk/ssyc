@@ -12,27 +12,9 @@ import backend.lir.operand.Operand;
 // 2: op2 RegUse
 // 2: op3 RegUse
 public class ArmInstTernary extends ArmInst {
-    public ArmInstTernary(ArmInstKind inst) {
-        super(inst);
-    }
-
     public ArmInstTernary(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
-        super(inst);
-        block.asElementView().add(this);
-        this.initOperands(dst, op1, op2, op3);
-    }
-
-    public ArmInstTernary(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3,
-                          ArmCondType cond) {
-        super(inst);
-        block.asElementView().add(this);
-        this.setCond(cond);
-        this.initOperands(dst, op1, op2, op3);
-    }
-
-    public ArmInstTernary(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
-        super(inst);
-        this.initOperands(dst, op1, op2, op3);
+        this(inst, dst, op1, op2, op3, ArmCondType.Any);
+        block.add(this);
     }
 
     public ArmInstTernary(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3, ArmCondType cond) {
@@ -41,19 +23,8 @@ public class ArmInstTernary extends ArmInst {
         this.initOperands(dst, op1, op2, op3);
     }
 
-    public Operand getDst() {
-        return this.getOperand(0);
-    }
-
-    public Operand getOp1() {
-        return this.getOperand(1);
-    }
-
-    public Operand getOp2() {
-        return this.getOperand(2);
-    }
-
-    public Operand getOp3() {
-        return this.getOperand(3);
-    }
+    public Operand getDst() { return getOperand(0); }
+    public Operand getOp1() { return getOperand(1); }
+    public Operand getOp2() { return getOperand(2); }
+    public Operand getOp3() { return getOperand(3); }
 }

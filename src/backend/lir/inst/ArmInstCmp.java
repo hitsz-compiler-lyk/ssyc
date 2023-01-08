@@ -8,25 +8,15 @@ import backend.lir.operand.Operand;
 public class ArmInstCmp extends ArmInst {
     private boolean isCmn = false;
 
-    public ArmInstCmp(ArmInstKind inst) {
-        super(inst);
-    }
-
     public ArmInstCmp(ArmBlock block, Operand lhs, Operand rhs, ArmCondType cond) {
         super(ArmInstKind.Cmp);
-        block.asElementView().add(this);
+        block.add(this);
         this.setCond(cond);
         this.initOperands(lhs, rhs);
-        this.isCmn = false;
     }
 
-    public Operand getLhs() {
-        return this.getOperand(0);
-    }
-
-    public Operand getRhs() {
-        return this.getOperand(1);
-    }
+    public Operand getLhs() { return getOperand(0); }
+    public Operand getRhs() { return getOperand(1); }
 
     public void setCmn(boolean isCmn) {
         this.isCmn = isCmn;

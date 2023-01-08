@@ -9,73 +9,56 @@ import backend.lir.operand.Reg;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class ArmInstCall extends ArmInst {
-    private ArmFunction func;
-    private String funcName;
-    private int paramsCnt;
-    private int fparamsCnt;
-    private boolean returnFloat;
-
-    public ArmInstCall(ArmInstKind inst) {
-        super(inst);
-    }
+    private final ArmFunction func;
+    private final String funcName;
+    private final int intParamsCnt;
+    private final int floatParamCnt;
 
     public ArmInstCall(ArmBlock block, ArmFunction func) {
         super(ArmInstKind.Call);
         this.func = func;
         this.funcName = func.getName();
-        block.asElementView().add(this);
-        this.paramsCnt = func.getParamsCnt();
-        this.fparamsCnt = func.getFparamsCnt();
-        this.returnFloat = func.isReturnFloat();
-        List<Operand> ops = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
-            ops.add(IPhyReg.R(i));
-        }
-        ops.add(IPhyReg.LR);
-        ops.add(IPhyReg.R(12)); // 如果是外部函数 则会因为链接器从而把r12定值
-        int fcnt = 0;
-        if (this.returnFloat) {
-            fcnt = 1;
-        }
-        fcnt = Integer.max(fcnt, this.fparamsCnt);
-        for (int i = 0; i < 16; i++) {
-            ops.add(FPhyReg.S(i));
-        }
-        this.initOperands(ops.toArray(new Operand[ops.size()]));
+        this.intParamsCnt = func.getParamsCnt();
+        this.floatParamCnt = func.getFparamsCnt();
+
+        block.add(this);
+        addCallerSaveRegsToDef();
     }
 
-    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, int fparamsCnt, boolean returnFloat) {
+    public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, int floatParamCnt) {
         super(ArmInstKind.Call);
+        this.func = null;
         this.funcName = funcName;
-        block.asElementView().add(this);
-        this.paramsCnt = Integer.min(paramsCnt, 4);
-        this.fparamsCnt = Integer.min(fparamsCnt, 16);
-        this.returnFloat = returnFloat;
-        List<Operand> ops = new ArrayList<>();
+        this.intParamsCnt = Integer.min(paramsCnt, 4);
+        this.floatParamCnt = Integer.min(floatParamCnt, 16);
+
+        block.add(this);
+        addCallerSaveRegsToDef();
+    }
+
+    private void addCallerSaveRegsToDef() {
+        final var ops = new ArrayList<Operand>();
+
         for (int i = 0; i < 4; i++) {
             ops.add(IPhyReg.R(i));
         }
+
         ops.add(IPhyReg.LR);
-        ops.add(IPhyReg.R(12)); // 如果是外部函数 则会因为链接器从而把r12定值 memset 和 memcpy不会?
+        // 对于外部函数, 链接器有可能会使用 R12 (IP) 寄存器
+        // 因此调用前后 R12 的值也不能保证, 需要加入 def 中
+        ops.add(IPhyReg.R(12));
+
         for (int i = 0; i < 16; i++) {
             ops.add(FPhyReg.S(i));
         }
-        this.initOperands(ops.toArray(new Operand[ops.size()]));
+
+        this.initOperands(ops.toArray(Operand[]::new));
     }
 
     public ArmFunction getFunc() { return func; }
-
-    public void setFunc(ArmFunction func) {
-        this.func = func;
-    }
-
-    public void setFuncName(String funcName) {
-        this.funcName = funcName;
-    }
 
     public String getFuncName() {
         return funcName;
@@ -83,11 +66,11 @@ public class ArmInstCall extends ArmInst {
 
     @Override
     public Set<Reg> getRegUse() {
-        var ret = new HashSet<Reg>();
-        for (int i = 0; i < Integer.min(this.paramsCnt, 4); i++) {
+        final var ret = new HashSet<Reg>();
+        for (int i = 0; i < Integer.min(this.intParamsCnt, 4); i++) {
             ret.add(IPhyReg.R(i));
         }
-        for (int i = 0; i < Integer.min(this.fparamsCnt, 16); i++) {
+        for (int i = 0; i < Integer.min(this.floatParamCnt, 16); i++) {
             ret.add(FPhyReg.S(i));
         }
         return ret;

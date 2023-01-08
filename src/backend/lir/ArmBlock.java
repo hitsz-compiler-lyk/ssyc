@@ -49,46 +49,32 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
             return liveOut;
         }
 
-        public void setLiveUse(Set<Reg> liveUse) {
-            this.liveUse = liveUse;
-        }
-
-        public void setLiveDef(Set<Reg> liveDef) {
-            this.liveDef = liveDef;
-        }
-
-        public void setLiveIn(Set<Reg> liveIn) {
-            this.liveIn = liveIn;
-        }
-
         public void setLiveOut(Set<Reg> liveOut) {
             this.liveOut = liveOut;
         }
     }
 
-    private String label;
+    private final String label;
 
-    private List<ArmBlock> pred;
+    private final List<ArmBlock> pred;
 
     private ArmBlock trueSuccBlock, falseSuccBlock;
 
     private INode<ArmBlock, ArmFunction> inode;
 
-    private IList<ArmInst, ArmBlock> insts;
+    private final IList<ArmInst, ArmBlock> insts;
 
-    private BlockLiveInfo blockLiveInfo;
+    private final BlockLiveInfo blockLiveInfo;
 
-    private Set<Addr> haveRecoverAddrs;
+    private final Set<Addr> haveRecoverAddrs;
 
-    private Set<IImm> haveRecoverOffset;
+    private final Set<IImm> haveRecoverOffset;
 
-    private Set<IImm> haveRecoverLoadParam;
+    private final Set<IImm> haveRecoverLoadParam;
 
-    private Set<IImm> haveRecoverStackLoad;
+    private final Set<IImm> haveRecoverStackLoad;
 
-    private Set<Imm> haveRecoverImm;
-
-    private int loopDepth = 0;
+    private final Set<Imm> haveRecoverImm;
 
     public Set<Addr> getHaveRecoverAddrs() {
         return haveRecoverAddrs;
@@ -163,38 +149,21 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.pred.add(pred);
     }
 
-    public void setLoopDepth(int loopDepth) {
-        this.loopDepth = loopDepth;
-    }
-
-    public int getLoopDepth() {
-        return loopDepth;
-    }
-
     public ArmBlock(ArmFunction func, String label) {
+        this(label);
+        this.inode = new INode<>(this);
+        func.add(this);
+    }
+
+    public ArmBlock(String label) {
         this.label = label;
-        this.pred = new ArrayList<ArmBlock>();
-        this.insts = new IList<ArmInst, ArmBlock>(this);
-        this.inode = new INode<ArmBlock, ArmFunction>(this);
+        this.pred = new ArrayList<>();
         this.blockLiveInfo = new BlockLiveInfo();
         this.haveRecoverAddrs = new HashSet<>();
         this.haveRecoverOffset = new HashSet<>();
         this.haveRecoverLoadParam = new HashSet<>();
         this.haveRecoverStackLoad = new HashSet<>();
         this.haveRecoverImm = new HashSet<>();
-        this.loopDepth = 0;
-        func.asElementView().add(this);
-    }
-
-    public ArmBlock(String label) {
-        this.label = label;
-        this.pred = new ArrayList<>();
-        this.haveRecoverAddrs = new HashSet<>();
-        this.haveRecoverOffset = new HashSet<>();
-        this.haveRecoverLoadParam = new HashSet<>();
-        this.haveRecoverStackLoad = new HashSet<>();
-        this.haveRecoverImm = new HashSet<>();
-        this.loopDepth = 0;
         this.insts = new IList<>(this);
     }
 

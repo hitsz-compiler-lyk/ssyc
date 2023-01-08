@@ -1,11 +1,7 @@
 package backend.lir.inst;
 
 public class ArmInstLiteralPoolPlacement extends ArmInst {
-    private String label;
-
-    public ArmInstLiteralPoolPlacement(ArmInstKind inst) {
-        super(inst);
-    }
+    private final String label;
 
     public ArmInstLiteralPoolPlacement(String label) {
         super(ArmInstKind.Ltorg);

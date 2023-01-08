@@ -1,7 +1,5 @@
 package backend.lir;
 
-import backend.lir.operand.Operand;
-
 public class ArmShift {
     public enum ShiftType {
         None,
@@ -17,38 +15,28 @@ public class ArmShift {
         }
     }
 
-    private int imm = 0;
-    private Operand op = null;
-    private ShiftType type = ShiftType.None;
+    private final int imm;
+    private final ShiftType type;
 
     public ArmShift(ShiftType type, int imm) {
         this.type = type;
         this.imm = imm;
     }
 
-    public ArmShift(ShiftType type, Operand op) {
-        this.type = type;
-        this.op = op;
-    }
-
     public boolean isNoPrint() {
-        return type == ShiftType.None || (imm == 0 && op == null && type != ShiftType.Rrx);
+        return type == ShiftType.None || imm == 0 && type != ShiftType.Rrx;
     }
 
     @Override
     public String toString() {
-        if (type == ShiftType.None || (imm == 0 && op == null && type != ShiftType.Rrx)) {
+        if (isNoPrint()) {
             return "";
         }
         if (type == ShiftType.Rrx) {
             return type.toString();
         }
         String ret = ",\t" + type.toString();
-        if (op == null) {
-            ret += "\t#" + Integer.toString(imm);
-        } else {
-            ret += "\t" + op.print();
-        }
+        ret += "\t#" + imm;
         return ret;
     }
 }

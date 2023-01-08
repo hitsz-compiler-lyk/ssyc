@@ -12,22 +12,22 @@ import java.util.*;
 
 public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
     private int stackSize;
-    private int finalstackSize;
+    private int finalStackSize;
     private int fparamsCnt; // 最大值16
     private int iparamsCnt; // 最大值4
-    private ArmBlock prologue;
+    private final ArmBlock prologue;
     private List<Parameter> parameter;
-    private List<IPhyReg> iUsedRegs;
-    private List<FPhyReg> fUsedRegs;
-    private List<Integer> stackObject;
-    private List<Integer> stackObjectOffset;
-    private Map<Operand, ArmInstParamLoad> paramLoadMap;
-    private Map<Operand, ArmInstLoad> addrLoadMap;
-    private Map<Operand, ArmInstStackAddr> stackAddrMap;
-    private Map<Operand, ArmInstStackLoad> stackLoadMap;
-    private Map<Operand, ArmInstMove> immMap;
-    private Set<Operand> spillNodes;
-    private Set<Operand> stackStoreSet;
+    private final List<IPhyReg> iUsedRegs;
+    private final List<FPhyReg> fUsedRegs;
+    private final List<Integer> stackObject;
+    private final List<Integer> stackObjectOffset;
+    private final Map<Operand, ArmInstParamLoad> paramLoadMap;
+    private final Map<Operand, ArmInstLoad> addrLoadMap;
+    private final Map<Operand, ArmInstStackAddr> stackAddrMap;
+    private final Map<Operand, ArmInstStackLoad> stackLoadMap;
+    private final Map<Operand, ArmInstMove> immMap;
+    private final Set<Operand> spillNodes;
+    private final Set<Operand> stackStoreSet;
 
     public int getStackSize() {
         return stackSize;
@@ -41,16 +41,16 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return parameter;
     }
 
-    public List<IPhyReg> getiUsedRegs() {
+    public List<IPhyReg> getIUsedRegs() {
         return iUsedRegs;
     }
 
-    public List<FPhyReg> getfUsedRegs() {
+    public List<FPhyReg> getFUsedRegs() {
         return fUsedRegs;
     }
 
-    public int getFinalstackSize() {
-        return finalstackSize;
+    public int getFinalStackSize() {
+        return finalStackSize;
     }
 
     public List<Integer> getStackObject() {
@@ -61,16 +61,12 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return stackObjectOffset;
     }
 
-    public void setPrologue(ArmBlock prologue) {
-        this.prologue = prologue;
-    }
-
     public void setParameter(List<Parameter> parameter) {
         this.parameter = parameter;
     }
 
-    public void setFinalstackSize(int finalstackSize) {
-        this.finalstackSize = finalstackSize;
+    public void setFinalStackSize(int finalStackSize) {
+        this.finalStackSize = finalStackSize;
     }
 
     public void addStackSize(int n) {
@@ -95,9 +91,9 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.iparamsCnt = iparamsCnt;
     }
 
-    private String name;
-    private IList<ArmBlock, ArmFunction> blocks;
-    private int paramsCnt;
+    private final String name;
+    private final IList<ArmBlock, ArmFunction> blocks;
+    private final int paramsCnt;
     private boolean isReturnFloat;
     private boolean isExternal;
 
@@ -118,16 +114,8 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         this.isReturnFloat = isReturnFloat;
     }
 
-    public boolean isReturnFloat() {
-        return isReturnFloat;
-    }
-
     public void setExternal(boolean isExternal) {
         this.isExternal = isExternal;
-    }
-
-    public boolean isExternal() {
-        return isExternal;
     }
 
     public Map<Operand, ArmInstParamLoad> getParamLoadMap() {
@@ -158,36 +146,26 @@ public class ArmFunction implements IListOwner<ArmBlock, ArmFunction> {
         return stackStoreSet;
     }
 
+    public boolean isExternal() {
+        return isExternal;
+    }
+
+    public boolean isReturnFloat() {
+        return isReturnFloat;
+    }
+
     public ArmFunction(String name) {
-        this.name = name;
-        this.blocks = new IList<>(this);
-        this.paramsCnt = 0;
-        this.isReturnFloat = false;
-        this.isExternal = false;
-        this.stackSize = 0;
-        this.finalstackSize = 0;
-        this.iUsedRegs = new ArrayList<>();
-        this.fUsedRegs = new ArrayList<>();
-        this.stackObject = new ArrayList<>();
-        this.stackObjectOffset = new ArrayList<>();
-        this.addrLoadMap = new HashMap<>();
-        this.paramLoadMap = new HashMap<>();
-        this.stackAddrMap = new HashMap<>();
-        this.stackLoadMap = new HashMap<>();
-        this.immMap = new HashMap<>();
-        this.spillNodes = new HashSet<>();
-        this.stackStoreSet = new HashSet<>();
-        this.prologue = new ArmBlock(this, this.name + "_prologue");
+        this(name, 0);
     }
 
     public ArmFunction(String name, int paramsCnt) {
         this.name = name;
-        this.blocks = new IList<ArmBlock, ArmFunction>(this);
+        this.blocks = new IList<>(this);
         this.paramsCnt = paramsCnt;
         this.isReturnFloat = false;
         this.isExternal = false;
         this.stackSize = 0;
-        this.finalstackSize = 0;
+        this.finalStackSize = 0;
         this.iUsedRegs = new ArrayList<>();
         this.fUsedRegs = new ArrayList<>();
         this.stackObject = new ArrayList<>();

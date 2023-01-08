@@ -88,12 +88,12 @@ public class LLVMDumper {
             ir("; <param-name> : <param-ir-name>", param.getParamName(), param);
         }
 
-        for (final var block : function.asElementView()) {
+        for (final var block : function) {
             final var preds = commaSplitList(block.getPredecessors(), b -> b.getSymbol().getVSCodeDescriptor());
             ir("<label>:    ; <label-name> : <pred*>", toName(block).substring(1), block.getSymbol().getVSCodeDescriptor(), preds);
 
             indent += 2;
-            block.asElementView().forEach(this::dumpInstruction);
+            block.forEach(this::dumpInstruction);
             indent -= 2;
 
             if (block.containsAnalysisInfo(CurrDefInfo.class)) {
