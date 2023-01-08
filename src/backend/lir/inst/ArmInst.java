@@ -6,7 +6,6 @@ import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
 import utils.INode;
 import utils.INodeOwner;
-import utils.Log;
 
 import java.util.*;
 
@@ -150,8 +149,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     private ArmCondType cond;
 
-    private int printCnt;
-
     private final INode<ArmInst, ArmBlock> inode;
 
     protected ArmInst(ArmInstKind kind) {
@@ -161,16 +158,6 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
         this.regDef = new LinkedHashSet<>();
         this.operands = new ArrayList<>();
         this.cond = ArmCondType.Any;
-        this.printCnt = 0;
-    }
-
-    protected void setPrintCnt(int printCnt) {
-        this.printCnt = printCnt;
-    }
-
-    public int getPrintCnt() {
-        Log.ensure(printCnt != 0, "print cnt == 0");
-        return printCnt;
     }
 
     public ArmInstKind getKind() {

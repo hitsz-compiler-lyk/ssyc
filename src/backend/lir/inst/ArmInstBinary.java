@@ -3,10 +3,6 @@ package backend.lir.inst;
 import backend.lir.ArmBlock;
 import backend.lir.ArmShift;
 import backend.lir.operand.Operand;
-import utils.Log;
-
-import java.util.HashMap;
-import java.util.Map;
 
 // 0: dst RegDef
 // 1: lhs RegUse
@@ -22,7 +18,6 @@ public class ArmInstBinary extends ArmInst {
         super(inst);
         block.asElementView().add(this);
         this.initOperands(dst, lhs, rhs);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -31,14 +26,12 @@ public class ArmInstBinary extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
     public ArmInstBinary(ArmInstKind inst, Operand dst, Operand lhs, Operand rhs) {
         super(inst);
         this.initOperands(dst, lhs, rhs);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -46,7 +39,6 @@ public class ArmInstBinary extends ArmInst {
         super(inst);
         this.setCond(cond);
         this.initOperands(dst, lhs, rhs);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 

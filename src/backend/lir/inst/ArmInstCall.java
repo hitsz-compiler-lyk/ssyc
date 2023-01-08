@@ -6,8 +6,6 @@ import backend.lir.operand.FPhyReg;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
-import pass.ir.IRPass;
-import utils.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -48,7 +46,6 @@ public class ArmInstCall extends ArmInst {
             ops.add(FPhyReg.S(i));
         }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(1);
     }
 
     public ArmInstCall(ArmBlock block, String funcName, int paramsCnt, int fparamsCnt, boolean returnFloat) {
@@ -68,7 +65,6 @@ public class ArmInstCall extends ArmInst {
             ops.add(FPhyReg.S(i));
         }
         this.initOperands(ops.toArray(new Operand[ops.size()]));
-        this.setPrintCnt(1);
     }
 
     public ArmFunction getFunc() { return func; }

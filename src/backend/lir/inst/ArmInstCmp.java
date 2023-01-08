@@ -17,11 +17,6 @@ public class ArmInstCmp extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(lhs, rhs);
-        if (lhs.isFloat() || rhs.isFloat()) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.isCmn = false;
     }
 

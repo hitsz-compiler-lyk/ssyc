@@ -2,10 +2,8 @@ package backend.lir.inst;
 
 import backend.lir.ArmBlock;
 import backend.lir.ArmShift;
-import backend.lir.operand.Addr;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
-import utils.Log;
 
 // Store 都是 RegUse
 // 0: src     RegUse
@@ -22,7 +20,6 @@ public class ArmInstStore extends ArmInst {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, new IImm(0));
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -31,7 +28,6 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -39,7 +35,6 @@ public class ArmInstStore extends ArmInst {
         super(ArmInstKind.Store);
         block.asElementView().add(this);
         this.initOperands(src, addr, offset);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -48,14 +43,12 @@ public class ArmInstStore extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(src, addr, offset);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(0));
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -63,21 +56,18 @@ public class ArmInstStore extends ArmInst {
         super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, new IImm(0));
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, Operand offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, offset);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
     public ArmInstStore(Operand src, Operand addr, int offset) {
         super(ArmInstKind.Store);
         this.initOperands(src, addr, new IImm(offset));
-        this.setPrintCnt(1);
         this.shift = null;
     }
 
@@ -85,7 +75,6 @@ public class ArmInstStore extends ArmInst {
         super(ArmInstKind.Store);
         this.setCond(cond);
         this.initOperands(src, addr, offset);
-        this.setPrintCnt(1);
         this.shift = null;
     }
 

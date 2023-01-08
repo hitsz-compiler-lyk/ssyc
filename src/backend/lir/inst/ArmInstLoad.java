@@ -5,7 +5,6 @@ import backend.lir.ArmShift;
 import backend.lir.operand.Addr;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
-import utils.Log;
 
 // 0: dst     RegDef
 // 1: addr    RegUse
@@ -21,11 +20,6 @@ public class ArmInstLoad extends ArmInst {
         super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.initOperands(dst, addr, new IImm(0));
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
@@ -34,22 +28,12 @@ public class ArmInstLoad extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, addr, new IImm(0));
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr) {
         super(ArmInstKind.Load);
         this.initOperands(dst, addr, new IImm(0));
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
@@ -57,11 +41,6 @@ public class ArmInstLoad extends ArmInst {
         super(ArmInstKind.Load);
         this.setCond(cond);
         this.initOperands(dst, addr, new IImm(0));
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
@@ -69,11 +48,6 @@ public class ArmInstLoad extends ArmInst {
         super(ArmInstKind.Load);
         block.asElementView().add(this);
         this.initOperands(dst, addr, offset);
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
@@ -82,33 +56,18 @@ public class ArmInstLoad extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, addr, offset);
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, Operand offset) {
         super(ArmInstKind.Load);
         this.initOperands(dst, addr, offset);
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
     public ArmInstLoad(Operand dst, Operand addr, int offset) {
         super(ArmInstKind.Load);
         this.initOperands(dst, addr, new IImm(offset));
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
@@ -116,11 +75,6 @@ public class ArmInstLoad extends ArmInst {
         super(ArmInstKind.Load);
         this.setCond(cond);
         this.initOperands(dst, addr, offset);
-        if (addr instanceof Addr) {
-            this.setPrintCnt(2);
-        } else {
-            this.setPrintCnt(1);
-        }
         this.shift = null;
     }
 
