@@ -20,11 +20,6 @@ public class ArmInstStackAddr extends ArmInst {
         super(ArmInstKind.StackAddr);
         block.asElementView().add(this);
         this.initOperands(dst, IPhyReg.SP, offset);
-        if (CodeGenManager.checkEncodeImm(Math.abs(offset.getImm()))) {
-            this.setPrintCnt(1);
-        } else {
-            this.setPrintCnt(3);
-        }
         this.trueOffset = null;
         this.isFix = false;
     }
@@ -32,11 +27,6 @@ public class ArmInstStackAddr extends ArmInst {
     public ArmInstStackAddr(Operand dst, IImm offset) {
         super(ArmInstKind.StackAddr);
         this.initOperands(dst, IPhyReg.SP, offset);
-        if (CodeGenManager.checkEncodeImm(Math.abs(offset.getImm()))) {
-            this.setPrintCnt(1);
-        } else {
-            this.setPrintCnt(3);
-        }
         this.trueOffset = null;
         this.isFix = false;
     }
@@ -70,21 +60,8 @@ public class ArmInstStackAddr extends ArmInst {
 
     public void setTrueOffset(IImm trueOffset) {
         this.trueOffset = trueOffset;
-        if (trueOffset == null) {
-            if (CodeGenManager.checkEncodeImm(Math.abs(getOffset().getImm()))) {
-                this.setPrintCnt(1);
-            } else {
-                this.setPrintCnt(3);
-            }
-        } else {
-            if (!isCAlloc) {
-                Log.ensure((trueOffset.getImm() % 1024) == 0, "offset must be %1024 ==0");
-            }
-            if (CodeGenManager.checkEncodeImm(Math.abs(trueOffset.getImm()))) {
-                this.setPrintCnt(1);
-            } else {
-                this.setPrintCnt(3);
-            }
+        if (trueOffset != null && !isCAlloc) {
+            Log.ensure((trueOffset.getImm() % 1024) == 0, "offset must be %1024 ==0");
         }
     }
 

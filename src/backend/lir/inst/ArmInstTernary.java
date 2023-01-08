@@ -20,7 +20,6 @@ public class ArmInstTernary extends ArmInst {
         super(inst);
         block.asElementView().add(this);
         this.initOperands(dst, op1, op2, op3);
-        this.setPrintCnt(1);
     }
 
     public ArmInstTernary(ArmBlock block, ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3,
@@ -29,20 +28,17 @@ public class ArmInstTernary extends ArmInst {
         block.asElementView().add(this);
         this.setCond(cond);
         this.initOperands(dst, op1, op2, op3);
-        this.setPrintCnt(1);
     }
 
     public ArmInstTernary(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3) {
         super(inst);
         this.initOperands(dst, op1, op2, op3);
-        this.setPrintCnt(1);
     }
 
     public ArmInstTernary(ArmInstKind inst, Operand dst, Operand op1, Operand op2, Operand op3, ArmCondType cond) {
         super(inst);
         this.setCond(cond);
         this.initOperands(dst, op1, op2, op3);
-        this.setPrintCnt(1);
     }
 
     public Operand getDst() {

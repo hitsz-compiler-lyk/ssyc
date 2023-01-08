@@ -126,8 +126,9 @@ public class ToAsmManager {
                     offset = 0;
                 }
                 if (haveLoadFImm) {
-                    offset += inst.getPrintCnt();
+                    offset += estimator.visit(inst);
                 }
+                // 预留一些余量
                 if (offset > 250) {
                     final var pool = new ArmInstLiteralPoolPlacement(func.getName() + "_ltorg_" + cnt++);
                     inst.insertAfterCO(pool);
@@ -136,6 +137,38 @@ public class ToAsmManager {
                 }
             }
         }
+    }
+
+    // TODO: 想办法把这个估计跟汇编文本生成整合一下
+    private final EstimateTranslatedArmInst estimator = new EstimateTranslatedArmInst();
+    private static class EstimateTranslatedArmInst implements ArmInstVisitor<Integer> {
+        public Integer visitArmInstBinary(ArmInstBinary inst) { return 1; }
+        public Integer visitArmInstBranch(ArmInstBranch inst) { return inst.getCond().isAny() ? 2 : 1; }
+        public Integer visitArmInstCall(ArmInstCall inst) { return 1; }
+        public Integer visitArmInstCmp(ArmInstCmp inst) { return inst.getLhs().isFloat() || inst.getRhs().isFloat() ? 2 : 1; }
+        public Integer visitArmInstFloatToInt(ArmInstFloatToInt inst) { return 1; }
+        public Integer visitArmInstIntToFloat(ArmInstIntToFloat inst) { return 1; }
+        public Integer visitArmInstLoad(ArmInstLoad inst) { return inst.getAddr() instanceof Addr ? 2 : 1; }
+        public Integer visitArmInstLiteralPoolPlacement(ArmInstLiteralPoolPlacement inst) { return 3; }
+        public Integer visitArmInstMove(ArmInstMove inst) {
+            final var src = inst.getSrc();
+            if (src instanceof IImm iImm) {
+                final var imm = iImm.getImm();
+                return CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm) ? 1 : 2;
+            } else {
+                return src instanceof Addr ? 2 : 1;
+            }
+        }
+        public Integer visitArmInstParamLoad(ArmInstParamLoad inst) { return 1; }
+        public Integer visitArmInstReturn(ArmInstReturn inst) { return 7; }
+        public Integer visitArmInstStackAddr(ArmInstStackAddr inst) {
+            return CodeGenManager.checkEncodeImm(Math.abs(inst.getOffset().getImm())) ? 1 : 3;
+        }
+        public Integer visitArmInstStackLoad(ArmInstStackLoad inst) { return 1; }
+        public Integer visitArmInstStackStore(ArmInstStackStore inst) { return 1; }
+        public Integer visitArmInstStore(ArmInstStore inst) { return 1; }
+        public Integer visitArmInstTernary(ArmInstTernary inst) { return 1; }
+        public Integer visitArmInstUnary(ArmInstUnary inst) { return 1; }
     }
 
     //================================== 栈空间调整和寄存器存储/恢复部分 ==================================//

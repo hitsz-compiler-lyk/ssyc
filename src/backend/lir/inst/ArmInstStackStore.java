@@ -1,11 +1,9 @@
 package backend.lir.inst;
 
 import backend.lir.ArmBlock;
-import backend.codegen.CodeGenManager;
 import backend.lir.operand.IImm;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
-import utils.Log;
 
 public class ArmInstStackStore extends ArmInst {
     IImm trueOffset;
@@ -18,14 +16,12 @@ public class ArmInstStackStore extends ArmInst {
         super(ArmInstKind.StackStore);
         block.asElementView().add(this);
         this.initOperands(dst, IPhyReg.SP, offset);
-        this.setPrintCnt(1);
         this.trueOffset = null;
     }
 
     public ArmInstStackStore(Operand dst, IImm offset) {
         super(ArmInstKind.StackStore);
         this.initOperands(dst, IPhyReg.SP, offset);
-        this.setPrintCnt(1);
         this.trueOffset = null;
     }
 

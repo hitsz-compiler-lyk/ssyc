@@ -10,7 +10,6 @@ public class ArmInstLiteralPoolPlacement extends ArmInst {
     public ArmInstLiteralPoolPlacement(String label) {
         super(ArmInstKind.Ltorg);
         this.label = label;
-        this.setPrintCnt(3);
     }
 
     public String getLabel() {
