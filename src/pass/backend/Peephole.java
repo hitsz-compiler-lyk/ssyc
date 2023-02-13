@@ -1,6 +1,6 @@
 package pass.backend;
 
-import backend.codegen.ImmUtils;
+import backend.ImmUtils;
 import backend.lir.*;
 import backend.lir.inst.ArmInst.ArmInstKind;
 import backend.lir.inst.*;
