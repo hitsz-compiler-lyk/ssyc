@@ -1,13 +1,12 @@
 package pass.backend;
 
+import backend.codegen.ImmUtils;
 import backend.lir.*;
 import backend.lir.inst.ArmInst.ArmInstKind;
 import backend.lir.inst.*;
-import backend.codegen.CodeGenManager;
 import backend.lir.operand.IImm;
 import backend.lir.operand.Operand;
 import backend.lir.operand.Reg;
-import ir.Module;
 import utils.Log;
 import utils.Pair;
 
@@ -62,7 +61,7 @@ public class Peephole implements BackendPass {
                             var binay = (ArmInstBinary) preInst;
                             if (binay.getKind().equals(ArmInstKind.IAdd)) {
                                 Boolean canPre = (binay.getRhs().isReg() || (binay.getRhs() instanceof IImm &&
-                                        CodeGenManager.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
+                                        ImmUtils.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
                                                 load.getDst())))
                                         && load.equals(live.getOrDefault(new Pair<>(binay.getDst(), binay), null));
                                 Boolean isEqualAddr = binay.getDst().equals(load.getAddr());
@@ -86,7 +85,7 @@ public class Peephole implements BackendPass {
                             var binay = (ArmInstBinary) preInst;
                             if (binay.getKind().equals(ArmInstKind.IAdd)) {
                                 Boolean canPre = (binay.getRhs().isReg() || (binay.getRhs() instanceof IImm &&
-                                        CodeGenManager.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
+                                        ImmUtils.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
                                                 store.getSrc())))
                                         && store.equals(live.getOrDefault(new Pair<>(binay.getDst(), binay), null));
                                 Boolean isEqualAddr = binay.getDst().equals(store.getAddr());
