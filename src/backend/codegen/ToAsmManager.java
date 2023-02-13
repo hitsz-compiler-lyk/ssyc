@@ -154,7 +154,7 @@ public class ToAsmManager {
             final var src = inst.getSrc();
             if (src instanceof IImm iImm) {
                 final var imm = iImm.getImm();
-                return CodeGenManager.checkEncodeImm(~imm) || CodeGenManager.checkEncodeImm(imm) ? 1 : 2;
+                return ImmUtils.checkEncodeImm(~imm) || ImmUtils.checkEncodeImm(imm) ? 1 : 2;
             } else {
                 return src instanceof Addr ? 2 : 1;
             }
@@ -162,7 +162,7 @@ public class ToAsmManager {
         public Integer visitArmInstParamLoad(ArmInstParamLoad inst) { return 1; }
         public Integer visitArmInstReturn(ArmInstReturn inst) { return 7; }
         public Integer visitArmInstStackAddr(ArmInstStackAddr inst) {
-            return CodeGenManager.checkEncodeImm(Math.abs(inst.getOffset().getImm())) ? 1 : 3;
+            return ImmUtils.checkEncodeImm(Math.abs(inst.getOffset().getImm())) ? 1 : 3;
         }
         public Integer visitArmInstStackLoad(ArmInstStackLoad inst) { return 1; }
         public Integer visitArmInstStackStore(ArmInstStackStore inst) { return 1; }
@@ -188,13 +188,13 @@ public class ToAsmManager {
         if (stackSize > 0) {
             // 检查栈大小是否可以被编码为 add/sub 指令的立即数
             // 如果可以被编码, 就直接生成一条 add/sub 指令来调整 SP
-            if (CodeGenManager.checkEncodeImm(stackSize)) {
+            if (ImmUtils.checkEncodeImm(stackSize)) {
                 asm.instruction(opForSP).cond(cond)
                     .literal("sp")
                     .literal("sp")
                     .literal(stackSize)
                     .end();
-            } else if (CodeGenManager.checkEncodeImm(-stackSize)) {
+            } else if (ImmUtils.checkEncodeImm(-stackSize)) {
                 final var negOpForSP = switch (opForSP) {
                     case "add" -> "sub";
                     case "sub" -> "add";
@@ -533,13 +533,13 @@ public class ToAsmManager {
             if (src instanceof IImm) {
                 int imm = ((IImm) src).getImm();
                 // https://developer.arm.com/documentation/dui0473/j/writing-arm-assembly-language/load-immediate-values-using-mov-and-mvn?lang=en
-                if (CodeGenManager.checkEncodeImm(~imm)) {
+                if (ImmUtils.checkEncodeImm(~imm)) {
                     asm.instruction(isVector + "mvn").cond(inst)
                         .operand(dst)
                         .literal(~imm)
                         .end();
 
-                } else if (CodeGenManager.checkEncodeImm(imm)) {
+                } else if (ImmUtils.checkEncodeImm(imm)) {
                     asm.instruction(isVector + "mov").cond(inst)
                         .operand(dst)
                         .literal(imm)
@@ -601,7 +601,7 @@ public class ToAsmManager {
             Log.ensure(offset != null, "true offset must not be null"); assert offset != null;
 
             final var isFloat = dst.isFloat();
-            Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), isFloat), "LoadParam offset illegal");
+            Log.ensure(ImmUtils.checkOffsetRange(offset.getImm(), isFloat), "LoadParam offset illegal");
 
             final var op = isFloat ? "vldr" : "ldr";
             asm.instruction(op).cond(inst)
@@ -650,7 +650,7 @@ public class ToAsmManager {
             }
 
             final var op = offset.getImm() < 0 ? "sub" : "add";
-            if (CodeGenManager.checkEncodeImm(imm)) {
+            if (ImmUtils.checkEncodeImm(imm)) {
                 asm.instruction(op).cond(inst)
                     .operand(dst)
                     .operand(src)
@@ -677,7 +677,7 @@ public class ToAsmManager {
             Log.ensure(offset != null, "true offset must not be null"); assert offset != null;
 
             final var isFloat = dst.isFloat();
-            Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), isFloat), "Load offset illegal");
+            Log.ensure(ImmUtils.checkOffsetRange(offset.getImm(), isFloat), "Load offset illegal");
 
             final var op = isFloat ? "vldr" : "ldr";
             asm.instruction(op).cond(inst)
@@ -696,7 +696,7 @@ public class ToAsmManager {
             Log.ensure(offset != null, "true offset must not be null"); assert offset != null;
 
             final var isFloat = dst.isFloat();
-            Log.ensure(CodeGenManager.checkOffsetRange(offset.getImm(), isFloat), "Store offset illegal");
+            Log.ensure(ImmUtils.checkOffsetRange(offset.getImm(), isFloat), "Store offset illegal");
 
             final var op = isFloat ? "vstr" : "str";
             asm.instruction(op).cond(inst)
