@@ -1,4 +1,4 @@
-package backend.codegen;
+package backend;
 
 import backend.lir.operand.Operand;
 
@@ -80,7 +80,7 @@ public class ImmUtils {
      * @param n 立即数
      * @return 能否被优化
      */
-    static boolean canOptimizeMul(int n) {
+    public static boolean canOptimizeMul(int n) {
         long abs = Math.abs(n);
         if (is2Power(abs)) {
             return true;

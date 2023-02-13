@@ -1,6 +1,5 @@
 package pass.backend;
 
-import backend.codegen.CodeGenManager;
 import backend.lir.ArmModule;
 
 public class BackendPassManager {

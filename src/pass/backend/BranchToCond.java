@@ -5,7 +5,6 @@ import backend.lir.inst.ArmInst;
 import backend.lir.inst.ArmInstBranch;
 import backend.lir.inst.ArmInstCmp;
 import backend.lir.inst.ArmInstReturn;
-import backend.codegen.CodeGenManager;
 
 public class BranchToCond implements BackendPass {
 

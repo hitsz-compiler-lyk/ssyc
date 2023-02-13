@@ -1,5 +1,6 @@
 package backend.codegen;
 
+import backend.ImmUtils;
 import backend.lir.ArmFunction;
 import backend.lir.ArmModule;
 import backend.lir.inst.ArmInst.ArmCondType;

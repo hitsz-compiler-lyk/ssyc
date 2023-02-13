@@ -1,5 +1,6 @@
-import backend.codegen.CodeGenManager;
+import backend.regallocator.RegAllocManager;
 import backend.codegen.ToAsmManager;
+import backend.codegen.ToLIRManager;
 import frontend.IRGen;
 import frontend.SysYLexer;
 import frontend.SysYParser;
@@ -116,10 +117,11 @@ public class Main {
                     module.verifyAll();
                 }
 
-                final var codeGenManager = new CodeGenManager();
-                codeGenManager.genArm(module);
-                codeGenManager.regAllocate();
-                final var armModule = codeGenManager.getArmModule();
+                final var toLIRMgr = new ToLIRManager(module);
+                final var armModule = toLIRMgr.codeGenLIR();
+
+                final var regAllocMgr = new RegAllocManager(armModule);
+                regAllocMgr.regAllocate();
 
                 if (needOptimize) {
                     final var BackendPass = new BackendPassManager(armModule);
@@ -131,7 +133,7 @@ public class Main {
                 writer.close();
             }
 
-            default -> throw new RuntimeException("Unsupport target");
+            default -> throw new RuntimeException("Unsupported target");
         }
 
         inputStream.close();
