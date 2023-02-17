@@ -26,6 +26,19 @@ import utils.Pair;
 
 import java.util.*;
 
+/**
+ * 在考虑各种底层信息的情况下, 将 SSA IR 转为 TAC 形式的 LIR
+ * <p>
+ * 本转换会考虑:
+ * <ul>
+ *      <li>立即数的编码问题</li>
+ *      <li>函数的调用约定问题</li>
+ *      <li>一些简单的优化, 比如乘加融合</li>
+ *      <li> 一些强度削减, 比如特定乘除法换成位移和加法</li>
+ * </ul>
+ *
+ * TODO: 考虑拆分转换代码, 拆成最简单的 SSA -> TAC 转换 (只做 Phi Destruction 和映射) 和若干个优化与底层相关转换 pass 的形式
+ */
 public class ToLIRManager {
     private final Map<Value, Operand> valMap = new HashMap<>();
     private final Map<Function, ArmFunction> funcMap = new HashMap<>();
@@ -181,7 +194,7 @@ public class ToLIRManager {
 
             // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
             // MOVE Phi Incoming.Value
-            Map<ArmBlock, ArmInst> firstBranch = new HashMap<>();
+            final var firstBranch = new HashMap<ArmBlock, ArmInst>();
             for (var block : func) {
                 var armBlock = blockMap.get(block);
                 for (var inst : armBlock) {
@@ -194,9 +207,7 @@ public class ToLIRManager {
 
             for (var block : func) {
                 var armBlock = blockMap.get(block);
-                var phiIt = block.iterPhis();
-                while (phiIt.hasNext()) {
-                    var phi = phiIt.next();
+                for (final var phi : block.phis()) {
                     var incomingInfoIt = phi.getIncomingInfos().iterator();
                     var phiReg = resolveOperand(phi, armBlock, armFunc);
                     var temp = phiReg.isInt() ? new IVirtualReg() : new FVirtualReg();
