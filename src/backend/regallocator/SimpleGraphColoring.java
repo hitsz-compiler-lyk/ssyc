@@ -9,11 +9,14 @@ import utils.Pair;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 简单的图着色寄存器
+ */
 public class SimpleGraphColoring implements RegAllocator {
     public static class InterfereRegs {
         private int icnt, fcnt;
-        private Set<Reg> regs;
-        private boolean selfIsInt;
+        private final Set<Reg> regs;
+        private final boolean selfIsInt;
 
         public InterfereRegs(Reg self) {
             this.regs = new HashSet<>();
@@ -159,7 +162,7 @@ public class SimpleGraphColoring implements RegAllocator {
         haveSimplify = new HashSet<>();
         adj = func.stream().flatMap(List::stream)
                 .map(ArmInst::getOperands).flatMap(List::stream)
-                .filter(op -> op instanceof Reg).map(op -> (Reg) op)
+                .filter(Reg.class::isInstance).map(Reg.class::cast)
                 .distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func) {

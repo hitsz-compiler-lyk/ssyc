@@ -9,6 +9,11 @@ import utils.Log;
 
 import java.util.*;
 
+/**
+ * 去除 LIR 中的所有虚拟寄存器
+ * <br>
+ * 其会进行寄存器分配以提高性能
+ */
 public class RegAllocManager {
     private final RegAllocator regAllocator = new SimpleGraphColoring();
     private final ArmModule armModule;
@@ -25,7 +30,6 @@ public class RegAllocManager {
                 var allocatorMap = regAllocator.run(func);
                 for (var kv : allocatorMap.entrySet()) {
                     Log.ensure(kv.getKey().isVirtual(), "allocatorMap key not Virtual");
-                    ;
                     Log.ensure(kv.getValue().isPhy(), "allocatorMap value not Phy");
                 }
                 Set<IPhyReg> iPhyRegs = new HashSet<>();
@@ -33,6 +37,7 @@ public class RegAllocManager {
                 for (var block : func) {
                     for (var inst : block) {
                         for (var op : inst.getOperands()) {
+                            assert op instanceof Reg;
                             if (allocatorMap.containsKey(op)) {
                                 op = allocatorMap.get(op);
                             }
@@ -54,6 +59,7 @@ public class RegAllocManager {
                     for (var block : func) {
                         for (var inst : block) {
                             for (var op : inst.getOperands()) {
+                                assert op instanceof Reg;
                                 if (op.isVirtual()) {
                                     Log.ensure(allocatorMap.containsKey(op),
                                         "virtual reg:" + op.print() + " not exist in allocator map");
