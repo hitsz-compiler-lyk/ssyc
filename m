@@ -61,7 +61,14 @@ run_jar() {
 }
 
 build_test_image() {
-    docker build local-test -t ssyc-test
+machine_arch=`arch`
+if [[ $machine_arch =~ "x86_64" ]];then
+    docker build -f local-test/Dockerfile_x86 -t ssyc-test local-test
+elif [[ $machine_arch =~ "aarch64" || $machine_arch =~ "arm64" ]];then
+    docker build -f local-test/Dockerfile_arm64 -t ssyc-test local-test
+else
+    echo "build test image failed, unsupported arch:" $machine_arch
+fi
 }
 
 run_test() {

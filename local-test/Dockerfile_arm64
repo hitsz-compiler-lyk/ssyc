@@ -1,0 +1,30 @@
+FROM openjdk:17-jdk-slim as runner
+
+WORKDIR /src
+
+RUN sed -i 's|https://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    gcc-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    libc6-dev-armhf-cross \
+    qemu-user-static \
+   # Only for this project, for manual debug
+    gdb-multiarch \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+ && apt-get install  -y --no-install-recommends \
+    python3 python3-pip llvm clang wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m pip install rich
+
+RUN apt-get update \
+ && apt-get install  -y --no-install-recommends \
+    build-essential curl file git ruby-full locales  \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN cp -l /usr/bin/diff /usr/bin/difft
+
+ENTRYPOINT [ "python3", "local-test/test.py" ]
