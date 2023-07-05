@@ -1,6 +1,6 @@
 package backend.codegen;
 
-import backend.ImmUtils;
+import utils.ImmUtils;
 import backend.lir.ArmBlock;
 import backend.lir.ArmFunction;
 import backend.lir.ArmModule;
@@ -36,8 +36,8 @@ import java.util.*;
  *      <li>一些简单的优化, 比如乘加融合</li>
  *      <li> 一些强度削减, 比如特定乘除法换成位移和加法</li>
  * </ul>
- *
- * TODO: 考虑拆分转换代码, 拆成最简单的 SSA -> TAC 转换 (只做 Phi Destruction 和映射) 和若干个优化与底层相关转换 pass 的形式
+ * 考虑拆分转换代码, 拆成最简单的 SSA -> TAC 转换 (只做 Phi Destruction 和映射) 和若干个优化与底层相关转换 pass 的形式
+ * <p>
  */
 public class ToLIRManager {
     private final Map<Value, Operand> valMap = new HashMap<>();
@@ -57,8 +57,8 @@ public class ToLIRManager {
             put(InstKind.FCmpNe, ArmCondType.Ne);
             put(InstKind.FCmpGt, ArmCondType.Gt);
             put(InstKind.FCmpGe, ArmCondType.Ge);
-            put(InstKind.FCmpLt, ArmCondType.Lt);
-            put(InstKind.FCmpLe, ArmCondType.Le);
+            put(InstKind.FCmpLt, ArmCondType.Mi);
+            put(InstKind.FCmpLe, ArmCondType.Ls);
         }
     };
 
@@ -70,6 +70,7 @@ public class ToLIRManager {
 
     public ArmModule codeGenLIR() {
         int acCnt = 0;
+        // 数组初始化信息
         for (var val : irModule.getArrayConstants()) {
             armModule.getArrayConstants().put("meminit_array_" + acCnt, val);
             valMap.put(val, new Addr("meminit_array_" + acCnt++));
@@ -192,8 +193,13 @@ public class ToLIRManager {
                 block.forEach(visitor::visit);
             }
 
-            // Phi 处理, 相当于在每个基本块最后都添加一条MOVE指令 将incoming基本块里面的Value Move到当前基本块的Value
-            // MOVE Phi Incoming.Value
+            // phi 处理
+            // 相当于在每个基本块最后都添加一条move指令 将incoming基本块里面的value move到一个临时的寄存器
+            // 然后在phi所在的基本块将这个临时寄存器move到phi中
+            // in incoming block:
+            // move temp value
+            // in phi block:
+            // move phi temp
             final var firstBranch = new HashMap<ArmBlock, ArmInst>();
             for (var block : func) {
                 var armBlock = blockMap.get(block);
@@ -248,10 +254,11 @@ public class ToLIRManager {
 
             switch (inst.getKind()) {
                 case IAdd -> {
-                    // 这里其实可以加一个判断逻辑 如果 -imm是合法条件 是不是可以变成减法 从而减少一个MOV32
                     var instKind = ArmInstKind.IAdd;
+                    // 如果 lhs 是一个立即数的话，则交换立即数
                     if (lhs instanceof IntConst) {
                         int imm = ((IntConst) lhs).getValue();
+                        // 如果 -imm 是合法条件 变成减法 从而减少一个 mov32
                         if (ImmUtils.checkEncodeImm(-imm)) {
                             rhsReg = resolveIImm(-imm, block, func);
                             instKind = ArmInstKind.ISub;
@@ -260,6 +267,7 @@ public class ToLIRManager {
                         }
                         lhsReg = resolveLhsOperand(rhs, block, func);
                     } else {
+                        // 如果 -imm 是合法条件 变成减法 从而减少一个 mov32
                         if (rhs instanceof IntConst && ImmUtils.checkEncodeImm(-((IntConst) rhs).getValue())) {
                             rhsReg = resolveIImm(-((IntConst) rhs).getValue(), block, func);
                             instKind = ArmInstKind.ISub;
@@ -269,7 +277,7 @@ public class ToLIRManager {
                         lhsReg = resolveLhsOperand(lhs, block, func);
                     }
                     dstReg = resolveOperand(inst, block, func);
-                    // ADD inst inst.getLHS() inst.getRHS()
+                    // add inst inst.lhs inst.rhs
                     new ArmInstBinary(block, instKind, dstReg, lhsReg, rhsReg);
                 }
                 case ISub -> {
@@ -278,10 +286,11 @@ public class ToLIRManager {
                         lhsReg = resolveLhsOperand(rhs, block, func);
                         rhsReg = resolveOperand(lhs, block, func);
                         dstReg = resolveOperand(inst, block, func);
-                        // RSB inst inst.getRHS() inst.getLHS()
+                        // rsb inst inst.rhs inst.lhs
                         new ArmInstBinary(block, ArmInstKind.IRsb, dstReg, lhsReg, rhsReg);
                     } else {
                         var instKind = ArmInstKind.ISub;
+                        // 如果 -imm 是合法条件 变成加法 从而减少一个 mov32
                         if (rhs instanceof IntConst && ImmUtils.checkEncodeImm(-((IntConst) rhs).getValue())) {
                             rhsReg = resolveIImm(-((IntConst) rhs).getValue(), block, func);
                             instKind = ArmInstKind.IAdd;
@@ -308,13 +317,16 @@ public class ToLIRManager {
                             imm = ((IntConst) rhs).getValue();
                         }
                         if (src != null) {
+                            // 乘法优化
+                            // 只会优化以下的情况
+                            // |x| = 2^x +- 2^y / 0 (x >= y)
                             resolveConstMuL(dstReg, src, imm, block);
                             break;
                         }
                     }
                     lhsReg = resolveLhsOperand(lhs, block, func);
                     rhsReg = resolveLhsOperand(rhs, block, func);
-                    // MUL inst inst.getLHS() inst.getRHS()
+                    // mul inst inst.lhs inst.rhs
                     new ArmInstBinary(block, ArmInstKind.IMul, dstReg, lhsReg, rhsReg);
                 }
                 case IDiv -> {
@@ -326,25 +338,39 @@ public class ToLIRManager {
                         resolveConstDiv(dstReg, lhsReg, imm, block, func);
                     } else {
                         rhsReg = resolveLhsOperand(rhs, block, func); // sdiv 不允许立即数
-                        // SDIV inst inst.getLHS() inst.getRHS()
+                        // sdiv inst inst.lhs inst.rhs
                         new ArmInstBinary(block, ArmInstKind.IDiv, dstReg, lhsReg, rhsReg);
                     }
                 }
                 case IMod -> {
-                    // x % y == x - (x / y) *y
-                    // % 0 % 1 % 2^n 特殊判断
+                    // x % y == x - (x / y) * y
+                    // %0 %1 %2^n 特殊判断
                     if (rhs instanceof IntConst) {
                         var imm = ((IntConst) rhs).getValue();
                         if (imm == 0) {
+                            // %0 特殊判断
                             dstReg = resolveOperand(inst, block, func);
                             lhsReg = resolveOperand(lhs, block, func);
+                            // mov inst inst.lhs
                             new ArmInstMove(block, dstReg, lhsReg);
                             break;
                         } else if (Math.abs(imm) == 1) {
+                            // %1 特殊判断
                             dstReg = resolveOperand(inst, block, func);
+                            // mov inst 0
                             new ArmInstMove(block, dstReg, new IImm(0));
                             break;
                         } else if (ImmUtils.is2Power(Math.abs(imm))) {
+                            // %2^n 特殊判断
+                            // %2
+                            // add  vr, lhs, lhs, lsr #31
+                            // bic  vr2, vr, #1
+                            // sub  inst, lhs, vr2
+                            // %2^n (n >= 2)
+                            // asr  vr, lhs, #31
+                            // add  vr2, lhs, vr, lsr #(32 - n)
+                            // bic  vr3, vr, #2^n - 1
+                            // sub  inst, lhs, vr3
                             int abs = Math.abs(imm);
                             int l = ImmUtils.countTailingZeros(abs);
                             dstReg = resolveOperand(inst, block, func);
@@ -368,23 +394,23 @@ public class ToLIRManager {
                     lhsReg = resolveLhsOperand(lhs, block, func);
                     dstReg = resolveOperand(inst, block, func);
                     var vr = new IVirtualReg();
-                    // SDIV VR inst.getLHS() inst.getRHS()
+                    // sdiv vr inst.lhs inst.rhs
                     if (rhs instanceof IntConst) {
                         var imm = ((IntConst) rhs).getValue();
                         resolveConstDiv(vr, lhsReg, imm, block, func);
                     } else {
-                        rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会再Ternay变成 lhs
+                        rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会在 Ternay 指令中 变成 lhs
                         new ArmInstBinary(block, ArmInstKind.IDiv, vr, lhsReg, rhsReg);
                     }
-                    // MLS inst VR inst.getRHS() inst.getLHS()
-                    // inst = inst.getLHS() - VR * inst.getRHS()
+                    // mls inst vr inst.rhs inst.lhs
+                    // inst = inst.lhs - vr * inst.rhs
                     if (rhs instanceof IntConst && ImmUtils.canOptimizeMul(((IntConst) rhs).getValue())) {
                         var imm = ((IntConst) rhs).getValue();
                         var vr2 = new IVirtualReg();
                         resolveConstMuL(vr2, vr, imm, block);
                         new ArmInstBinary(block, ArmInstKind.ISub, dstReg, lhsReg, vr2);
                     } else {
-                        rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会再Ternay变成 lhs
+                        rhsReg = resolveLhsOperand(rhs, block, func); // 实际上rhs 也会在 Ternay 指令中 变成 lhs
                         new ArmInstTernary(block, ArmInstKind.IMulSub, dstReg, vr, rhsReg, lhsReg);
                     }
                 }
@@ -397,14 +423,14 @@ public class ToLIRManager {
                         rhsReg = resolveOperand(rhs, block, func);
                     }
                     dstReg = resolveOperand(inst, block, func);
-                    // VADD.F32 inst inst.getLHS() inst.getRHS()
+                    // vadd.f32 inst inst.lhs inst.rhs
                     new ArmInstBinary(block, ArmInstKind.FAdd, dstReg, lhsReg, rhsReg);
                 }
                 case FSub -> {
                     lhsReg = resolveLhsOperand(lhs, block, func);
                     rhsReg = resolveOperand(rhs, block, func);
                     dstReg = resolveOperand(inst, block, func);
-                    // VSUB.F32 inst inst.getLHS() inst.getRHS()
+                    // vsub.f32 inst inst.lhs inst.rhs
                     new ArmInstBinary(block, ArmInstKind.FSub, dstReg, lhsReg, rhsReg);
                 }
                 case FMul -> {
@@ -416,14 +442,14 @@ public class ToLIRManager {
                         rhsReg = resolveOperand(rhs, block, func);
                     }
                     dstReg = resolveOperand(inst, block, func);
-                    // VMUL.F32 inst inst.getLHS() inst.getRHS()
+                    // vmul.f32 inst inst.lhs inst.rhs
                     new ArmInstBinary(block, ArmInstKind.FMul, dstReg, lhsReg, rhsReg);
                 }
                 case FDiv -> {
                     lhsReg = resolveLhsOperand(lhs, block, func);
                     rhsReg = resolveOperand(rhs, block, func);
                     dstReg = resolveOperand(inst, block, func);
-                    // VDIV.F32 inst inst.getLHS() inst.getRHS()
+                    // vdiv.f32 inst inst.lhs inst.rhs
                     new ArmInstBinary(block, ArmInstKind.FDiv, dstReg, lhsReg, rhsReg);
                 }
                 default -> Log.ensure(false, "binary inst not implement");
@@ -437,11 +463,10 @@ public class ToLIRManager {
             var dstReg = resolveLhsOperand(inst, block, func);
 
             if (inst.getKind() == InstKind.INeg) {
-                // new ArmInstBinary(block, ArmInstKind.IRsb, dstReg, srcReg, new IImm(0));
-                // NEG inst inst.getArg()
+                // neg inst inst.arg
                 new ArmInstUnary(block, ArmInstKind.INeg, dstReg, srcReg);
             } else if (inst.getKind() == InstKind.FNeg) {
-                // VNEG.F32 inst inst.getArg()
+                // vneg.f32 inst inst.arg
                 new ArmInstUnary(block, ArmInstKind.FNeg, dstReg, srcReg);
             }
             return null;
@@ -457,7 +482,7 @@ public class ToLIRManager {
             } else {
                 addrReg = resolveOperand(addr, block, func);
             }
-            // LDR inst inst.getPtr()
+            // ldr inst inst.ptr
             var load = new ArmInstLoad(block, dstReg, addrReg);
             if (addr instanceof GlobalVar && inst.getType().isPtr()) {
                 func.getAddrLoadMap().put(dstReg, load);
@@ -471,14 +496,14 @@ public class ToLIRManager {
 
             var varReg = resolveLhsOperand(var, block, func);
             var addrReg = resolveOperand(addr, block, func);
-            // STR inst.getVal() inst.getPtr()
+            // str inst.val inst.ptr
             new ArmInstStore(block, varReg, addrReg);
             return null;
         }
 
         @Override public Void visitCAllocInst(CAllocInst inst) {
             var dst = resolveOperand(inst, block, func);
-            // ADD inst [SP, 之前已用的栈大小]
+            // add inst [sp, 之前已用的栈大小]
             var alloc = new ArmInstStackAddr(block, dst, new IImm(func.getStackSize()));
             alloc.setCAlloc(true);
             func.getStackAddrMap().put(dst, alloc);
@@ -490,13 +515,13 @@ public class ToLIRManager {
         @Override public Void visitGEPInst(GEPInst inst) {
             var p = ((PointerIRTy) inst.getPtr().getType()).getBaseType();
             var indices = inst.getIndices();
-            ArrayList<Integer> dim = new ArrayList<>();
+            List<Integer> dim = new ArrayList<>();
 
             while (p.isArray()) {
                 dim.add(p.getSize());
                 p = ((ArrayIRTy) p).getElementType();
             }
-            // 加上最后一个基础类型 INT FLOAT的SIZE
+            // 加上最后一个基础类型 int/float的size
             dim.add(p.getSize());
 
             // 原基地址
@@ -511,11 +536,11 @@ public class ToLIRManager {
                     tot += offsetImm.getImm() * length;
                     if (i == indices.size() - 1) {
                         if (tot == 0) {
-                            // MOVR inst 当前地址
+                            // mov inst 当前地址
                             new ArmInstMove(block, ret, arr);
                         } else {
                             var imm = resolveIImm(tot, block, func);
-                            // ADD inst 当前地址 + 偏移量
+                            // add inst 当前地址 + 偏移量
                             new ArmInstBinary(block, ArmInstKind.IAdd, ret, arr, imm);
                         }
                     }
@@ -523,8 +548,8 @@ public class ToLIRManager {
                     if (tot != 0) {
                         var imm = resolveIImm(tot, block, func);
                         var vr = new IVirtualReg();
-                        // ADD VR 当前地址 + 偏移量
-                        // 当前地址 = VR
+                        // add vr 当前地址 + 偏移量
+                        // 当前地址 = vr
                         new ArmInstBinary(block, ArmInstKind.IAdd, vr, arr, imm);
                         tot = 0;
                         arr = vr;
@@ -539,8 +564,8 @@ public class ToLIRManager {
                         new ArmInstBinary(block, ArmInstKind.IAdd, dst, arr, vr);
                     } else {
                         var imm = resolveIImmInReg(length, block, func);
-                        // MLA inst dim.get(i) indices.get(i) 当前地址
-                        // inst = dim.get(i)*indices.get(i) + 当前地址
+                        // mla inst dim[i] indices[i] 当前地址
+                        // inst = dim[i] * indices[i] + 当前地址
                         new ArmInstTernary(block, ArmInstKind.IMulAdd, dst, offset, imm, arr);
                     }
 
@@ -557,6 +582,7 @@ public class ToLIRManager {
             List<Value> finalArg = new ArrayList<>();
             int fcnt = 0, icnt = 0;
             var args = inst.getArgList();
+            // 找到前4个整型的参数
             for (int i = 0; i < args.size(); i++) {
                 var arg = args.get(i);
                 if (!arg.getType().isFloat()) {
@@ -568,6 +594,7 @@ public class ToLIRManager {
                     break;
                 }
             }
+            // 找到前16个浮点型的参数
             for (int i = 0; i < args.size(); i++) {
                 var arg = args.get(i);
                 if (arg.getType().isFloat()) {
@@ -579,6 +606,7 @@ public class ToLIRManager {
                     break;
                 }
             }
+            // 计算得到
             for (int i = 0; i < args.size(); i++) {
                 var arg = args.get(i);
                 if (argsIdx.contains(i)) {
@@ -593,10 +621,12 @@ public class ToLIRManager {
                 var src = resolveLhsOperand(arg, block, func);
                 int nowOffset = -offset + (i - icnt - fcnt) * 4;
                 int finalOffset = nowOffset;
-                // STR inst.args.get(i) [SP, -(inst.args.size()-i)*4]
+                // str inst.args[i] [sp, -(inst.args.size-i)*4]
                 // 越后面的参数越靠近栈顶
                 Operand addr = IPhyReg.SP;
+                // 如果offset不符合范围
                 if (!ImmUtils.checkOffsetRange(nowOffset, src)) {
+                    // 先寻找一个stack addr 指令
                     for (var entry : stackAddrSet) {
                         var op = entry.key;
                         var instOffset = entry.value.getIntOffset();
@@ -606,6 +636,7 @@ public class ToLIRManager {
                             break;
                         }
                     }
+                    // 如果没找到，则创建一个新的stack addr指令
                     if (addr.equals(IPhyReg.SP)) {
                         int instOffset = nowOffset / 1024 * 1024;// 负值 因此是往更大的方向
                         var vr = new IVirtualReg();
@@ -613,7 +644,7 @@ public class ToLIRManager {
                         stackAddr.setFix(true);
                         addr = vr;
                         finalOffset = nowOffset - instOffset;
-                        Log.ensure(ImmUtils.checkOffsetRange(finalOffset, src), "chang offset is illegal");
+                        Log.ensure(ImmUtils.checkOffsetRange(finalOffset, src), "check offset is illegal");
                         stackAddrSet.add(new Pair<>(vr, stackAddr));
                         func.getStackAddrMap().put(vr, stackAddr);
                     }
@@ -638,24 +669,24 @@ public class ToLIRManager {
                 new ArmInstMove(block, IPhyReg.R(i), argOp.get(i));
             }
             if (finalArg.size() > icnt + fcnt) {
-                // SUB SP SP (inst.args.size() - 4) * 4
+                // sub sp sp (inst.args.size - 4) * 4
                 new ArmInstBinary(block, ArmInstKind.ISub, IPhyReg.SP, IPhyReg.SP, offsetOp);
             }
             new ArmInstCall(block, funcMap.get(inst.getCallee()));
             if (finalArg.size() > icnt + fcnt) {
-                // ADD SP SP (inst.args.size() - 4) * 4
+                // add sp sp (inst.args.size - 4) * 4
                 new ArmInstBinary(block, ArmInstKind.IAdd, IPhyReg.SP, IPhyReg.SP, offsetOp);
             }
             if (!inst.getType().isVoid()) {
                 var dst = resolveLhsOperand(inst, block, func);
                 if (inst.getType().isFloat()) {
                     // 如果结果是一个浮点数 则直接用s0来保存数据
-                    // VMOV inst S0
+                    // vmov inst s0
                     // atpcs 规范
                     new ArmInstMove(block, dst, FPhyReg.S(0));
                 } else if (inst.getType().isInt()) {
                     // 否则用r0来保存数据
-                    // MOV inst R0
+                    // mov inst r0
                     new ArmInstMove(block, dst, IPhyReg.R(0));
                 }
             }
@@ -669,10 +700,10 @@ public class ToLIRManager {
                 var srcReg = resolveOperand(src, block, func);
                 if (src.getType().isFloat()) {
                     // atpcs 规范
-                    // VMOV S0 inst.getReturnValue()
+                    // vmov S0 inst.getReturnValue()
                     new ArmInstMove(block, FPhyReg.S(0), srcReg);
                 } else {
-                    // VMOV R0 inst.getReturnValue()
+                    // vmov R0 inst.getReturnValue()
                     new ArmInstMove(block, IPhyReg.R(0), srcReg);
                 }
 
@@ -689,9 +720,9 @@ public class ToLIRManager {
             var vr = new FVirtualReg();
             var src = resolveOperand(inst.getFrom(), block, func);
             var dst = resolveOperand(inst, block, func);
-            // VMOV VR inst.getFrom()
+            // vmov vr inst.getFrom()
             new ArmInstMove(block, vr, src);
-            // VCVT.F32.S32 inst VR
+            // vcvt.f32.s32 inst vr
             new ArmInstIntToFloat(block, dst, vr);
             return null;
         }
@@ -701,9 +732,9 @@ public class ToLIRManager {
             var vr = new FVirtualReg();
             var src = resolveOperand(inst.getFrom(), block, func);
             var dst = resolveOperand(inst, block, func);
-            // VCVT.F32.S32 inst VR
+            // vcvt.f32.s32 inst vr
             new ArmInstFloatToInt(block, vr, src);
-            // VMOV VR inst.getFrom()
+            // vmov vr inst.getFrom()
             new ArmInstMove(block, dst, vr);
             return null;
         }
@@ -743,12 +774,14 @@ public class ToLIRManager {
             var ac = inst.getInit();
             int size = inst.getInit().getType().getSize();
             if (ac instanceof ZeroArrayConst) {
+                // 如果是全0数组 直接调用memset
                 var imm = resolveIImm(size, block, func);
                 new ArmInstMove(block, IPhyReg.R(0), dst);
                 new ArmInstMove(block, IPhyReg.R(1), new IImm(0));
                 new ArmInstMove(block, IPhyReg.R(2), imm);
                 new ArmInstCall(block, "memset", 3, 0);
             } else {
+                // 否则调用memcpy
                 var src = resolveOperand(ac, block, func);
                 var imm = resolveIImm(size, block, func);
                 new ArmInstMove(block, IPhyReg.R(0), dst);
@@ -816,8 +849,8 @@ public class ToLIRManager {
             for (int i = 0; i < params.size(); i++) {
                 if (params.get(i).equals(val)) {
                     if (i < icnt) {
-                        // MOVE VR Ri
-                        // R0 - R3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
+                        // mov vr ri
+                        // r0 - r3 在后续的基本块中会修改 因此需要在最前面的块当中就读取出来
                         // 加到最前面防止后续load修改了r0 - r3
                         var move = new ArmInstMove(vr, IPhyReg.R(i));
                         func.getPrologue().add(0, move);
@@ -825,8 +858,8 @@ public class ToLIRManager {
                         var move = new ArmInstMove(vr, FPhyReg.S(i - icnt));
                         func.getPrologue().add(0, move);
                     } else {
-                        // LDR VR [SP, (i-4)*4]
-                        // 寄存器分配后修改为 LDR VR [SP, (i-4)*4 + stackSize + push的大小]
+                        // ldr vr [sp, (i-4)*4]
+                        // 寄存器分配后修改为 ldr vr [sp, (i-4)*4 + stackSize + push的大小]
                         var load = new ArmInstParamLoad(func.getPrologue(), vr, new IImm((i - icnt - fcnt) * 4));
                         func.getParamLoadMap().put(vr, load);
                     }
@@ -861,7 +894,6 @@ public class ToLIRManager {
 
     private Operand resolveGlobalVar(GlobalVar val, ArmBlock block, ArmFunction func) {
         // 全局变量应该事先处理
-        // 后续可以加一个优化, 在一个基本块内一定的虚拟寄存器序号内直接返回虚拟寄存器
         if (globalMap.containsKey(val)) {
             return globalMap.get(val);
         }
@@ -895,15 +927,14 @@ public class ToLIRManager {
         var cond = condMap.get(inst.getKind());
 
         for (var ch : Arrays.asList(lhs, rhs)) {
+            // 将Bool比较的结果转换为Int
             if (ch instanceof BoolToIntInst) {
                 resolveBoolToIntInst((BoolToIntInst) ch, block, func);
             }
-            // if(ch instanceof IntToFloatInst){
-            // resolveIntToFloatInst((IntToFloatInst) ch, block, func);
-            // }
         }
 
         Operand lhsReg, rhsReg;
+        // 是否和负值比较
         boolean isCmn = false;
         if (lhs instanceof Constant) {
             if (lhs instanceof IntConst ic) {
@@ -937,8 +968,8 @@ public class ToLIRManager {
             lhsReg = resolveLhsOperand(lhs, block, func);
         }
 
-        // CMP( VCMP.F32 ) inst.getLHS() inst.getRHS() (可能交换LHS/RHS)
-        // VMRS APSR_nzcv fpscr
+        // cmp( vcmp.f32 ) inst.getLHS() inst.getRHS() (可能交换LHS/RHS)
+        // vmrs APSR_nzcv fpscr
         var cmp = new ArmInstCmp(block, lhsReg, rhsReg, cond);
         cmp.setCmn(isCmn);
         return cond;
@@ -949,17 +980,17 @@ public class ToLIRManager {
         var dstReg = resolveOperand(inst, block, func);
         if (src instanceof BoolConst bc) {
             if (bc.getValue()) {
-                // MOV inst #1
+                // mov inst #1
                 new ArmInstMove(block, dstReg, new IImm(1));
             } else {
-                // MOV inst #0
+                // mov inst #0
                 new ArmInstMove(block, dstReg, new IImm(0));
             }
         } else if (src instanceof CmpInst) {
             var cond = resolveCmpInst((CmpInst) src, block, func);
-            // MOV.{cond} inst #1
+            // mov.{cond} inst #1
             new ArmInstMove(block, dstReg, new IImm(1), cond);
-            // MOV.{OppCond} inst #0
+            // mov.{OppCond} inst #0
             new ArmInstMove(block, dstReg, new IImm(0), cond.getOppCondType());
         } else {
             Log.ensure(false);
@@ -980,6 +1011,13 @@ public class ToLIRManager {
             }
             return;
         } else if (ImmUtils.is2Power(abs)) {
+            // 如果不除2
+            // asr  vr, src, #31
+            // add vr2, vr2,  vr, lsr #32 - ctz(imm)
+            // asr dst, vr2, ctz(imm)
+            // 如果除2
+            // add  vr, vr, src, lsr #32 - ctz(imm)
+            // asr dst, vr, ctz(imm)
             int l = ImmUtils.countTailingZeros(abs);
             var vr = src;
             var vr2 = new IVirtualReg();
@@ -1033,15 +1071,23 @@ public class ToLIRManager {
             }
         } else if (ImmUtils.is2Power(abs)) {
             if (imm > 0) {
+                // lsl dst, src, #ctz(imm)
                 var move = new ArmInstMove(block, dst, src);
                 move.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l));
             } else {
+                // mov  vr, #0
+                // sub dst, vr, src, lsl #ctz(imm)
                 var vr = new IVirtualReg();
                 new ArmInstMove(block, vr, new IImm(0));
                 var sub = new ArmInstBinary(block, ArmInstKind.ISub, dst, vr, src);
                 sub.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l));
             }
         } else if (ImmUtils.is2Power(abs - 1)) {
+            // imm > 0
+            // add dst, src, src, lsl #ctz(abs-1)
+            // imm < 0
+            // add  vr, src, src, lsl #ctz(abs-1)
+            // rsb dst,  vr, #0
             l = ImmUtils.countTailingZeros(abs - 1);
             var dst2 = dst;
             if (imm < 0) {
@@ -1054,6 +1100,10 @@ public class ToLIRManager {
             }
         } else if (ImmUtils.is2Power(abs + 1)) {
             l = ImmUtils.countTailingZeros(abs + 1);
+            // imm > 0
+            // rsb dst, src, src, lsl #ctz(abs+1)
+            // imm < 0
+            // sub dst, src, src, lsl #ctz(abs+1)
             if (imm > 0) {
                 var rsb = new ArmInstBinary(block, ArmInstKind.IRsb, dst, src, src);
                 rsb.setShift(new ArmShift(ArmShift.ShiftType.Lsl, l));
@@ -1076,6 +1126,19 @@ public class ToLIRManager {
                 }
             }
             l = ImmUtils.countTailingZeros(nowAbs);
+            // imm = (1<<l) + (1<<p) (l > p)
+            // add  vr, src, src, lsl #l-p
+            // lsl dst,  vr. #p
+            // imm = (1<<l) - (1<<p) (l > p)
+            // rsb  vr, src, src, lsl #l-p
+            // lsl dst,  vr. #p
+            // imm = -((1<<l) + (1<<p)) (l > p)
+            // add  vr, src, src, lsl #l-p
+            // lsl vr2,  vr. #p
+            // rsb dst, vr2, #0
+            // imm = -((1<<l) - (1<<p)) (l > p)
+            // sub  vr, src, src, lsl #l-p
+            // lsl dst,  vr. #p
             var vr = new IVirtualReg();
             if (IsAdd) {
                 if (imm > 0) {

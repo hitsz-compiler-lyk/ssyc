@@ -2,25 +2,35 @@ import ir.IRVerifyException;
 import utils.Log;
 import utils.LogFailException;
 
+import java.util.Objects;
+
 public class Compiler {
-    public static void main(String[] args)  {
+    public static void main(String[] args) {
         // 功能测试：compiler -S -o testcase.s testcase.sy
         // 性能测试：compiler -S -o testcase.s testcase.sy -O2
         try {
             final var outputFileName = args[2];
             final var inputFileName = args[3];
-            final var needOptimize = args.length == 5;
+            var needOptimize = false;
+            var needLog = false;
+            for (var arg : args) {
+                if (arg.equalsIgnoreCase("-o2")) {
+                    needOptimize = true;
+                }
+                if (arg.equalsIgnoreCase("-log")) {
+                    needLog = true;
+                }
+            }
 
-            Log.inOnlineJudge();
+            if (!needLog) {
+                Log.inOnlineJudge();
+            }
             Main.needOptimize = needOptimize;
             Main.runWithLargeStack("asm", inputFileName, outputFileName);
 
-        } catch (LogFailException e) {
+        } catch (LogFailException | IRVerifyException e) {
             e.printStackTrace();
-            System.exit(e.getLineNo() % 128);
-        } catch (IRVerifyException e) {
-            e.printStackTrace();
-            System.exit(e.getLineNo() % 128 + 128);
+            System.exit(-1);
         } catch (Exception e) {
             throw new RuntimeException("Fail at arg: [" + String.join(", ", args) + "]", e);
         }

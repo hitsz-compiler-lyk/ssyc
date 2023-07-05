@@ -17,11 +17,29 @@ public class Main {
     public static boolean needOptimize = true;
 
     public static void main(String[] args) {
-        if (args.length != 3) {
+        var needOptimize = false;
+        var needLog = false;
+        var flagCnt = 0;
+        for (var arg : args) {
+            if (arg.equalsIgnoreCase("-o2")) {
+                needOptimize = true;
+                flagCnt++;
+            }
+            if (arg.equalsIgnoreCase("--log")) {
+                needLog = true;
+                flagCnt++;
+            }
+        }
+
+        if (args.length - flagCnt < 3) {
             System.out.println("Usage: ssyc <target> <input_file> <output_file>");
             throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
         }
 
+        Main.needOptimize = needOptimize;
+        if (!needLog) {
+            Log.inOnlineJudge();
+        }
         runWithLargeStack(args[0], args[1], args[2]);
     }
 
@@ -82,7 +100,6 @@ public class Main {
         final var parser = new SysYParser(tokens);
         final var ruleContext = parser.compUnit();
 
-        Log.inOnlineJudge();
         switch (target) {
             case "ast" -> {
                 writer.write(DebugTools.toDebugTreeString(ruleContext).toString());

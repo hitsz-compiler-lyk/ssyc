@@ -5,7 +5,7 @@ import backend.lir.operand.IImm;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
 
-public class ArmInstParamLoad extends ArmInst {
+public class ArmInstParamLoad extends ArmInstAddr {
     private IImm trueOffset;
 
     public ArmInstParamLoad(ArmBlock block, Operand dst, IImm offset) {

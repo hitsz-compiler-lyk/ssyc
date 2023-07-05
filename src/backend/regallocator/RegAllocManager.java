@@ -1,6 +1,6 @@
 package backend.regallocator;
 
-import backend.ImmUtils;
+import utils.ImmUtils;
 import backend.lir.ArmFunction;
 import backend.lir.ArmModule;
 import backend.lir.inst.*;
@@ -8,6 +8,7 @@ import backend.lir.operand.*;
 import utils.Log;
 
 import java.util.*;
+import java.util.function.BiFunction;
 
 /**
  * 去除 LIR 中的所有虚拟寄存器
@@ -61,8 +62,7 @@ public class RegAllocManager {
                             for (var op : inst.getOperands()) {
                                 assert op instanceof Reg;
                                 if (op.isVirtual()) {
-                                    Log.ensure(allocatorMap.containsKey(op),
-                                        "virtual reg:" + op.print() + " not exist in allocator map");
+                                    Log.ensure(allocatorMap.containsKey(op), "virtual reg:" + op.print() + " not exist in allocator map");
                                     inst.replaceOperand(op, allocatorMap.get(op));
                                 }
                             }
@@ -76,12 +76,14 @@ public class RegAllocManager {
     private boolean fixStack(ArmFunction func) {
         boolean isFix = false;
         int regCnt = func.getFUsedRegs().size() + func.getIUsedRegs().size();
+        // 栈的位置要与8对齐
         int stackSize = (func.getStackSize() + 4 * regCnt + 4) / 8 * 8 - 4 * regCnt;
         func.setFinalStackSize(stackSize);
         stackSize = stackSize - func.getStackSize();
         Map<Integer, Integer> stackMap = new HashMap<>();
         var stackObject = func.getStackObject();
         var stackObjectOffset = func.getStackObjectOffset();
+        // 反向构建栈的位置信息
         for (int i = stackObjectOffset.size() - 1; i >= 0; i--) {
             stackMap.put(stackObjectOffset.get(i), stackSize);
             stackSize += stackObject.get(i);
@@ -89,9 +91,56 @@ public class RegAllocManager {
         Map<Integer, Operand> stackAddrMap = new HashMap<>();
         Map<Operand, Integer> addrStackMap = new HashMap<>();
         Log.ensure(stackSize == func.getFinalStackSize(), "stack size error");
+
+        int finalStackSize = stackSize;
+        // 修复ArmInstAddr的寻址
+        BiFunction<ArmInstAddr, Integer, Boolean> fixArmInstAddr = (inst, trueOffset) -> {
+            boolean isInstFix = false;
+            if (!ImmUtils.checkOffsetRange(trueOffset, inst.getDst())) {
+                if (inst.getAddr().equals(IPhyReg.SP)) {
+                    isInstFix = true;
+                    for (var entry : stackAddrMap.entrySet()) {
+                        var offset = entry.getKey();
+                        var op = entry.getValue();
+                        if (offset <= trueOffset && ImmUtils.checkOffsetRange(trueOffset - offset, inst.getDst())) {
+                            inst.replaceAddr(op);
+                            inst.setTrueOffset(new IImm(trueOffset - offset));
+                            func.getSpillNodes().remove(op);
+                            // 相当于当前节点改变了生命周期
+                            break;
+                        }
+                    }
+                    if (inst.getAddr().equals(IPhyReg.SP)) {
+                        int addrTrueOffset = trueOffset / 1024 * 1024;
+                        var vr = new IVirtualReg();
+                        int instOffset = finalStackSize - addrTrueOffset;
+                        var stackAddr = new ArmInstStackAddr(vr, new IImm(instOffset));
+                        stackAddr.setTrueOffset(new IImm(addrTrueOffset));
+                        inst.insertBeforeCO(stackAddr);
+                        inst.replaceAddr(vr);
+                        Log.ensure(trueOffset >= addrTrueOffset, "check offset is illegal");
+                        Log.ensure(ImmUtils.checkOffsetRange(trueOffset - addrTrueOffset, inst.getDst()), "check offset is illegal");
+                        inst.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
+                        stackAddrMap.put(addrTrueOffset, vr);
+                        addrStackMap.put(vr, addrTrueOffset);
+                        func.getStackAddrMap().put(vr, stackAddr);
+                    }
+                } else {
+                    var addrTrueOffset = addrStackMap.get(inst.getAddr());
+                    var nowTrueOffset = trueOffset - addrTrueOffset;
+                    Log.ensure(ImmUtils.checkOffsetRange(nowTrueOffset, inst.getDst()), "check offset is illegal");
+                    inst.setTrueOffset(new IImm(nowTrueOffset));
+                }
+            } else {
+                inst.setTrueOffset(new IImm(trueOffset));
+            }
+            return isInstFix;
+        };
+
         for (var block : func) {
             for (var inst : block) {
                 if (inst instanceof ArmInstStackAddr stackAddr) {
+                    // 修复基准地址
                     if (stackAddr.isCAlloc()) {
                         Log.ensure(stackMap.containsKey(stackAddr.getOffset().getImm()), "stack offset not present");
                         stackAddr.setTrueOffset(new IImm(stackMap.get(stackAddr.getOffset().getImm())));
@@ -107,130 +156,15 @@ public class RegAllocManager {
                     }
                 } else if (inst instanceof ArmInstParamLoad paramLoad) {
                     int trueOffset = paramLoad.getOffset().getImm() + stackSize + 4 * regCnt;
-                    if (!ImmUtils.checkOffsetRange(trueOffset, paramLoad.getDst())) {
-                        if (paramLoad.getAddr().equals(IPhyReg.SP)) {
-                            isFix = true;
-                            for (var entry : stackAddrMap.entrySet()) {
-                                var offset = entry.getKey();
-                                var op = entry.getValue();
-                                if (offset <= trueOffset && ImmUtils.checkOffsetRange(trueOffset - offset, paramLoad.getDst())) {
-                                    paramLoad.replaceAddr(op);
-                                    paramLoad.setTrueOffset(new IImm(trueOffset - offset));
-                                    func.getSpillNodes().remove(op);
-                                    // 相当于当前节点改变了生命周期
-                                    break;
-                                }
-                            }
-                            if (paramLoad.getAddr().equals(IPhyReg.SP)) {
-                                int addrTrueOffset = trueOffset / 1024 * 1024;
-                                var vr = new IVirtualReg();
-                                int instOffset = stackSize - addrTrueOffset;
-                                var stackAddr = new ArmInstStackAddr(vr, new IImm(instOffset));
-                                stackAddr.setTrueOffset(new IImm(addrTrueOffset));
-                                paramLoad.insertBeforeCO(stackAddr);
-                                paramLoad.replaceAddr(vr);
-                                Log.ensure(trueOffset >= addrTrueOffset, "chang offset is illegal");
-                                Log.ensure(ImmUtils.checkOffsetRange(trueOffset - addrTrueOffset, paramLoad.getDst()),
-                                    "chang offset is illegal");
-                                paramLoad.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
-                                stackAddrMap.put(addrTrueOffset, vr);
-                                addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrMap().put(vr, stackAddr);
-                            }
-                        } else {
-                            var addrTrueOffset = addrStackMap.get(paramLoad.getAddr());
-                            var nowTrueOffset = trueOffset - addrTrueOffset;
-                            Log.ensure(ImmUtils.checkOffsetRange(nowTrueOffset, paramLoad.getDst()), "chang offset is illegal");
-                            paramLoad.setTrueOffset(new IImm(nowTrueOffset));
-                        }
-                    } else {
-                        paramLoad.setTrueOffset(new IImm(trueOffset));
-                    }
+                    isFix |= fixArmInstAddr.apply(paramLoad, trueOffset);
                 } else if (inst instanceof ArmInstStackLoad stackLoad) {
                     Log.ensure(stackMap.containsKey(stackLoad.getOffset().getImm()), "stack offset not present");
                     int trueOffset = stackMap.get(stackLoad.getOffset().getImm());
-                    if (!ImmUtils.checkOffsetRange(trueOffset, stackLoad.getDst())) {
-                        if (stackLoad.getAddr().equals(IPhyReg.SP)) {
-                            isFix = true;
-                            for (var entry : stackAddrMap.entrySet()) {
-                                var offset = entry.getKey();
-                                var op = entry.getValue();
-                                if (offset <= trueOffset && ImmUtils.checkOffsetRange(trueOffset - offset, stackLoad.getDst())) {
-                                    stackLoad.replaceAddr(op);
-                                    stackLoad.setTrueOffset(new IImm(trueOffset - offset));
-                                    func.getSpillNodes().remove(op);
-                                    // 相当于当前节点改变了生命周期
-                                    break;
-                                }
-                            }
-                            if (stackLoad.getAddr().equals(IPhyReg.SP)) {
-                                int addrTrueOffset = trueOffset / 1024 * 1024;
-                                var vr = new IVirtualReg();
-                                int instOffset = stackSize - addrTrueOffset;
-                                var stackAddr = new ArmInstStackAddr(vr, new IImm(instOffset));
-                                stackAddr.setTrueOffset(new IImm(addrTrueOffset));
-                                stackLoad.insertBeforeCO(stackAddr);
-                                stackLoad.replaceAddr(vr);
-                                Log.ensure(trueOffset >= addrTrueOffset, "chang offset is illegal");
-                                Log.ensure(ImmUtils.checkOffsetRange(trueOffset - addrTrueOffset, stackLoad.getDst()),
-                                    "chang offset is illegal");
-                                stackLoad.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
-                                stackAddrMap.put(addrTrueOffset, vr);
-                                addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrMap().put(vr, stackAddr);
-                            }
-                        } else {
-                            var addrTrueOffset = addrStackMap.get(stackLoad.getAddr());
-                            var nowTrueOffset = trueOffset - addrTrueOffset;
-                            Log.ensure(ImmUtils.checkOffsetRange(nowTrueOffset, stackLoad.getDst()), "chang offset is illegal");
-                            stackLoad.setTrueOffset(new IImm(nowTrueOffset));
-                        }
-                    } else {
-                        stackLoad.setTrueOffset(new IImm(trueOffset));
-                    }
+                    isFix |= fixArmInstAddr.apply(stackLoad, trueOffset);
                 } else if (inst instanceof ArmInstStackStore stackStore) {
                     Log.ensure(stackMap.containsKey(stackStore.getOffset().getImm()), "stack offset not present");
                     int trueOffset = stackMap.get(stackStore.getOffset().getImm());
-                    if (!ImmUtils.checkOffsetRange(trueOffset, stackStore.getDst())) {
-                        if (stackStore.getAddr().equals(IPhyReg.SP)) {
-                            isFix = true;
-                            for (var entry : stackAddrMap.entrySet()) {
-                                var offset = entry.getKey();
-                                var op = entry.getValue();
-                                if (offset <= trueOffset
-                                    && ImmUtils.checkOffsetRange(trueOffset - offset, stackStore.getDst())) {
-                                    stackStore.replaceAddr(op);
-                                    stackStore.setTrueOffset(new IImm(trueOffset - offset));
-                                    func.getSpillNodes().remove(op);
-                                    // 相当于当前节点改变了生命周期
-                                    break;
-                                }
-                            }
-                            if (stackStore.getAddr().equals(IPhyReg.SP)) {
-                                int addrTrueOffset = trueOffset / 1024 * 1024;
-                                var vr = new IVirtualReg();
-                                int instOffset = stackSize - addrTrueOffset;
-                                var stackAddr = new ArmInstStackAddr(vr, new IImm(instOffset));
-                                stackAddr.setTrueOffset(new IImm(addrTrueOffset));
-                                stackStore.insertBeforeCO(stackAddr);
-                                stackStore.replaceAddr(vr);
-                                Log.ensure(trueOffset >= addrTrueOffset, "chang offset is illegal");
-                                Log.ensure(ImmUtils.checkOffsetRange(trueOffset - addrTrueOffset, stackStore.getDst()),
-                                    "chang offset is illegal");
-                                stackStore.setTrueOffset(new IImm(trueOffset - addrTrueOffset));
-                                stackAddrMap.put(addrTrueOffset, vr);
-                                addrStackMap.put(vr, addrTrueOffset);
-                                func.getStackAddrMap().put(vr, stackAddr);
-                            }
-                        } else {
-                            var addrTrueOffset = addrStackMap.get(stackStore.getAddr());
-                            var nowTrueOffset = trueOffset - addrTrueOffset;
-                            Log.ensure(ImmUtils.checkOffsetRange(nowTrueOffset, stackStore.getDst()), "chang offset is illegal");
-                            stackStore.setTrueOffset(new IImm(nowTrueOffset));
-                        }
-                    } else {
-                        stackStore.setTrueOffset(new IImm(trueOffset));
-                    }
+                    isFix |= fixArmInstAddr.apply(stackStore, trueOffset);
                 }
             }
         }
@@ -253,6 +187,7 @@ public class RegAllocManager {
             var haveRecoverStackLoad = block.getHaveRecoverStackLoad();
             for (var inst : block) {
                 if (inst instanceof ArmInstStackAddr stackAddr) {
+                    // 恢复一个基本块内的基准地址
                     var offset = stackAddr.getOffset();
                     if (!stackAddr.getDst().isVirtual()) {
                         continue;
@@ -268,6 +203,7 @@ public class RegAllocManager {
                     }
                 }
                 if (inst instanceof ArmInstLoad load) {
+                    // 恢复一个基本块内的Load指令
                     if (!(load.getAddr() instanceof Addr addr)) {
                         continue;
                     }
@@ -285,6 +221,7 @@ public class RegAllocManager {
                     }
                 }
                 if (inst instanceof ArmInstParamLoad load) {
+                    // 恢复一个基本块内的ParamLoad指令
                     if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
@@ -303,6 +240,7 @@ public class RegAllocManager {
                     }
                 }
                 if (inst instanceof ArmInstMove move) {
+                    // 恢复一个基本块内的立即数赋值
                     if (!move.getDst().isVirtual()) {
                         continue;
                     }
@@ -321,6 +259,7 @@ public class RegAllocManager {
                     }
                 }
                 if (inst instanceof ArmInstStackLoad load) {
+                    // 恢复一个基本块内的寄存器分裂的Load
                     if (!load.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }
@@ -339,6 +278,8 @@ public class RegAllocManager {
                     }
                 }
                 if (inst instanceof ArmInstStackStore store) {
+                    // 这样利用Store的寄存器也可以给Load继续使用
+                    // 理论上可以删除只保留最后一个，但不方便恢复
                     if (!store.getAddr().equals(IPhyReg.SP)) {
                         continue;
                     }

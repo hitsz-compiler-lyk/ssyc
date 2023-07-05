@@ -107,7 +107,9 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
 
     public enum ArmCondType {
         Any,
-        Ge, Gt, Eq, Ne, Le, Lt;
+        Ge, Gt, Eq, Ne, Le, Lt,
+        // 浮点数使用 用于比较NaN
+        Hi, Pl, Ls, Mi;
 
         @Override
         public String toString() {
@@ -126,7 +128,11 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 case Lt -> Ge;
                 case Eq -> Ne;
                 case Ne -> Eq;
-                default -> throw new RuntimeException("Unknown cond: " + this);
+                case Ls -> Hi;
+                case Hi -> Ls;
+                case Mi -> Pl;
+                case Pl -> Mi;
+                default -> this;
             };
         }
 
@@ -136,7 +142,11 @@ public abstract class ArmInst implements INodeOwner<ArmInst, ArmBlock> {
                 case Ge -> Le;
                 case Gt -> Lt;
                 case Lt -> Gt;
-                default -> throw new RuntimeException("Unknown cond: " + this);
+                case Ls -> Pl;
+                case Pl -> Ls;
+                case Mi -> Hi;
+                case Hi -> Mi;
+                default -> this;
             };
         }
     }
