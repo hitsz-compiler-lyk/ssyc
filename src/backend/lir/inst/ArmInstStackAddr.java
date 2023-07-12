@@ -25,9 +25,17 @@ public class ArmInstStackAddr extends ArmInst {
         this.isFix = false;
     }
 
-    public Operand getDst() { return getOperand(0); }
-    public Operand getSrc() { return getOperand(1); }
-    public IImm getOffset() { return (IImm) getOperand(2); }
+    public Operand getDst() {
+        return getOperand(0);
+    }
+
+    public Operand getSrc() {
+        return getOperand(1);
+    }
+
+    public IImm getOffset() {
+        return (IImm) getOperand(2);
+    }
 
     public int getIntOffset() {
         return Objects.requireNonNullElse(trueOffset, getOffset()).getImm();

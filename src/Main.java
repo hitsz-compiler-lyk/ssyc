@@ -21,11 +21,11 @@ public class Main {
         var needLog = false;
         var flagCnt = 0;
         for (var arg : args) {
-            if (arg.equalsIgnoreCase("-o2")) {
+            if (arg.equalsIgnoreCase("-o2") || arg.equalsIgnoreCase("-o1")) {
                 needOptimize = true;
                 flagCnt++;
             }
-            if (arg.equalsIgnoreCase("--log")) {
+            if (arg.equalsIgnoreCase("-log")) {
                 needLog = true;
                 flagCnt++;
             }

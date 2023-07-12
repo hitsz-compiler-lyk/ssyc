@@ -64,8 +64,10 @@
 - `clang_O2`: 使用 clang -O2 编译并运行测试样例
 - `ssyc_llvm`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例
 - `ssyc_asm`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例
+- `ssyc_asm_O2`: 使用我们的编译器编译出汇编文件, 并执行所有的优化, 随后汇编并运行测试样例
 - `ssyc_llvm_long`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
 - `ssyc_asm_long`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
+- `ssyc_asm_O2_long`: 使用我们的编译器编译出汇编文件, 并执行所有的优化, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
 - `generate_stdout`: 使用 clang -O2 编译并运行用例, 保存运行结果, 相当于构造标准答案
 
 ## 程序本体参数说明
@@ -90,7 +92,7 @@
 当前程序的测试主要以目测编译后程序的返回值为主. 一个输出的例子为:
 
 ```
-$ ./m test inst-combine ssyc_asm
+$ ./m test inst-combine ssyc_asm_O2_long
 [12:03:08] Finish: ANTLR Generation
 [12:03:12] Finish: Java compile
 ================= begin: ssyc =================

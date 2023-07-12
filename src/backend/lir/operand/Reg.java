@@ -11,6 +11,10 @@ public abstract class Reg extends Operand {
         return result;
     }
 
+    public static int getAllocatableRegsCnt(boolean isInteger) {
+        return isInteger ? IPhyReg.getIntAllocatableRegs().size() : FPhyReg.getFloatAllocatableRegs().size();
+    }
+
     protected Reg(OperandKind s) {
         super(s);
     }

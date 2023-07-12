@@ -317,7 +317,8 @@ if __name__ == '__main__':
         'clang': [clang, gcc_as, run],
         'clang_O2': [clang_O2, gcc_as, run],
 
-        'generate_stdout': [clang_O2, gcc_as, generate_stdout]
+        'generate_stdout': [clang_O2, gcc_as, generate_stdout],
+        'retest': [llc, gcc_as, run_for_long_time, print_fail]
     }
 
     try:
@@ -326,7 +327,8 @@ if __name__ == '__main__':
         funcs = test_items[test_item]
         # check_funcs(funcs)
 
-        clear_up()
+        if test_item != 'retest':
+            clear_up()
         for func in funcs:
             func(subdir)
 
