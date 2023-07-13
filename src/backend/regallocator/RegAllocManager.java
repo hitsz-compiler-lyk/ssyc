@@ -1,5 +1,7 @@
 package backend.regallocator;
 
+import backend.codegen.ToAsmManager;
+import backend.codegen.ToLIRManager;
 import utils.ImmUtils;
 import backend.lir.ArmFunction;
 import backend.lir.ArmModule;
@@ -17,7 +19,6 @@ import java.util.function.BiFunction;
  * 其会进行寄存器分配以提高性能
  */
 public class RegAllocManager {
-    private final RegAllocator regAllocator = new SimpleGraphColoring();
     private final ArmModule armModule;
 
     public RegAllocManager(ArmModule armModule) {
@@ -29,6 +30,22 @@ public class RegAllocManager {
             fixStack(func);
             boolean isFix = true;
             while (isFix) {
+                RegAllocator regAllocator;
+                Set<Reg> RegCnt = new HashSet<>();
+                for (var block : func) {
+                    for (var inst : block) {
+                        for (var op : inst.getOperands()) {
+                            if (op instanceof Reg reg) {
+                                RegCnt.add(reg);
+                            }
+                        }
+                    }
+                }
+                if (RegCnt.size() <= 2048) {
+                    regAllocator = new GraphColoring();
+                } else {
+                    regAllocator = new SimpleGraphColoring();
+                }
                 var allocatorMap = regAllocator.run(func);
                 for (var kv : allocatorMap.entrySet()) {
                     Log.ensure(kv.getKey().isVirtual(), "allocatorMap key not Virtual");
@@ -96,7 +113,6 @@ public class RegAllocManager {
         Log.ensure(stackSize == func.getFinalStackSize(), "stack size error");
 
         int finalStackSize = stackSize;
-//        System.out.println("stacksize:" + stackSize);
         // 修复ArmInstAddr的寻址
         BiFunction<ArmInstAddr, Integer, Boolean> fixArmInstAddr = (inst, trueOffset) -> {
             boolean isInstFix = false;
@@ -155,7 +171,6 @@ public class RegAllocManager {
                     } else {
                         int oldTrueOffset = stackSize - stackAddr.getOffset().getImm();
                         int nowTrueOffset = (oldTrueOffset + 1023) / 1024 * 1024;
-//                        System.out.println("old:" + stackAddr.getTrueOffset().getImm() + " new:" + nowTrueOffset);
                         // stackAddr.replaceOffset(new IImm(stackSize - nowTrueOffset));
                         // 不应该修改基准值
                         stackAddr.setTrueOffset(new IImm(nowTrueOffset));

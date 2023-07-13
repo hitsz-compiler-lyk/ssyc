@@ -12,35 +12,33 @@ import utils.LLVMDumper;
 import utils.Log;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class Main {
-    public static boolean needOptimize = true;
+    public static boolean needOptimize = false;
 
     public static void main(String[] args) {
-        var needOptimize = false;
-        var needLog = false;
-        var flagCnt = 0;
+        var targetArgs = new ArrayList<String>();
+        var flagArgs = new ArrayList<String>();
         for (var arg : args) {
-            if (arg.equalsIgnoreCase("-o2") || arg.equalsIgnoreCase("-o1")) {
-                needOptimize = true;
-                flagCnt++;
-            }
-            if (arg.equalsIgnoreCase("-log")) {
-                needLog = true;
-                flagCnt++;
+            if (arg.startsWith("--")) {
+                flagArgs.add(arg.substring(2));
+            } else if (arg.startsWith("-") && !arg.equals("-")) {
+                flagArgs.add(arg.substring(1));
+            } else {
+                targetArgs.add(arg);
             }
         }
 
-        if (args.length - flagCnt < 3) {
-            System.out.println("Usage: ssyc <target> <input_file> <output_file>");
+        if (targetArgs.size() < 3) {
+            System.err.println("Usage: ssyc <target> <input_file> <output_file>");
             throw new RuntimeException("Argument error: [" + String.join(" ", args) + "]");
         }
 
-        Main.needOptimize = needOptimize;
-        if (!needLog) {
-            Log.inOnlineJudge();
-        }
-        runWithLargeStack(args[0], args[1], args[2]);
+        parseFlag(flagArgs);
+        runWithLargeStack(targetArgs.get(0), targetArgs.get(1), targetArgs.get(2));
     }
 
     static void runWithLargeStack(String target, String inputFileName, String outputFileName) {
@@ -155,6 +153,22 @@ public class Main {
 
         inputStream.close();
         outputStream.close();
+    }
+
+    private static void parseFlag(List<String> flags) {
+        var needLog = false;
+        for (var flag : flags) {
+            if (flag.toLowerCase().startsWith("o")) {
+                try {
+                    var level = Integer.parseInt(flag.substring(1));
+                    if (level >= 1) needOptimize = true;
+                } catch (NumberFormatException ignored) {
+                }
+            } else if (flag.equalsIgnoreCase("log") || flag.equalsIgnoreCase("l")) {
+                needLog = true;
+            }
+        }
+        if (!needLog) Log.inOnlineJudge();
     }
 
     private static InputStream openInput(String filename) throws FileNotFoundException {

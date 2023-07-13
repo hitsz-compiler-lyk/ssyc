@@ -4,8 +4,7 @@ import java.io.PrintStream;
 
 public class Log {
     public static void info(String message) {
-        if (!Log.notOutput)
-        {
+        if (!Log.notOutput) {
             out.println(makeFormattedOutput("info", message, colorYellow));
         }
     }
@@ -42,10 +41,10 @@ public class Log {
     private static boolean needColor = true;
     private static boolean notOutput = false;
 
-    private static final String colorRed    = needColor ? "\033[31;1m" : "";
+    private static final String colorRed = needColor ? "\033[31;1m" : "";
     private static final String colorYellow = needColor ? "\033[33;1m" : "";
-    private static final String colorWhite  = needColor ? "\033[37;1m" : "";
-    private static final String colorNormal = needColor ? "\033[0m"    : "";
+    private static final String colorWhite = needColor ? "\033[37;1m" : "";
+    private static final String colorNormal = needColor ? "\033[0m" : "";
 
     private static final PrintStream out = System.err;
 }

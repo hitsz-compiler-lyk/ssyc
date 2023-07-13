@@ -53,7 +53,7 @@ make_jar() {
 }
 
 run() {
-    java -cp "lib/*:target" Main $@ -O2
+    java -cp "lib/*:target" Main $@
 }
 
 run_jar() {

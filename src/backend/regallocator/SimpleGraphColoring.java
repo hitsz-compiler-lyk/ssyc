@@ -13,81 +13,12 @@ import java.util.stream.Collectors;
  * 简单的图着色寄存器
  */
 public class SimpleGraphColoring implements RegAllocator {
-    public static class InterfereRegs {
-        private int icnt, fcnt;
-        private final Set<Reg> regs;
-        private final boolean selfIsInt;
-
-        public InterfereRegs(Reg self) {
-            this.regs = new HashSet<>();
-            this.selfIsInt = self.isInt();
-            this.icnt = 0;
-            this.fcnt = 0;
-            if (this.selfIsInt) {
-                this.icnt++;
-            } else {
-                this.fcnt++;
-            }
-        }
-
-        public void add(Reg reg) {
-            if (regs.contains(reg)) {
-                return;
-            }
-            if (reg.isInt()) {
-                this.icnt++;
-            } else {
-                this.fcnt++;
-            }
-            regs.add(reg);
-        }
-
-        public void remove(Reg reg) {
-            Log.ensure(regs.contains(reg), "remove reg not contains in regs");
-            if (reg.isInt()) {
-                this.icnt--;
-            } else {
-                this.fcnt--;
-            }
-            regs.remove(reg);
-        }
-
-        public Set<Reg> getRegs() {
-            return regs;
-        }
-
-        public boolean canSimplify() {
-            return icnt <= IPhyReg.getIntAllocatableRegs().size()
-                    && fcnt <= FPhyReg.getFloatAllocatableRegs().size();
-        }
-
-        public void clear() {
-            this.regs.clear();
-            this.icnt = 0;
-            this.fcnt = 0;
-            if (this.selfIsInt) {
-                this.icnt++;
-            } else {
-                this.fcnt++;
-            }
-        }
-
-        @Override
-        public String toString() {
-            return regs.toString();
-        }
-    }
-
     private Map<Reg, InterfereRegs> adj;
     private Set<Reg> remainNodes; // 必须是一个虚拟寄存器
     private Queue<Reg> simplifyQueue;
     private List<Pair<Reg, List<Reg>>> simplifyWorkLists;
     private Set<Reg> haveSimplify;
-
-    @Override
-    public String getName() {
-        return "SimpleGraphColoring";
-    }
+    private Map<Reg, Integer> regUsedCnt;
 
     @Override
     public Map<Reg, Reg> run(ArmFunction func) {
@@ -113,7 +44,7 @@ public class SimpleGraphColoring implements RegAllocator {
                 haveSimplify.add(reg);
             }
         }
-        // h简化
+        // 简化
         simplify();
         // 溢出
         if (!remainNodes.isEmpty()) {
@@ -137,20 +68,10 @@ public class SimpleGraphColoring implements RegAllocator {
             conflictNodes.stream().filter(Reg.getAllAllocatableRegs()::contains).forEach(flag::add);
             conflictNodes.stream().filter(ans::containsKey).map(ans::get).forEach(flag::add);
             if (reg.isInt()) {
-                final var phyReg = IPhyReg.getIntAllocatableRegs().stream()
-                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
-                                && !flag.contains(oneReg))
-                        .findFirst().orElse(
-                                IPhyReg.getIntAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
-                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
+                final var phyReg = IPhyReg.getIntAllocatableRegs().stream().filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg))) && !flag.contains(oneReg)).findFirst().orElse(IPhyReg.getIntAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst().orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             } else {
-                final var phyReg = FPhyReg.getFloatAllocatableRegs().stream()
-                        .filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg)))
-                                && !flag.contains(oneReg))
-                        .findFirst().orElse(
-                                FPhyReg.getFloatAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst()
-                                        .orElseThrow(() -> new RuntimeException("reg allocate failed")));
+                final var phyReg = FPhyReg.getFloatAllocatableRegs().stream().filter(oneReg -> (oneReg.isCallerSave() || (oneReg.isCalleeSave() && used.contains(oneReg))) && !flag.contains(oneReg)).findFirst().orElse(FPhyReg.getFloatAllocatableRegs().stream().filter(oneReg -> !flag.contains(oneReg)).findFirst().orElseThrow(() -> new RuntimeException("reg allocate failed")));
                 ans.put(reg, phyReg);
             }
             Log.ensure(ans.containsKey(reg), "reg allocate failed");
@@ -165,10 +86,8 @@ public class SimpleGraphColoring implements RegAllocator {
         remainNodes = new HashSet<>();
         simplifyQueue = new ArrayDeque<>();
         haveSimplify = new HashSet<>();
-        adj = func.stream().flatMap(List::stream)
-                .map(ArmInst::getOperands).flatMap(List::stream)
-                .filter(Reg.class::isInstance).map(Reg.class::cast)
-                .distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
+        regUsedCnt = new HashMap<>();
+        adj = func.stream().flatMap(List::stream).map(ArmInst::getOperands).flatMap(List::stream).filter(Reg.class::isInstance).map(Reg.class::cast).distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func) {
             var live = new HashSet<>(block.getBlockLiveInfo().getLiveOut());
@@ -182,6 +101,9 @@ public class SimpleGraphColoring implements RegAllocator {
                             adj.get(def).add(reg);
                         }
                     }
+                }
+                for (var use : inst.getRegUse()) {
+                    regUsedCnt.put(use, regUsedCnt.getOrDefault(use, 0) + 1);
                 }
                 live.removeAll(inst.getRegDef());
                 live.addAll(inst.getRegUse());
@@ -219,13 +141,14 @@ public class SimpleGraphColoring implements RegAllocator {
                     // || func.getParamLoadMap().containsKey(reg)
                     // || func.getStackLoadMap().containsKey(reg)
                     // 不优先处理
-                    || func.getStackAddrMap().containsKey(reg)
-                    || func.getImmMap().containsKey(reg)) {
+                    || func.getStackAddrMap().containsKey(reg) || func.getImmMap().containsKey(reg)) {
+                if (regUsedCnt.getOrDefault(reg, 0) >= 16) {
+                    continue;
+                }
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
                 }
-                if (spillNode == null
-                        || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                if (spillNode == null || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
                     spillNode = reg;
                 }
             }
@@ -235,8 +158,7 @@ public class SimpleGraphColoring implements RegAllocator {
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
                 }
-                if (spillNode == null
-                        || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                if (spillNode == null || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
                     spillNode = reg;
                 }
             }
@@ -246,15 +168,11 @@ public class SimpleGraphColoring implements RegAllocator {
         return spillNode;
     }
 
-    private void spill(ArmFunction func, Set<Reg> spillNodes) {
+    protected static void spill(ArmFunction func, Set<Reg> spillNodes) {
         Map<Reg, Integer> offsetMap = new HashMap<>();
         Set<Operand> specialNode = new HashSet<>();
         for (var spill : spillNodes) {
-            if (func.getAddrLoadMap().containsKey(spill)
-                    || func.getParamLoadMap().containsKey(spill)
-                    || (func.getStackLoadMap().containsKey(spill) && !func.getStackStoreSet().contains(spill))
-                    || func.getImmMap().containsKey(spill)
-                    || func.getStackAddrMap().containsKey(spill)) {
+            if (func.getAddrLoadMap().containsKey(spill) || func.getParamLoadMap().containsKey(spill) || (func.getStackLoadMap().containsKey(spill) && !func.getStackStoreSet().contains(spill)) || func.getImmMap().containsKey(spill) || func.getStackAddrMap().containsKey(spill)) {
                 // 需要跳过处理的 spill node
                 specialNode.add(spill);
             } else if (!func.getStackStoreSet().contains(spill)) {
@@ -326,8 +244,7 @@ public class SimpleGraphColoring implements RegAllocator {
                                 inst.replaceOperand(spill, vr);
                                 func.getParamLoadMap().put(vr, newParamLoad);
                                 func.getSpillNodes().add(vr);
-                            } else if (func.getStackLoadMap().containsKey(spill) && !(inst instanceof ArmInstStackStore)
-                                    && !inst.getRegDef().contains(spill)) {
+                            } else if (func.getStackLoadMap().containsKey(spill) && !(inst instanceof ArmInstStackStore) && !inst.getRegDef().contains(spill)) {
                                 // 把一个基本块内合并的StackLoad又重新分裂
                                 Log.ensure(!inst.getRegDef().contains(spill), "def reg contains special node");
                                 Reg vr = spill.isInt() ? new IVirtualReg() : new FVirtualReg();

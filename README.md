@@ -1,14 +1,16 @@
 # SSYC: Simple SysY Compiler
 
-## VCS 说明
+本项目为 SysY 语言的优化编译器，支持armv7(armv7ve)的后端。
+
+SysY 是[全国大学生计算机系统能力大赛编译系统设计赛2022](https://compiler.educg.net/#/oldDetail?name=2022全国大学生计算机系统能力大赛编译系统设计赛)的比赛语言.
+
+[SysY的语言规范、runtime 和 比赛测例](https://gitlab.eduxiji.net/nscscc/compiler2022/-/tree/master)
 
 比赛结束后, 出于用作讲解/教授的示例的作用, 本项目可能还会继续开发. 您可以查看 `just-finish` 标签以获得我们刚刚完赛时的代码. `main` 分支的开发进度将被继续推进, 其中可能包含架构调整, 代码质量改进和文档完善.
 
 比赛结束之后的代码将会调整至 Java 17 标准而非 2022 年比赛时使用的 Java 15, 请在参考代码时注意鉴别.
 
 ## 开发环境简介
-
-本项目推荐使用 VSCode 开发. 若您使用 VSCode, 请遵循提示安装 `extensions.json` 内推荐的插件.
 
 本项目没有使用任何标准的 Java 依赖管理/构建 工具, 而是使用 Bash 脚本完成构建. Bash 脚本具有简单、透明的优势, 适合本项目这种依赖少而简单, 无复杂构建需求的项目. 并且使用 Bash 脚本便于集成各式各样的工作流, 而不会被构建工具限制.
 
@@ -73,6 +75,11 @@
 ## 程序本体参数说明
 
 本程序接收三个参数: `<target> <input_file> <output_file>`. 其中 `target` 参数为输出类型, 可取 `ast`, `llvm`, `asm` 三者之一. `input_file` 与 `output_file` 分别为输出与输出文件名, 可以使用 `-` 来令程序使用标准输入/输出.
+
+此外还接受flag:
+
+- `-On n >= 1`: 开启优化执行
+- `-l --log`: 打印日志
 
 例子:
 
