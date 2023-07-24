@@ -1,5 +1,7 @@
 package backend.codegen;
 
+import pass.ir.ClearUnreachableBlock;
+import pass.ir.GCM;
 import utils.ImmUtils;
 import backend.lir.ArmBlock;
 import backend.lir.ArmFunction;
@@ -147,9 +149,13 @@ public class ToLIRManager {
             String funcName = func.getFunctionSourceName();
 
 
+            var gcm = new GCM();
+            ClearUnreachableBlock.run(func);
+            gcm.runOnFunction(func);
             for (int i = 0; i < func.size(); i++) {
                 final var block = func.get(i);
                 final var armBlock = new ArmBlock(armFunc, block.getSymbol().getName() + "_" + funcName + "_" + i);
+                armBlock.setLoopDepth(gcm.loopDepth(block));
                 blockMap.put(block, armBlock);
             }
 
@@ -247,7 +253,8 @@ public class ToLIRManager {
             this.func = func;
         }
 
-        @Override public Void visitBinaryOpInst(BinaryOpInst inst) {
+        @Override
+        public Void visitBinaryOpInst(BinaryOpInst inst) {
             var lhs = inst.getLHS();
             var rhs = inst.getRHS();
             Operand lhsReg, rhsReg, dstReg;
@@ -457,7 +464,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitUnaryOpInst(UnaryOpInst inst) {
+        @Override
+        public Void visitUnaryOpInst(UnaryOpInst inst) {
             var src = inst.getArg();
             var srcReg = resolveOperand(src, block, func);
             var dstReg = resolveLhsOperand(inst, block, func);
@@ -472,7 +480,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitLoadInst(LoadInst inst) {
+        @Override
+        public Void visitLoadInst(LoadInst inst) {
             var addr = inst.getPtr();
             Operand addrReg;
             var dstReg = resolveLhsOperand(inst, block, func);
@@ -490,7 +499,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitStoreInst(StoreInst inst) {
+        @Override
+        public Void visitStoreInst(StoreInst inst) {
             var addr = inst.getPtr();
             var var = inst.getVal();
 
@@ -501,7 +511,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitCAllocInst(CAllocInst inst) {
+        @Override
+        public Void visitCAllocInst(CAllocInst inst) {
             var dst = resolveOperand(inst, block, func);
             // add inst [sp, 之前已用的栈大小]
             var alloc = new ArmInstStackAddr(block, dst, new IImm(func.getStackSize()));
@@ -512,7 +523,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitGEPInst(GEPInst inst) {
+        @Override
+        public Void visitGEPInst(GEPInst inst) {
             var p = ((PointerIRTy) inst.getPtr().getType()).getBaseType();
             var indices = inst.getIndices();
             List<Integer> dim = new ArrayList<>();
@@ -577,7 +589,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitCallInst(CallInst inst) {
+        @Override
+        public Void visitCallInst(CallInst inst) {
             Set<Integer> argsIdx = new HashSet<>();
             List<Value> finalArg = new ArrayList<>();
             int fcnt = 0, icnt = 0;
@@ -693,7 +706,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitReturnInst(ReturnInst inst) {
+        @Override
+        public Void visitReturnInst(ReturnInst inst) {
             // 如果返回值不为空
             if (inst.getReturnValue().isPresent()) {
                 var src = inst.getReturnValue().get();
@@ -712,7 +726,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitIntToFloatInst(IntToFloatInst inst) {
+        @Override
+        public Void visitIntToFloatInst(IntToFloatInst inst) {
             // 需要先转到浮点寄存器 才能使用 vcvt
             if (inst.getFrom() instanceof BoolToIntInst) {
                 resolveBoolToIntInst((BoolToIntInst) inst.getFrom(), block, func);
@@ -727,7 +742,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitFloatToIntInst(FloatToIntInst inst) {
+        @Override
+        public Void visitFloatToIntInst(FloatToIntInst inst) {
             // 先使用 vcvt 再转到整型寄存器中
             var vr = new FVirtualReg();
             var src = resolveOperand(inst.getFrom(), block, func);
@@ -739,13 +755,15 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitBrInst(BrInst inst) {
+        @Override
+        public Void visitBrInst(BrInst inst) {
             // B inst.getNextBB()
             new ArmInstBranch(block, blockMap.get(inst.getNextBB()));
             return null;
         }
 
-        @Override public Void visitBrCondInst(BrCondInst inst) {
+        @Override
+        public Void visitBrCondInst(BrCondInst inst) {
             var cond = inst.getCond();
             if (cond instanceof BoolConst boolConst) {
                 if (boolConst.getValue()) {
@@ -769,7 +787,8 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitMemInitInst(MemInitInst inst) {
+        @Override
+        public Void visitMemInitInst(MemInitInst inst) {
             var dst = resolveOperand(inst.getArrayPtr(), block, func);
             var ac = inst.getInit();
             int size = inst.getInit().getType().getSize();
@@ -792,9 +811,20 @@ public class ToLIRManager {
             return null;
         }
 
-        @Override public Void visitBoolToIntInst(BoolToIntInst inst) { return null; }
-        @Override public Void visitCmpInst(CmpInst inst) { return null; }
-        @Override public Void visitPhiInst(PhiInst inst) { return null; }
+        @Override
+        public Void visitBoolToIntInst(BoolToIntInst inst) {
+            return null;
+        }
+
+        @Override
+        public Void visitCmpInst(CmpInst inst) {
+            return null;
+        }
+
+        @Override
+        public Void visitPhiInst(PhiInst inst) {
+            return null;
+        }
     }
 
     private IVirtualReg loadImmToVReg(int val, ArmBlock block, ArmFunction func) {

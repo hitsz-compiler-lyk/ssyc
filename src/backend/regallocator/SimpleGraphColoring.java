@@ -19,6 +19,7 @@ public class SimpleGraphColoring implements RegAllocator {
     private List<Pair<Reg, List<Reg>>> simplifyWorkLists;
     private Set<Reg> haveSimplify;
     private Map<Reg, Integer> regUsedCnt;
+    private Map<Reg, Integer> regWeight;
 
     @Override
     public Map<Reg, Reg> run(ArmFunction func) {
@@ -87,6 +88,7 @@ public class SimpleGraphColoring implements RegAllocator {
         simplifyQueue = new ArrayDeque<>();
         haveSimplify = new HashSet<>();
         regUsedCnt = new HashMap<>();
+        regWeight = new HashMap<>();
         adj = func.stream().flatMap(List::stream).map(ArmInst::getOperands).flatMap(List::stream).filter(Reg.class::isInstance).map(Reg.class::cast).distinct().collect(Collectors.toMap(op -> op, InterfereRegs::new));
         LivenessAnalysis.funcLivenessAnalysis(func);
         for (var block : func) {
@@ -101,6 +103,9 @@ public class SimpleGraphColoring implements RegAllocator {
                             adj.get(def).add(reg);
                         }
                     }
+                }
+                for (var reg : inst.getOperands().stream().filter(Reg.class::isInstance).map(Reg.class::cast).filter(Operand::isVirtual).toList()) {
+                    regWeight.put(reg, Math.max(regWeight.getOrDefault(reg, 1), (block.getLoopDepth() + 1) * (block.getLoopDepth() + 1)));
                 }
                 for (var use : inst.getRegUse()) {
                     regUsedCnt.put(use, regUsedCnt.getOrDefault(use, 0) + 1);
@@ -137,18 +142,14 @@ public class SimpleGraphColoring implements RegAllocator {
     private Reg chooseSpillNode(ArmFunction func) {
         Reg spillNode = null;
         for (var reg : remainNodes) {
-            if (func.getAddrLoadMap().containsKey(reg)
-                    // || func.getParamLoadMap().containsKey(reg)
-                    // || func.getStackLoadMap().containsKey(reg)
-                    // 不优先处理
-                    || func.getStackAddrMap().containsKey(reg) || func.getImmMap().containsKey(reg)) {
+            if (func.getAddrLoadMap().containsKey(reg) || func.getStackAddrMap().containsKey(reg) || func.getImmMap().containsKey(reg)) {
                 if (regUsedCnt.getOrDefault(reg, 0) >= 16) {
                     continue;
                 }
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
                 }
-                if (spillNode == null || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                if (spillNode == null || adj.get(reg).getRegs().size() * regWeight.get(spillNode) > adj.get(spillNode).getRegs().size() * regWeight.get(reg)) {
                     spillNode = reg;
                 }
             }
@@ -158,7 +159,7 @@ public class SimpleGraphColoring implements RegAllocator {
                 if (func.getSpillNodes().contains(reg)) {
                     continue;
                 }
-                if (spillNode == null || adj.get(reg).getRegs().size() > adj.get(spillNode).getRegs().size()) {
+                if (spillNode == null || adj.get(reg).getRegs().size() * regWeight.get(spillNode) > adj.get(spillNode).getRegs().size() * regWeight.get(reg)) {
                     spillNode = reg;
                 }
             }

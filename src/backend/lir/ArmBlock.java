@@ -74,6 +74,8 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     private final Set<Imm> haveRecoverImm;
 
+    private int LoopDepth;
+
     public Set<Addr> getHaveRecoverAddr() {
         return haveRecoverAddr;
     }
@@ -124,6 +126,14 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.falseSuccBlock = falseSuccBlock;
     }
 
+    public void setLoopDepth(int depth) {
+        this.LoopDepth = depth;
+    }
+
+    public int getLoopDepth() {
+        return LoopDepth;
+    }
+
     public List<ArmBlock> getSucc() {
         var ret = new ArrayList<ArmBlock>();
         if (trueSuccBlock != null) {
@@ -168,6 +178,7 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.haveRecoverStackLoad = new HashSet<>();
         this.haveRecoverImm = new HashSet<>();
         this.insts = new IList<>(this);
+        this.LoopDepth = 0;
     }
 
 }
