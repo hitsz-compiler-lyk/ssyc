@@ -6,31 +6,39 @@ import sys
 
 console = Console()
 
+
 def rel(*subs: str) -> str:
     return os.path.join(os.curdir, *subs)
 
+
 exists = os.path.exists
 echo = console.log
+
 
 def exit_with(message: str):
     console.log(f'[red bold]{message}')
     exit(1)
 
+
 def sh(command: str):
     if (ret := os.system(command)) != 0:
         exit_with(f'Command fail: {command} (return {ret})')
 
+
 def fill_front_zero(num: int, target_length: int) -> str:
     return '0' * (target_length - len(str(num))) + str(num)
+
 
 def fill_end_space(raw: str, target_length: int) -> str:
     return raw + ' ' * (target_length - len(raw))
 
-def one_pass(status_message: str, from_suffix: str, to_suffix: str, show: bool=True):
+
+def one_pass(status_message: str, from_suffix: str, to_suffix: str, show: bool = True):
     def decorator(func: Callable[[str, str], None]):
         def do(subdir: str):
             console.print(f"[cyan bold]================= begin: {status_message} =================")
-            with console.status(f'[bold green]{status_message} on {subdir} ({from_suffix} -> {to_suffix})...') as status:
+            with console.status(
+                    f'[bold green]{status_message} on {subdir} ({from_suffix} -> {to_suffix})...') as status:
                 files = os.listdir(rel('test-data', subdir))
                 sources = sorted([s for s in files if s.endswith(from_suffix)])
                 source_cnt = len(sources)
@@ -42,11 +50,12 @@ def one_pass(status_message: str, from_suffix: str, to_suffix: str, show: bool=T
 
                     func(full_src, full_dst)
                     if show:
-                        console.log(f'Finish ({fill_front_zero(idx, total_len)}/{source_cnt}) {filename}')
+                        console.log(f'Finish ({fill_front_zero(idx + 1, total_len)}/{source_cnt}) {filename}')
             # console.clear()
 
         do.type = (from_suffix, to_suffix)
         return do
+
     return decorator
 
 
@@ -68,17 +77,34 @@ def ssyc(option: str) -> Callable[[str, str], None]:
                     print(line, end='')
             console.log(f'[red bold]Compiler failed on {src}')
             exit(1)
+
     return do
+
+
+def ssyc_O2(option: str) -> Callable[[str, str], None]:
+    def do(src: str, dst: str):
+        result = os.system(f'java -cp "lib/*:target" Main {option} {src} {dst} -O2 2> ssyc.log')
+        if result != 0:
+            with open('ssyc.log', 'r') as f:
+                for line in f.readlines():
+                    print(line, end='')
+            console.log(f'[red bold]Compiler failed on {src}')
+            exit(1)
+
+    return do
+
 
 ssyc_llvm = one_pass('ssyc', '.sy', '.llvm')(ssyc('llvm'))
 
 # Check that: https://stackoverflow.com/questions/62436694/why-cant-gcc-compile-assembly-produced-by-clang
 clang_cmd = 'clang -I/usr/arm-linux-gnueabihf/include -no-integrated-as -target armv7-linux-gnueabihf -static -g0'
 
+
 @one_pass('clang-emit-llvm', '.sy', '.llvm')
 def clang_llvm(src: str, dst: str):
     new_src = pre_include(src)
     sh(f'{clang_cmd} -emit-llvm -S {new_src} -o {dst}')
+
 
 @one_pass('llc', '.llvm', '.s')
 def llc(src: str, dst: str):
@@ -90,6 +116,8 @@ def llc(src: str, dst: str):
 
 
 ssyc_asm = one_pass('ssyc', '.sy', '.s')(ssyc('asm'))
+
+ssyc_asm_O2 = one_pass('ssyc', '.sy', '.s')(ssyc_O2('asm'))
 
 def pre_include(source: str) -> str:
     lines = []
@@ -109,6 +137,7 @@ def pre_include(source: str) -> str:
 
     return dst
 
+
 # @one_pass('gcc', '.sy', '.s')
 # def gcc(src: str, dst: str):
 #     new_src = pre_include(src)
@@ -119,16 +148,17 @@ def clang(src: str, dst: str):
     new_src = pre_include(src)
     sh(f'{clang_cmd} -S {new_src} -o {dst} 2> /dev/null')
 
+
 @one_pass('clang-O2', '.sy', '.s', show=False)
 def clang_O2(src: str, dst: str):
     new_src = pre_include(src)
     sh(f'{clang_cmd} -O2 -S {new_src} -o {dst} 2> /dev/null')
 
 
-
 @one_pass('gcc-as', '.s', '.exec', show=False)
 def gcc_as(src: str, dst: str):
     sh(f'arm-linux-gnueabihf-gcc  -march=armv7-a -static -g {src} {rel("util", "libsysy.a")} -o {dst}')
+
 
 @one_pass('generate-stdout', '.exec', '.out')
 def generate_stdout(src: str, dst: str):
@@ -182,7 +212,6 @@ def run(exec: str, result_file: str):
     with open(result_file, 'wb') as f:
         f.writelines(lines)
 
-
     nick_name = fill_end_space(os.path.split(base_name)[-1], 40)
     if os.system(f'diff {output_file} {result_file} > /dev/null') != 0:
         sh(f'difft {result_file} {output_file}')
@@ -197,6 +226,8 @@ def run(exec: str, result_file: str):
 
 
 fail_list = []
+
+
 @one_pass('run-for-long-time', '.exec', '.res', show=False)
 def run_for_long_time(exec: str, result_file: str):
     base_name = exec.removesuffix('.exec')
@@ -223,7 +254,6 @@ def run_for_long_time(exec: str, result_file: str):
     with open(result_file, 'wb') as f:
         f.writelines(lines)
 
-
     nick_name = fill_end_space(os.path.split(base_name)[-1], 40)
     if os.system(f'diff {output_file} {result_file} > /dev/null') != 0:
         prompt = f'[red bold]Fail [cyan]{nick_name} [red bold]: Wrong Answer, check [cyan]{result_file} [red bold]for details.'
@@ -238,12 +268,15 @@ def run_for_long_time(exec: str, result_file: str):
     os.remove(pgm_return)
     os.remove(pgm_stderr)
 
+
 def print_fail(subdir: str):
     for prompt in fail_list:
         console.log(prompt)
 
+
 def link_run_on_rpi():
     pass
+
 
 def clear_up():
     with console.status('[green bold]Clearing...') as status:
@@ -270,18 +303,22 @@ def check_funcs(funcs):
     if last_type != '.s':
         exit_with('Last pass should return a .s file')
 
+
 if __name__ == '__main__':
     test_items = {
         'ssyc_llvm': [build, ssyc_llvm, llc, gcc_as, run],
         'ssyc_asm': [build, ssyc_asm, gcc_as, run],
+        'ssyc_asm_O2': [build, ssyc_asm_O2, gcc_as, run],
 
         'ssyc_llvm_long': [build, ssyc_llvm, llc, gcc_as, run_for_long_time, print_fail],
         'ssyc_asm_long': [build, ssyc_asm, llc, gcc_as, run_for_long_time, print_fail],
+        'ssyc_asm_O2_long': [build, ssyc_asm_O2, llc, gcc_as, run_for_long_time, print_fail],
 
         'clang': [clang, gcc_as, run],
         'clang_O2': [clang_O2, gcc_as, run],
 
-        'generate_stdout': [clang_O2, gcc_as, generate_stdout]
+        'generate_stdout': [clang_O2, gcc_as, generate_stdout],
+        'retest': [llc, gcc_as, run_for_long_time, print_fail]
     }
 
     try:
@@ -290,7 +327,8 @@ if __name__ == '__main__':
         funcs = test_items[test_item]
         # check_funcs(funcs)
 
-        clear_up()
+        if test_item != 'retest':
+            clear_up()
         for func in funcs:
             func(subdir)
 

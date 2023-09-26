@@ -1,18 +1,26 @@
 # SSYC: Simple SysY Compiler
 
-## VCS 说明
+本项目为 SysY 语言的优化编译器，支持armv7(armv7ve)的后端。
 
-比赛结束后, 出于用作讲解/教授的示例的作用, 本项目可能还会继续开发. 您可以查看 `just-finish` 标签以获得我们刚刚完赛时的代码. `main` 分支的开发进度将被继续推进, 其中可能包含架构调整, 代码质量改进和文档完善.
+SysY
+是[全国大学生计算机系统能力大赛编译系统设计赛2022](https://compiler.educg.net/#/oldDetail?name=2022全国大学生计算机系统能力大赛编译系统设计赛)
+的比赛语言.
+
+[SysY的语言规范、runtime 和 比赛测例](https://gitlab.eduxiji.net/nscscc/compiler2022/-/tree/master)
+
+比赛结束后, 出于用作讲解/教授的示例的作用, 本项目可能还会继续开发. 您可以查看 `just-finish`
+标签以获得我们刚刚完赛时的代码. `main` 分支的开发进度将被继续推进, 其中可能包含架构调整, 代码质量改进和文档完善.
 
 比赛结束之后的代码将会调整至 Java 17 标准而非 2022 年比赛时使用的 Java 15, 请在参考代码时注意鉴别.
 
 ## 开发环境简介
 
-本项目推荐使用 VSCode 开发. 若您使用 VSCode, 请遵循提示安装 `extensions.json` 内推荐的插件.
+本项目没有使用任何标准的 Java 依赖管理/构建 工具, 而是使用 Bash 脚本完成构建. Bash 脚本具有简单、透明的优势,
+适合本项目这种依赖少而简单, 无复杂构建需求的项目. 并且使用 Bash 脚本便于集成各式各样的工作流, 而不会被构建工具限制.
 
-本项目没有使用任何标准的 Java 依赖管理/构建 工具, 而是使用 Bash 脚本完成构建. Bash 脚本具有简单、透明的优势, 适合本项目这种依赖少而简单, 无复杂构建需求的项目. 并且使用 Bash 脚本便于集成各式各样的工作流, 而不会被构建工具限制.
-
-本项目之功能性测试使用 Docker 容器进行. 整个源码目录被挂载进容器之后在容器内被编译为 class 文件并执行, 依次读取测试数据文件夹 (当前为 `test-data/asm-handmade`) 内的 `*.sy` 文件并输出汇编文件 `*.s`, 随后在容器内被交叉编译器汇编为 ARM 可执行文件, 随后使用 qemu 执行并输出 `main` 返回值. 用测试脚本判断输出是否正确.
+本项目之功能性测试使用 Docker 容器进行. 整个源码目录被挂载进容器之后在容器内被编译为 class 文件并执行,
+依次读取测试数据文件夹 (当前为 `test-data/asm-handmade`) 内的 `*.sy` 文件并输出汇编文件 `*.s`, 随后在容器内被交叉编译器汇编为
+ARM 可执行文件, 随后使用 qemu 执行并输出 `main` 返回值. 用测试脚本判断输出是否正确.
 
 ## 开发环境使用
 
@@ -64,13 +72,23 @@
 - `clang_O2`: 使用 clang -O2 编译并运行测试样例
 - `ssyc_llvm`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例
 - `ssyc_asm`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例
-- `ssyc_llvm_long`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
+- `ssyc_asm_O2`: 使用我们的编译器编译出汇编文件, 并执行所有的优化, 随后汇编并运行测试样例
+- `ssyc_llvm_long`: 使用我们的编译器编译出 llvm ir, 并使用 llvm-as/llc 转为汇编文件, 随后汇编并运行测试样例,
+  在出现用例结果错误时不会停止
 - `ssyc_asm_long`: 使用我们的编译器编译出汇编文件, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
+- `ssyc_asm_O2_long`: 使用我们的编译器编译出汇编文件, 并执行所有的优化, 随后汇编并运行测试样例, 在出现用例结果错误时不会停止
 - `generate_stdout`: 使用 clang -O2 编译并运行用例, 保存运行结果, 相当于构造标准答案
+- `retest`: 跳过编译汇编直接运行测试样例
 
 ## 程序本体参数说明
 
-本程序接收三个参数: `<target> <input_file> <output_file>`. 其中 `target` 参数为输出类型, 可取 `ast`, `llvm`, `asm` 三者之一. `input_file` 与 `output_file` 分别为输出与输出文件名, 可以使用 `-` 来令程序使用标准输入/输出.
+本程序接收三个参数: `<target> <input_file> <output_file>`. 其中 `target` 参数为输出类型, 可取 `ast`, `llvm`, `asm`
+三者之一. `input_file` 与 `output_file` 分别为输出与输出文件名, 可以使用 `-` 来令程序使用标准输入/输出.
+
+此外还接受flag:
+
+- `-On n >= 1`: 开启优化执行
+- `-l --log`: 打印日志
 
 例子:
 
@@ -90,21 +108,47 @@
 当前程序的测试主要以目测编译后程序的返回值为主. 一个输出的例子为:
 
 ```
-$ ./m test inst-combine ssyc_asm
-[12:03:08] Finish: ANTLR Generation
-[12:03:12] Finish: Java compile
+$ ./m test benchmark ssyc_asm_O2_long
+[13:29:10] Finish: ANTLR Generation                                                                                                      test.py:65
+[13:29:13] Finish: Java compile                                                                                                          test.py:68
 ================= begin: ssyc =================
-           Finish (0/4) 00-multi-add.sy
-[12:03:13] Finish (1/4) 01-repeat-add.sy
-           Finish (2/4) 02-distribute-imul.sy
-           Finish (3/4) 03-addmulconst-test.sy
+[14:56:23] Finish (1/8) bitset.sy                                                                                                        test.py:53
+[14:56:24] Finish (2/8) brainfuck.sy                                                                                                     test.py:53
+[14:56:25] Finish (3/8) conv.sy                                                                                                          test.py:53
+[14:56:29] Finish (4/8) if-combine.sy                                                                                                    test.py:53
+[14:56:48] Finish (5/8) many-params.sy                                                                                                   test.py:53
+[14:56:50] Finish (6/8) matmul.sy                                                                                                        test.py:53
+[14:56:53] Finish (7/8) mm.sy                                                                                                            test.py:53
+[14:56:54] Finish (8/8) sl.sy                                                                                                            test.py:53
+================= begin: llc =================
 ================= begin: gcc-as =================
-================= begin: run =================
-[12:03:14] Pass 00-multi-add                             : ['TOTAL: 0H-0M-0S-0us\n']
-           Pass 01-repeat-add                            : ['TOTAL: 0H-0M-0S-0us\n']
-           Pass 02-distribute-imul                       : ['TOTAL: 0H-0M-0S-0us\n']
-           Pass 03-addmulconst-test                      : ['TOTAL: 0H-0M-0S-0us\n']
+================= begin: run-for-long-time =================
+[14:56:59] Pass bitset                                   : ['Timer@0056-0064: 0H-0M-0S-670417us\n', 'TOTAL: 0H-0M-0S-670417us\n']        test.py:265
+[14:57:23] Pass brainfuck                                : ['Timer@0116-0118: 0H-0M-24S-523222us\n', 'TOTAL: 0H-0M-24S-523222us\n']      test.py:265
+[14:57:28] Pass conv                                     : ['Timer@0109-0116: 0H-0M-4S-759372us\n', 'TOTAL: 0H-0M-4S-759372us\n']        test.py:265
+[14:57:30] Pass if-combine                               : ['Timer@0324-0328: 0H-0M-2S-511796us\n', 'TOTAL: 0H-0M-2S-511796us\n']        test.py:265
+[14:57:32] Pass many-params                              : ['Timer@0134-0148: 0H-0M-1S-994736us\n', 'TOTAL: 0H-0M-1S-994736us\n']        test.py:265
+[14:57:34] Pass matmul                                   : ['Timer@0023-0092: 0H-0M-1S-568371us\n', 'TOTAL: 0H-0M-1S-568371us\n']        test.py:265
+[14:57:35] Pass mm                                       : ['Timer@0065-0084: 0H-0M-1S-389790us\n', 'TOTAL: 0H-0M-1S-389790us\n']        test.py:265
+[14:57:36] Pass sl                                       : ['Timer@0013-0053: 0H-0M-0S-352899us\n', 'TOTAL: 0H-0M-0S-352899us\n']        test.py:265
 ```
+
+## Benchmark
+
+| 样例          | ssyc         | clang        | clang O2     |
+|-------------|--------------|:-------------|:-------------|
+| bitset      | 0S-670417us  | 10S-2838us   | 3S-476461us  |
+| brainfuck   | 24S-523222us | 37S-259962us | 54S-295113us |
+| conv        | 4S-759372us  | 26S-570227us | 21S-565170us |
+| if-combine  | 2S-511796us  | 29S-282222us | 7S-645206us  |
+| many-params | 1S-994736us  | 10S-726892us | 2S-790948us  |
+| matmul      | 1S-568371us  | 4S-848694us  | 1S-680792us  |
+| mm          | 1S-389790us  | 5S-276924us  | 1S-891107us  |
+| sl          | 0S-352899us  | 1S-286663us  | 1S-169987us  |
+
+测试采用的是 qemu-arm version 5.2.0, 因此与正式情况有一定的差距
+
+clang 版本为 11.0.1-2, 测试CPU为 M1 pro
 
 ## 更多文档
 

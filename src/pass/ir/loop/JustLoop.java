@@ -33,7 +33,9 @@ public class JustLoop {
     }
 
     public void setParent(final JustLoop parent) {
-        this.parent = Optional.ofNullable(parent);
+        if (parent != null && parent.getLoopDepth() >= getLoopDepth()) {
+            this.parent = Optional.of(parent);
+        }
     }
 
     public List<JustLoop> getSubLoops() {
@@ -49,8 +51,8 @@ public class JustLoop {
 
     public List<JustLoop> allSubLoopsInPostOrder() {
         final var children = subLoops.stream()
-            .map(JustLoop::allSubLoopsInPostOrder)
-            .flatMap(List::stream).collect(Collectors.toList());
+                .map(JustLoop::allSubLoopsInPostOrder)
+                .flatMap(List::stream).collect(Collectors.toList());
 
         children.add(this);
         return children;

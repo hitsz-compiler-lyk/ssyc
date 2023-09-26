@@ -10,10 +10,7 @@ import utils.IListOwner;
 import utils.INode;
 import utils.INodeOwner;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBlock, ArmFunction> {
     public static class BlockLiveInfo {
@@ -66,9 +63,10 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     private final BlockLiveInfo blockLiveInfo;
 
-    private final Set<Addr> haveRecoverAddrs;
+    private final Set<Addr> haveRecoverAddr;
 
-    private final Set<IImm> haveRecoverOffset;
+    private final Map<IImm, Integer> haveRecoverFixedOffset;
+    private final Map<IImm, Integer> haveRecoverOffset;
 
     private final Set<IImm> haveRecoverLoadParam;
 
@@ -76,11 +74,17 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
 
     private final Set<Imm> haveRecoverImm;
 
-    public Set<Addr> getHaveRecoverAddrs() {
-        return haveRecoverAddrs;
+    private int LoopDepth;
+
+    public Set<Addr> getHaveRecoverAddr() {
+        return haveRecoverAddr;
     }
 
-    public Set<IImm> getHaveRecoverOffset() {
+    public Map<IImm, Integer> getHaveRecoverFixedOffset() {
+        return haveRecoverFixedOffset;
+    }
+
+    public Map<IImm, Integer> getHaveRecoverOffset() {
         return haveRecoverOffset;
     }
 
@@ -122,6 +126,14 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.falseSuccBlock = falseSuccBlock;
     }
 
+    public void setLoopDepth(int depth) {
+        this.LoopDepth = depth;
+    }
+
+    public int getLoopDepth() {
+        return LoopDepth;
+    }
+
     public List<ArmBlock> getSucc() {
         var ret = new ArrayList<ArmBlock>();
         if (trueSuccBlock != null) {
@@ -159,12 +171,14 @@ public class ArmBlock implements IListOwner<ArmInst, ArmBlock>, INodeOwner<ArmBl
         this.label = label;
         this.pred = new ArrayList<>();
         this.blockLiveInfo = new BlockLiveInfo();
-        this.haveRecoverAddrs = new HashSet<>();
-        this.haveRecoverOffset = new HashSet<>();
+        this.haveRecoverAddr = new HashSet<>();
+        this.haveRecoverFixedOffset = new HashMap<>();
+        this.haveRecoverOffset = new HashMap<>();
         this.haveRecoverLoadParam = new HashSet<>();
         this.haveRecoverStackLoad = new HashSet<>();
         this.haveRecoverImm = new HashSet<>();
         this.insts = new IList<>(this);
+        this.LoopDepth = 0;
     }
 
 }

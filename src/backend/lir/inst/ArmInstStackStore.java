@@ -4,7 +4,7 @@ import backend.lir.operand.IImm;
 import backend.lir.operand.IPhyReg;
 import backend.lir.operand.Operand;
 
-public class ArmInstStackStore extends ArmInst {
+public class ArmInstStackStore extends ArmInstAddr {
     private IImm trueOffset;
 
     public ArmInstStackStore(Operand dst, IImm offset) {

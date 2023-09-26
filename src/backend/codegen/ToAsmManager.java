@@ -1,6 +1,5 @@
 package backend.codegen;
 
-import backend.ImmUtils;
 import backend.lir.ArmFunction;
 import backend.lir.ArmModule;
 import backend.lir.inst.ArmInst.ArmCondType;
@@ -13,6 +12,7 @@ import ir.constant.*;
 import ir.constant.ArrayConst.ZeroArrayConst;
 import ir.visitor.ConstantVisitor;
 import utils.Log;
+import utils.ImmUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -265,7 +265,8 @@ public class ToAsmManager {
         if (!usedRegs.iRegs.isEmpty()) {
             // 如果有保存 lr 的话, 直接把 lr 的值恢复到 pc 里去, 省条 bx lr 指令
             // 可以看 InstToAsm#visitArmInstReturn 里的对应处理
-            // FIXME: 这样 caller 会不会得到一个保存着任意值的 LR 寄存器?
+            // 这样 caller 会得到一个保存着任意值的 lr 寄存器
+            // 但是因为在使用跳转指令的时候，lr 寄存器就会认为已经被使用了，所以 lr 寄存器不会对于 caller 而言不会保存有意义的值
             usedRegs.iRegs.replaceAll(reg -> reg.equals(IPhyReg.LR) ? IPhyReg.PC : reg);
             asm.instruction("pop").cond(cond)
                 .group(usedRegs.iRegs.toArray(Operand[]::new))

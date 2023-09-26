@@ -12,6 +12,11 @@ public class IVirtualReg extends Reg {
         this.id = cnt++;
     }
 
+    public IVirtualReg(int id) {
+        super(OperandKind.IVirtual);
+        this.id = id;
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof IVirtualReg reg && id == reg.id;

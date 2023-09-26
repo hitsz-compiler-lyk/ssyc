@@ -28,9 +28,15 @@ test-data/personal
 .idea
 *.iml
 
+# Vscode Projects
+.vscode
+
 # Test script log
 ssyc.log
 ssyc.*.log
 
 # Personal data
 .vscode/java.code-snippets
+
+# MacOS
+.DS_store
