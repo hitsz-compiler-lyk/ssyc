@@ -63,9 +63,10 @@ public class InstructionCombiner implements IRPass {
     }
 
     private int getDepth(Value value) {
-        if (value instanceof Instruction) {
+        if (value instanceof Instruction inst) {
+            if (inst.getParentOpt().isEmpty()) return -1;
             return ConstructDominatorInfo.DominatorInfo
-                    .domTreeDepth(((Instruction) value).getParent());
+                    .domTreeDepth(inst.getParent());
         } else {
             return -1;
         }
@@ -116,6 +117,7 @@ public class InstructionCombiner implements IRPass {
     private boolean isConst(Value value) {
         return value instanceof Constant;
     }
+
     private void swapConst(Instruction inst) {
         if (inst instanceof final BinaryOpInst binst && (isKind(inst, InstKind.IAdd) || isKind(inst, InstKind.IMul))) {
             final var lhs = binst.getLHS();
@@ -123,11 +125,14 @@ public class InstructionCombiner implements IRPass {
             if (!isConst(rhs) && isConst(lhs)) {
                 binst.replaceLHS(rhs);
                 binst.replaceRHS(lhs);
+            } else if (!isConst(rhs) && getDepth(lhs) < getDepth(rhs)) {
+                binst.replaceLHS(rhs);
+                binst.replaceRHS(lhs);
             }
         }
     }
 
-    private boolean equalToInt(Value value,int intValue) {
+    private boolean equalToInt(Value value, int intValue) {
         return (value instanceof IntConst) &&
                 ((IntConst) value).getValue() == intValue;
     }
@@ -140,6 +145,7 @@ public class InstructionCombiner implements IRPass {
      * (Imul a 0) ==> 0 <br>
      * (Isub a 0) ==> a <br>
      * (Idiv a 1) ==> a
+     *
      * @param inst 待化简的 instruction
      */
     private void biOpWithZeroOneComb(Instruction inst) {
@@ -147,7 +153,7 @@ public class InstructionCombiner implements IRPass {
             final var lhs = binst.getLHS();
             final var rhs = binst.getRHS();
             if (isKind(inst, InstKind.IAdd)) {
-                 if (equalToInt(rhs, 0)) {
+                if (equalToInt(rhs, 0)) {
                     inst.replaceAllUseWith(lhs);
                     inst.freeAll();
                 }
@@ -275,6 +281,7 @@ public class InstructionCombiner implements IRPass {
 
     /**
      * (+ (* a b) (* a d)) ==> (* a (+ b d))
+     *
      * @param inst 待化简的 instruction
      */
     private void distributeIMulComb(Instruction inst) {
@@ -318,6 +325,7 @@ public class InstructionCombiner implements IRPass {
 
     /**
      * (* (+ a constB) constC) ==> (+ (* a constC) constB*C)
+     *
      * @param inst 待化简的 instruction
      */
     private void addMulConstComb(Instruction inst) {
@@ -441,7 +449,7 @@ public class InstructionCombiner implements IRPass {
 
     private boolean isIMul(Value value) {
         return value instanceof BinaryOpInst
-               && ((BinaryOpInst) value).getKind() == InstKind.IMul;
+                && ((BinaryOpInst) value).getKind() == InstKind.IMul;
     }
 
     private boolean isIMul(Instruction instruction) {
