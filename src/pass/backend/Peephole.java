@@ -56,20 +56,21 @@ public class Peephole implements BackendPass {
                     if (inst instanceof ArmInstLoad) {
                         var load = (ArmInstLoad) inst;
                         var isOffsetZero = load.getOffset().equals(new IImm(0));
-                        if (isOffsetZero && preInst != null && preInst instanceof ArmInstBinary binay) {
-                            if (binay.getKind().equals(ArmInstKind.IAdd)) {
-                                boolean canPre = (binay.getRhs().isReg() || (binay.getRhs() instanceof IImm &&
-                                        ImmUtils.checkOffsetRange(((IImm) binay.getRhs()).getImm(),
+                        if (isOffsetZero && preInst != null && preInst instanceof ArmInstBinary binary) {
+                            if (binary.getKind().equals(ArmInstKind.IAdd)) {
+                                boolean canPre = (binary.getRhs().isReg() || (binary.getRhs() instanceof IImm &&
+                                        ImmUtils.checkOffsetRange(((IImm) binary.getRhs()).getImm(),
                                                 load.getDst())))
-                                        && load.equals(live.getOrDefault(new Pair<>(binay.getDst(), binay), null));
-                                boolean isEqualAddr = binay.getDst().equals(load.getAddr());
+                                        && load.equals(live.getOrDefault(new Pair<>(binary.getDst(), binary), null));
+                                boolean isEqualAddr = binary.getDst().equals(load.getAddr());
                                 boolean isFloat = load.getDst().isFloat();
-                                boolean isNoCond = binay.getCond().equals(ArmInst.ArmCondType.Any);
-                                boolean isNoShift = (binay.getShift() == null || binay.getShift().isNoPrint());
-                                if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
-                                    load.replaceAddr(binay.getLhs());
-                                    load.replaceOffset(binay.getRhs());
-                                    binay.freeFromIList();
+                                boolean isNoCond = binary.getCond().equals(ArmInst.ArmCondType.Any);
+//                                boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint());
+                                if (canPre && isEqualAddr && isNoCond && !isFloat) {
+                                    load.replaceAddr(binary.getLhs());
+                                    load.replaceOffset(binary.getRhs());
+                                    if(binary.getShift() != null && !binary.getShift().isNoPrint()) load.replaceShift(binary.getShift());
+                                    binary.freeFromIList();
                                     done = false;
                                 }
                             }
@@ -87,10 +88,11 @@ public class Peephole implements BackendPass {
                                 boolean isEqualAddr = binary.getDst().equals(store.getAddr());
                                 boolean isFloat = store.getSrc().isFloat();
                                 boolean isNoCond = binary.getCond().equals(ArmInst.ArmCondType.Any);
-                                boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint());
-                                if (canPre && isEqualAddr && isNoCond && isNoShift && !isFloat) {
+//                                boolean isNoShift = (binary.getShift() == null || binary.getShift().isNoPrint());
+                                if (canPre && isEqualAddr && isNoCond  && !isFloat) {
                                     store.replaceAddr(binary.getLhs());
                                     store.replaceOffset(binary.getRhs());
+                                    if(binary.getShift() != null && !binary.getShift().isNoPrint()) store.replaceShift(binary.getShift());
                                     binary.freeFromIList();
                                     done = false;
                                 }
@@ -259,8 +261,7 @@ public class Peephole implements BackendPass {
                 }
             }
             for (var def : inst.getRegDef()) {
-                ret.put(new Pair<>(def, regMap.get(def)),
-                        temp.getOrDefault(new Pair<>(def, regMap.get(def)), regMap.get(def)));
+                ret.put(new Pair<>(def, regMap.get(def)), temp.getOrDefault(new Pair<>(def, regMap.get(def)), regMap.get(def)));
                 regMap.put(def, inst);
             }
             // for (var def : inst.getRegDef()) {
