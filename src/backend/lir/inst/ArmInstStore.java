@@ -10,7 +10,7 @@ import backend.lir.operand.Operand;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstStore extends ArmInst {
-    private final ArmShift shift;
+    private ArmShift shift;
 
     public ArmInstStore(ArmBlock block, Operand src, Operand addr) {
         this(block, src, addr, new IImm(0));
@@ -36,10 +36,9 @@ public class ArmInstStore extends ArmInst {
         this.replaceOperand(1, op);
     }
 
-    public void replaceOffset(Operand op) {
-        this.replaceOperand(2, op);
-        ;
-    }
+    public void replaceOffset(Operand op) { this.replaceOperand(2, op); }
+
+    public void replaceShift(ArmShift shift) { this.shift = shift; }
 
     public ArmShift getShift() {
         return shift;

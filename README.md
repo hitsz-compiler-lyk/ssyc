@@ -109,44 +109,44 @@ ARM 可执行文件, 随后使用 qemu 执行并输出 `main` 返回值. 用测�
 
 ```
 $ ./m test benchmark ssyc_asm_O2_long
-[13:29:10] Finish: ANTLR Generation                                                                                                      test.py:65
-[13:29:13] Finish: Java compile                                                                                                          test.py:68
+[06:19:56] Finish: ANTLR Generation                                                                                                        test.py:65
+[06:19:59] Finish: Java compile                                                                                                            test.py:68
 ================= begin: ssyc =================
-[14:56:23] Finish (1/8) bitset.sy                                                                                                        test.py:53
-[14:56:24] Finish (2/8) brainfuck.sy                                                                                                     test.py:53
-[14:56:25] Finish (3/8) conv.sy                                                                                                          test.py:53
-[14:56:29] Finish (4/8) if-combine.sy                                                                                                    test.py:53
-[14:56:48] Finish (5/8) many-params.sy                                                                                                   test.py:53
-[14:56:50] Finish (6/8) matmul.sy                                                                                                        test.py:53
-[14:56:53] Finish (7/8) mm.sy                                                                                                            test.py:53
-[14:56:54] Finish (8/8) sl.sy                                                                                                            test.py:53
+           Finish (1/8) bitset.sy                                                                                                          test.py:53
+[06:20:00] Finish (2/8) brainfuck.sy                                                                                                       test.py:53
+[06:20:01] Finish (3/8) conv.sy                                                                                                            test.py:53
+[06:20:05] Finish (4/8) if-combine.sy                                                                                                      test.py:53
+[06:20:24] Finish (5/8) many-params.sy                                                                                                     test.py:53
+[06:20:26] Finish (6/8) matmul.sy                                                                                                          test.py:53
+[06:20:29] Finish (7/8) mm.sy                                                                                                              test.py:53
+[06:20:30] Finish (8/8) sl.sy                                                                                                              test.py:53
 ================= begin: llc =================
 ================= begin: gcc-as =================
 ================= begin: run-for-long-time =================
-[14:56:59] Pass bitset                                   : ['Timer@0056-0064: 0H-0M-0S-670417us\n', 'TOTAL: 0H-0M-0S-670417us\n']        test.py:265
-[14:57:23] Pass brainfuck                                : ['Timer@0116-0118: 0H-0M-24S-523222us\n', 'TOTAL: 0H-0M-24S-523222us\n']      test.py:265
-[14:57:28] Pass conv                                     : ['Timer@0109-0116: 0H-0M-4S-759372us\n', 'TOTAL: 0H-0M-4S-759372us\n']        test.py:265
-[14:57:30] Pass if-combine                               : ['Timer@0324-0328: 0H-0M-2S-511796us\n', 'TOTAL: 0H-0M-2S-511796us\n']        test.py:265
-[14:57:32] Pass many-params                              : ['Timer@0134-0148: 0H-0M-1S-994736us\n', 'TOTAL: 0H-0M-1S-994736us\n']        test.py:265
-[14:57:34] Pass matmul                                   : ['Timer@0023-0092: 0H-0M-1S-568371us\n', 'TOTAL: 0H-0M-1S-568371us\n']        test.py:265
-[14:57:35] Pass mm                                       : ['Timer@0065-0084: 0H-0M-1S-389790us\n', 'TOTAL: 0H-0M-1S-389790us\n']        test.py:265
-[14:57:36] Pass sl                                       : ['Timer@0013-0053: 0H-0M-0S-352899us\n', 'TOTAL: 0H-0M-0S-352899us\n']        test.py:265
+[06:20:35] Pass bitset                                   : ['Timer@0056-0064: 0H-0M-0S-662936us\n', 'TOTAL: 0H-0M-0S-662936us\n']          test.py:265
+[06:20:59] Pass brainfuck                                : ['Timer@0116-0118: 0H-0M-23S-837557us\n', 'TOTAL: 0H-0M-23S-837557us\n']        test.py:265
+[06:21:04] Pass conv                                     : ['Timer@0109-0116: 0H-0M-4S-727848us\n', 'TOTAL: 0H-0M-4S-727848us\n']          test.py:265
+[06:21:06] Pass if-combine                               : ['Timer@0324-0328: 0H-0M-2S-462073us\n', 'TOTAL: 0H-0M-2S-462073us\n']          test.py:265
+[06:21:08] Pass many-params                              : ['Timer@0134-0148: 0H-0M-1S-990390us\n', 'TOTAL: 0H-0M-1S-990390us\n']          test.py:265
+[06:21:10] Pass matmul                                   : ['Timer@0023-0092: 0H-0M-1S-491740us\n', 'TOTAL: 0H-0M-1S-491740us\n']          test.py:265
+[06:21:11] Pass mm                                       : ['Timer@0065-0084: 0H-0M-1S-362589us\n', 'TOTAL: 0H-0M-1S-362589us\n']          test.py:265
+[06:21:12] Pass sl                                       : ['Timer@0013-0053: 0H-0M-0S-310300us\n', 'TOTAL: 0H-0M-0S-310300us\n']          test.py:265
 ```
 
 ## Benchmark
 
 | 样例          | ssyc         | clang        | clang O2     |
 |-------------|--------------|:-------------|:-------------|
-| bitset      | 0S-670417us  | 10S-2838us   | 3S-476461us  |
-| brainfuck   | 24S-523222us | 37S-259962us | 54S-295113us |
-| conv        | 4S-759372us  | 26S-570227us | 21S-565170us |
-| if-combine  | 2S-511796us  | 29S-282222us | 7S-645206us  |
-| many-params | 1S-994736us  | 10S-726892us | 2S-790948us  |
-| matmul      | 1S-568371us  | 4S-848694us  | 1S-680792us  |
-| mm          | 1S-389790us  | 5S-276924us  | 1S-891107us  |
-| sl          | 0S-352899us  | 1S-286663us  | 1S-169987us  |
+| bitset      | 0S-662936us  | 10S-2838us   | 3S-476461us  |
+| brainfuck   | 23S-837557us | 37S-259962us | 54S-295113us |
+| conv        | 4S-727848us  | 26S-570227us | 21S-565170us |
+| if-combine  | 2S-462073us  | 29S-282222us | 7S-645206us  |
+| many-params | 1S-990390us  | 10S-726892us | 2S-790948us  |
+| matmul      | 1S-491740us  | 4S-848694us  | 1S-680792us  |
+| mm          | 1S-362589us  | 5S-276924us  | 1S-891107us  |
+| sl          | 0S-310300us  | 1S-286663us  | 1S-169987us  |
 
-测试采用的是 qemu-arm version 5.2.0, 因此与正式情况有一定的差距
+测试采用的是 qemu-arm version 5.2.0, 因此与真实情况有一定的差距
 
 clang 版本为 11.0.1-2, 测试CPU为 M1 pro
 

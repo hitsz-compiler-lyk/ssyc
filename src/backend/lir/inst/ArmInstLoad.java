@@ -9,7 +9,7 @@ import backend.lir.operand.Operand;
 // 1: addr    RegUse
 // 2: offset  RegUse
 public class ArmInstLoad extends ArmInst {
-    private final ArmShift shift;
+    private ArmShift shift;
 
     public ArmInstLoad(ArmBlock block, Operand dst, Operand addr) {
         this(dst, addr);
@@ -38,6 +38,8 @@ public class ArmInstLoad extends ArmInst {
     public void replaceOffset(Operand op) {
         this.replaceOperand(2, op);
     }
+
+    public void replaceShift(ArmShift shift) { this.shift = shift; }
 
     public ArmShift getShift() {
         return shift;

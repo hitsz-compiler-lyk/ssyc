@@ -116,7 +116,16 @@ class InductionVariableTransformer implements Runnable {
             final var indices = CollectionTools.concatTail(invariantIndex, indexInit);
             init = new GEPInst(ptr, indices);
             body = new GEPInst(phi, List.of(indexStep));
+        } else if (isAddForm(variantIndex)) {
+            final var addExtractor = new AddInfoExtractor(variantIndex);
 
+            final var initAdd = createAdd(indexInit, addExtractor.getOffset());
+            preHeader.addInstBeforeTerminator(initAdd);
+
+            final var indices = CollectionTools.concatTail(invariantIndex, initAdd);
+            init = new GEPInst(ptr, indices);
+
+            body = new GEPInst(phi, List.of(indexStep));
         } else if (isMulForm(variantIndex)) {
             final var mulExtractor = new MulInfoExtractor(variantIndex);
 
@@ -221,6 +230,17 @@ class InductionVariableTransformer implements Runnable {
         return value == loop.getIndexPhi();
     }
 
+    boolean isAddForm(Value value) {
+        if (value instanceof BinaryOpInst) {
+            final var bop = (BinaryOpInst) value;
+            return bop.getKind() == InstKind.IAdd
+                    && isPhiForm(bop.getLHS())
+                    && isInvariant(bop.getRHS());
+        }
+
+        return false;
+    }
+
     boolean isMulForm(Value value) {
         if (value instanceof final BinaryOpInst bop) {
             return bop.getKind() == InstKind.IMul
@@ -250,7 +270,7 @@ class InductionVariableTransformer implements Runnable {
 
             return isInvariant(gep.getPtr())
                 && head.stream().allMatch(this::isInvariant)
-                && (isPhiForm(tail) || isMulForm(tail) || isMulAddForm(tail));
+                && (isPhiForm(tail) || isAddForm(tail) || isMulForm(tail) || isMulAddForm(tail));
         }
 
         return false;
@@ -280,6 +300,18 @@ class InductionVariableTransformer implements Runnable {
         } else {
             return "U";
         }
+    }
+
+    class AddInfoExtractor {
+        public AddInfoExtractor(Value add) {
+            this.add = (BinaryOpInst) add;
+        }
+
+        public Value getOffset() {
+            return add.getRHS();
+        }
+
+        private BinaryOpInst add;
     }
 
     class MulInfoExtractor {
